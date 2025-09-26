@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ExternalEnvironment, ExternalLocation, SenderCandidate, EnqueueRequest } from './models';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class BackendService {
   private base = '/api';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private auth: AuthService) {}
 
   listEnvironments(): Observable<ExternalEnvironment[]> {
     return this.http.get<ExternalEnvironment[]>(`${this.base}/environments`);
@@ -27,25 +28,29 @@ export class BackendService {
   getDistinctTesterTypes(options: { locationId?: number; connectionKey?: string; location?: string; dataType?: string; testPhase?: string; environment?: string }){
     let p = new HttpParams();
     Object.entries(options).forEach(([k,v]) => { if (v != null) p = p.set(k, String(v)); });
-    return this.http.get<string[]>(`${this.base}/senders/external/testerTypes`, { params: p });
+    const headers = this.auth.getAuthHeaders();
+    return this.http.get<string[]>(`${this.base}/senders/external/testerTypes`, { params: p, headers: headers || undefined });
   }
 
   getDistinctDataTypes(options: { locationId?: number; connectionKey?: string; location?: string; testerType?: string; testPhase?: string; environment?: string }){
     let p = new HttpParams();
     Object.entries(options).forEach(([k,v]) => { if (v != null) p = p.set(k, String(v)); });
-    return this.http.get<string[]>(`${this.base}/senders/external/dataTypes`, { params: p });
+    const headers = this.auth.getAuthHeaders();
+    return this.http.get<string[]>(`${this.base}/senders/external/dataTypes`, { params: p, headers: headers || undefined });
   }
 
   getDistinctLocations(options: { locationId?: number; connectionKey?: string; dataType?: string; testerType?: string; testPhase?: string; environment?: string }){
     let p = new HttpParams();
     Object.entries(options).forEach(([k,v]) => { if (v != null) p = p.set(k, String(v)); });
-    return this.http.get<string[]>(`${this.base}/senders/external/locations`, { params: p });
+    const headers = this.auth.getAuthHeaders();
+    return this.http.get<string[]>(`${this.base}/senders/external/locations`, { params: p, headers: headers || undefined });
   }
 
   discover(senderId: number, opts: any){
     let p = new HttpParams();
     Object.entries(opts || {}).forEach(([k,v]) => { if (v != null) p = p.set(k, String(v)); });
-    return this.http.post(`${this.base}/senders/${senderId}/discover`, null, { params: p, responseType: 'text' });
+    const headers = this.auth.getAuthHeaders();
+    return this.http.post(`${this.base}/senders/${senderId}/discover`, null, { params: p, headers: headers || undefined, responseType: 'text' });
   }
 
   enqueue(senderId: number, req: EnqueueRequest){
