@@ -1,0 +1,27 @@
+sequenceDiagram
+  participant User
+  participant Frontend
+  participant API
+  participant QueueDB as "DB (sender_queue)"
+  participant Scheduler
+  participant Processor as "SenderService"
+  participant External as "External DBs"
+  participant Mail
+
+  User->>Frontend: Fill enqueue form
+  Frontend->>API: POST /enqueue {payload}
+  API->>QueueDB: INSERT SenderQueueEntry(status=PENDING)
+  API-->>Frontend: 200 OK (id)
+
+  Note over Scheduler,Processor: Periodic poll
+  Scheduler->>QueueDB: SELECT next batch
+  QueueDB-->>Processor: rows
+  Processor->>External: resolve metadata / call external DBs
+  External-->>Processor: metadata
+  Processor->>QueueDB: UPDATE status=PROCESSED / ERROR
+  alt success
+    Processor->>Mail: send notification
+  else failure
+    Processor->>Mail: send failure alert
+  end
+  Processor-->>Scheduler: ack/process complete
