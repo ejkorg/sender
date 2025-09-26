@@ -3,6 +3,8 @@ package com.example.reloader.service;
 import com.example.reloader.entity.RefreshToken;
 import com.example.reloader.repository.RefreshTokenRepository;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
@@ -10,13 +12,22 @@ import java.util.Optional;
 public class RefreshTokenService {
 
     private final RefreshTokenRepository repo;
+    private static final Logger logger = LoggerFactory.getLogger(RefreshTokenService.class);
 
     public RefreshTokenService(RefreshTokenRepository repo) {
         this.repo = repo;
     }
 
     public Optional<RefreshToken> findByToken(String token) {
-        return repo.findByToken(token).filter(t -> !t.isRevoked());
+    logger.trace("[RefreshTokenService.findByToken] lookup token='{}'", token);
+        Optional<RefreshToken> opt = repo.findByToken(token);
+        if (opt.isPresent()) {
+            RefreshToken t = opt.get();
+            logger.trace("[RefreshTokenService.findByToken] found token revoked={} username={}", t.isRevoked(), t.getUsername());
+        } else {
+            logger.trace("[RefreshTokenService.findByToken] token not found");
+        }
+        return opt.filter(t -> !t.isRevoked());
     }
 
     public RefreshToken save(RefreshToken token) { return repo.save(token); }

@@ -9,6 +9,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import com.example.reloader.security.JwtAuthenticationFilter;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,6 +34,9 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .httpBasic();
+
+        // Add JWT token filter to process Bearer tokens
+        http.addFilterBefore(new JwtAuthenticationFilter(new com.example.reloader.security.JwtUtil()), BasicAuthenticationFilter.class);
 
         // Allow H2 console frames
         http.headers().frameOptions().disable();
