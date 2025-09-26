@@ -1,0 +1,20 @@
+{
+  "EXTERNAL-qa": {
+    "host": "DB_HOST_OR_SERVICE/DB_SERVICE_NAME",
+    "port": "1545",
+    "user": "RELOAD_USER",
+    "password": "RELOAD_PASSWORD",
+    "driver": "oracle.jdbc.OracleDriver",
+    "jdbcOptions": "",
+    "notes": "Replace values and do NOT commit secrets. Use RELOADER_DBCONN_PATH to point to a secure file."
+  },
+  "EXTERNAL-prod": {
+    "host": "DB_HOST_OR_SERVICE/DB_SERVICE_NAME",
+    "port": "1545",
+    "user": "RELOAD_USER",
+    "password": "RELOAD_PASSWORD",
+    "driver": "oracle.jdbc.OracleDriver",
+    "jdbcOptions": "",
+    "notes": "Production connection - keep this out of source control."
+  }
+}
