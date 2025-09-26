@@ -16,7 +16,7 @@ Backend
 Build:
 
 ```bash
-mvn -f reloader-app/backend clean package
+mvn -f backend clean package
 ```
 
 Frontend
@@ -24,7 +24,7 @@ Frontend
 Install deps and run unit tests (Karma/Jasmine):
 
 ```bash
-cd reloader-app/frontend
+cd frontend
 npm ci
 # On CI or headless containers point CHROME_BIN to a Chrome binary
 CHROME_BIN=/usr/bin/google-chrome-stable npm run test -- --watch=false --browsers=ChromeHeadless
@@ -39,7 +39,7 @@ E2E (Playwright)
 To run Playwright end-to-end tests locally:
 
 ```bash
-cd reloader-app/frontend
+cd frontend
 npm install
 npm run e2e
 ```
