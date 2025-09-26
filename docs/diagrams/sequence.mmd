@@ -9,7 +9,7 @@ sequenceDiagram
   participant Mail
 
   User->>Frontend: Fill enqueue form
-  Frontend->>API: POST /enqueue {payload}
+  Frontend->>API: POST /api/senders/{id}/enqueue {payload}
   API->>QueueDB: INSERT SenderQueueEntry(status=PENDING)
   API-->>Frontend: 200 OK (id)
 

@@ -4,7 +4,7 @@ flowchart LR
   end
 
   subgraph Frontend
-    Browser -->|"HTTP REST (POST /enqueue, GET /status)"| FrontendApp["Angular SPA"]
+  Browser -->|"HTTP REST (POST /api/senders/{id}/enqueue, GET /api/senders/{id}/queue)"| FrontendApp["Angular SPA"]
   end
 
   subgraph Backend
