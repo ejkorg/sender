@@ -43,6 +43,7 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Removed experimental httpclient test dependencies; tests use a lightweight cookie interceptor instead -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
