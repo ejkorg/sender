@@ -13,11 +13,20 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import jakarta.annotation.PreDestroy;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 @Component
 public class ExternalDbConfig {
 
     private final Map<String, Map<String, String>> dbConnections;
+    // cache of pooled DataSources keyed by resolved connection key (e.g. "EXTERNAL-qa")
+    private final ConcurrentMap<String, HikariDataSource> dsCache = new ConcurrentHashMap<>();
 
     public ExternalDbConfig() throws IOException {
         ObjectMapper mapper = new ObjectMapper();
@@ -95,7 +104,26 @@ public class ExternalDbConfig {
             else jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s", host, port);
         }
 
-        return DriverManager.getConnection(jdbcUrl, user, pw);
+        // Use a pooled DataSource per resolved key+env to avoid creating raw DriverManager connections each time.
+        String resolvedKey = environment != null && !environment.isBlank() ? key + "-" + environment : key;
+        HikariDataSource ds = dsCache.get(resolvedKey);
+        if (ds == null) {
+            HikariConfig cfgH = new HikariConfig();
+            cfgH.setJdbcUrl(jdbcUrl);
+            cfgH.setUsername(user);
+            cfgH.setPassword(pw);
+            // sensible defaults for external DBs; tune as needed
+            cfgH.setMaximumPoolSize(10);
+            cfgH.setMinimumIdle(1);
+            cfgH.setConnectionTimeout(15000);
+            cfgH.setIdleTimeout(600000);
+            cfgH.setValidationTimeout(5000);
+            cfgH.setPoolName("external-" + resolvedKey);
+            HikariDataSource created = new HikariDataSource(cfgH);
+            HikariDataSource existing = dsCache.putIfAbsent(resolvedKey, created);
+            ds = existing != null ? existing : created;
+        }
+        return ds.getConnection();
     }
 
     /**
@@ -136,6 +164,34 @@ public class ExternalDbConfig {
             else jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s", host, port);
         }
 
-        return DriverManager.getConnection(jdbcUrl, user, pw);
+        // Use the top-level db connection name as key for pooling (include environment if present)
+        String resolvedKey = environment != null && !environment.isBlank() ? site + "-" + environment : site;
+        HikariDataSource ds = dsCache.get(resolvedKey);
+        if (ds == null) {
+            HikariConfig cfgH = new HikariConfig();
+            cfgH.setJdbcUrl(jdbcUrl);
+            cfgH.setUsername(user);
+            cfgH.setPassword(pw);
+            cfgH.setMaximumPoolSize(10);
+            cfgH.setMinimumIdle(1);
+            cfgH.setConnectionTimeout(15000);
+            cfgH.setIdleTimeout(600000);
+            cfgH.setValidationTimeout(5000);
+            cfgH.setPoolName("external-" + resolvedKey);
+            HikariDataSource created = new HikariDataSource(cfgH);
+            HikariDataSource existing = dsCache.putIfAbsent(resolvedKey, created);
+            ds = existing != null ? existing : created;
+        }
+        return ds.getConnection();
+    }
+
+    @PreDestroy
+    public void destroy() {
+        for (Map.Entry<String, HikariDataSource> e : dsCache.entrySet()) {
+            try {
+                e.getValue().close();
+            } catch (Exception ignored) {}
+        }
+        dsCache.clear();
     }
 }
