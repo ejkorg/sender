@@ -1,0 +1,16 @@
+{
+  "LOCAL": {
+    "host": "localhost/LOCAL",
+    "user": "sa",
+    "password": "",
+    "port": "1521"
+  }
+}
+{
+  "SAMPLE": {
+    "host": "mydb-host.example.com/DBSERVICE",
+    "user": "DB_USER",
+    "password": "REPLACE_WITH_SECRET",
+    "port": "1521"
+  }
+}

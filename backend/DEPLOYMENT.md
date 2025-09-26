@@ -19,6 +19,19 @@ Key properties (set in `application.yml`, environment variables, or platform sec
 
 These properties map to `DiscoveryProperties` in the application and are used by `MetadataImporterService`.
 
+UI-driven selections and how they map to external DB connections
+
+In the current backend implementation the UI is expected to provide dropdowns and lookups for several discovery parameters (for example: `senderId`, `location`, `testerType`, `dataType`, `testPhase`). These dropdown values are not hard-coded in the frontend; instead the UI calls backend endpoints which query the selected external database (the same DB used during discovery) to populate the lists.
+
+- The frontend calls `/api/environments` to list saved environments (these are `ExternalEnvironment` entries stored in the application DB).
+- For a selected environment the frontend calls `/api/environments/{envName}/locations` to fetch saved `ExternalLocation` entries (labels + db connection key). These entries are managed via `ExternalLocationController` and `ExternalLocationService` and can be imported via the CSV import endpoint.
+- When the user picks a saved location the UI will typically send the `locationId` back to discovery calls. The backend will resolve the `ExternalLocation` and derive the `site` (a site token is derived from the location label on import), and will use the `db_connection_name` stored on that location to build the JDBC connection via `ExternalDbConfig`.
+- Alternatively the UI (or advanced callers) can pass a `connectionKey` directly to endpoints such as `/api/senders/lookup` or `/api/senders/external/locations`/`/external/testerTypes` etc. `ExternalDbConfig` will resolve that connection key (optionally qualified by the `environment` parameter such as `qa` or `prod`) against `dbconnections.json` or the external file pointed to by `RELOADER_DBCONN_PATH`.
+
+As a result, dropdowns for `testerType`, `location`, `dataType`, and `testPhase` are populated by calling the `SenderController` endpoints that proxy queries against the resolved external DB connection (either via `locationId` -> saved `ExternalLocation` or `connectionKey`). The `site` and `environment` selection together determine which external DB instance is queried.
+
+Practical implication for deployments: ensure that `dbconnections.json` (or the external file referenced by `RELOADER_DBCONN_PATH`) contains the connection entries expected by saved `ExternalLocation` records, and that the UI users know whether to pick `qa` or `prod` when selecting an environment. If you prefer the UI to only offer a small, pre-approved list of connection targets, seed `ExternalLocation` entries via the CSV import and avoid allowing arbitrary `connectionKey` inputs from the client.
+
 ## SMTP / Mail configuration
 
 The application uses Spring Boot Mail (`JavaMailSender`). Configure with standard Spring properties:

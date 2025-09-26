@@ -1,0 +1,27 @@
+<div class="discovery">
+  <h3>Discovery</h3>
+  <div>
+    <label>Environment</label>
+    <select [(ngModel)]="selectedEnv" (change)="loadLocations()">
+      <option *ngFor="let e of environments" [value]="e.name">{{e.name}}</option>
+    </select>
+  </div>
+  <div>
+    <label>Saved DB Location</label>
+    <select [(ngModel)]="selectedLocationId">
+      <option [ngValue]="null">-- pick --</option>
+      <option *ngFor="let l of locations" [value]="l.id">{{l.label}}</option>
+    </select>
+  </div>
+  <div>
+    <label>Metadata location (filter)</label>
+    <input [(ngModel)]="metadataLocation" />
+  </div>
+  <div>
+    <button (click)="runDiscovery(22)">Run discovery for senderId=22</button>
+  </div>
+  <div *ngIf="result">
+    <h4>Result</h4>
+    <pre>{{result}}</pre>
+  </div>
+</div>
