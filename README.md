@@ -2,6 +2,8 @@
 
 This folder contains a Spring Boot backend (`backend/`) and an Angular frontend (`frontend/`).
 
+Note: a legacy Python script previously provided similar functionality. The Python utility has been deprecated and removed from this repository — the Java backend now implements discovery, list-file generation, queue enqueueing, and email notifications. See `backend/README.md` for configuration and how to trigger discovery (scheduled or POST /api/senders/{id}/discover).
+
 Quick start
 
 Prerequisites
