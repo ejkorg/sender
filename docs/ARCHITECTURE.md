@@ -249,6 +249,28 @@ Security & secrets
 - Use environment variables or a secrets manager to provide DB and SMTP credentials.
 - Restrict `DevDbInspectController` and dev endpoints to non-production profiles.
 
+## Authentication
+
+The backend exposes a small authentication API used by the frontend. Documenting it here helps devs understand the auth flow:
+
+- POST /api/auth/login
+  - Request: JSON { username, password }
+  - Response: JSON { accessToken }
+  - Side effect: sets an HttpOnly cookie named `refresh_token` (rotating, persisted server-side). The access token is a short-lived JWT used in the `Authorization: Bearer <token>` header.
+
+- POST /api/auth/refresh
+  - Request: (no body) — the refresh cookie is read automatically by the server
+  - Response: JSON { accessToken }
+  - Side effect: rotates the `refresh_token` cookie (server persists the new token and revokes the previous one).
+
+- POST /api/auth/logout
+  - Request: (no body) — the refresh cookie is read and revoked
+  - Response: 200 OK
+
+Notes:
+
+- The frontend attaches the JWT `accessToken` to outgoing API calls in the `Authorization` header. When a 401 is encountered the frontend can call `/api/auth/refresh` to obtain a new access token; the refresh endpoint relies on the HttpOnly `refresh_token` cookie so the browser sends it automatically.
+- Because the refresh token is stored in an HttpOnly cookie and persisted on the server, automated clients and integration tests may need to capture and replay the cookie (the repo includes a small test helper used by integration tests).
 ---
 
 ## Where to go from here

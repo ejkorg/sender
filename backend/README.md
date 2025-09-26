@@ -115,6 +115,26 @@ mvn spring-boot:run -Dspring-boot.run.profiles=test
 - Use TLS/STARTTLS for SMTP. Never store plaintext SMTP passwords in source control — use secrets management.
 - Validate the external DB and view permissions. Discovery directly queries `all_metadata_view` (or your configured metadata table) — ensure the DB user has read access.
 
+## Authentication
+
+The backend provides a small JSON-based authentication API used by the Angular frontend. Key endpoints:
+
+- POST /api/auth/login
+  - Body: { username, password }
+  - Response: { accessToken }
+  - Side effect: sets an HttpOnly cookie `refresh_token` that the server persists and rotates on refresh.
+
+- POST /api/auth/refresh
+  - Reads the `refresh_token` HttpOnly cookie, validates against stored tokens, rotates the refresh token, and returns a new `accessToken` in JSON. The response also sets a new `refresh_token` cookie.
+
+- POST /api/auth/logout
+  - Revokes the server-side refresh token and clears the cookie.
+
+Notes:
+
+- The frontend stores the short-lived JWT `accessToken` and sends it in `Authorization: Bearer <token>` headers. On 401 the frontend should call `/api/auth/refresh` (the cookie will be sent automatically by the browser) to obtain a new `accessToken`.
+- Tests or non-browser clients will need to persist and send the `refresh_token` cookie manually; the test-suite contains a small helper interceptor used by `TestRestTemplate` to capture and replay cookies.
+
 ## Troubleshooting
 - No email sent: confirm `spring.mail.host`/`port` and credentials are correct and that your SMTP provider allows the source IP. Check application logs for mail send exceptions.
 - Discovery returns 0 items: verify `all_metadata_view` returns rows for the requested filters. The discovery SQL expects columns `id` and `id_data`; adjust the query in `MetadataImporterService` if your view differs.

@@ -1,0 +1,92 @@
+%% Full application flow for Sender web app
+%% Illustrates user inputs, auth, discovery/enqueue, DB writes, monitoring/feedback, and external integrations
+
+sequenceDiagram
+    autonumber
+    participant UI as User UI (Angular)
+    participant Auth as AuthController (/api/auth)
+    participant Backend as SenderController / Services
+    participant DB as Database (H2/Postgres)
+    participant Ext as External Metadata / APIs
+    participant Mail as MailService / SMTP
+
+    Note over UI,Auth: User opens app and authenticates
+    UI->>Auth: POST /api/auth/login {username,password}
+    Auth-->>UI: 200 {accessToken} + Set-Cookie: refresh_token (HttpOnly)
+    UI->>UI: store accessToken in memory/localStorage (not refresh cookie)
+
+    Note over UI,Backend: User interaction -> discovery or manual enqueue
+    UI->>Backend: POST /api/senders/{id}/discover {options}
+    Backend->>Auth: (validate accessToken)
+    Backend->>Ext: Query external metadata (streaming)
+    Ext-->>Backend: metadata rows (stream)
+    Backend->>DB: SELECT existing sender_queue payload_ids (to dedupe)
+    DB-->>Backend: existing ids
+    Backend->>DB: INSERT sender_queue entries (for new payloads)
+    DB-->>Backend: INSERT result
+    Backend->>Mail: optional: send notification with sender_list_{id}.txt
+    Mail-->>Backend: SMTP accepted
+    Backend-->>UI: 200 {discovered: X, enqueued: Y}
+
+    Note over UI,Backend: Manual enqueue flow
+    UI->>Backend: POST /api/senders/{id}/enqueue {payloads}
+    Backend->>Auth: (validate accessToken)
+    Backend->>DB: SELECT existing payload_ids for sender
+    DB-->>Backend: existing ids
+    Backend->>DB: INSERT sender_queue entries for new payloads
+    DB-->>Backend: inserted rows
+    Backend-->>UI: 200 {enqueued: N, skipped: M}
+
+    Note over UI,Backend: Monitoring / UI feedback
+    UI->>Backend: GET /api/senders/{id}/queue?page=1&size=50
+    Backend->>DB: SELECT sender_queue entries (status, attempts, processed_at)
+    DB-->>Backend: rows
+    Backend-->>UI: 200 {queue entries, counts, metrics}
+    UI->>UI: Render queue table, show processing status and last run
+
+    Note over Backend,DB: Processing & feedback loop (background)
+    Backend->>DB: Scheduled job picks sender_queue entries (status=PENDING)
+    DB-->>Backend: rows
+    Backend->>Ext: POST payload to external endpoint (HTTP request)
+    Ext-->>Backend: 200 OK or error
+    alt success
+        Backend->>DB: UPDATE sender_queue set status=PROCESSED, processed_at=now
+        DB-->>Backend: update result
+    else failure
+        Backend->>DB: UPDATE sender_queue set status=FAILED, attempts+=1
+        DB-->>Backend: update result
+    end
+    Backend->>UI: websocket/long-poll/polling -> notify UI about status changes
+    UI-->>UI: show success or errors in UI (toast, table row state)
+
+    Note over Backend,Auth: Refresh token lifecycle
+    UI->>Backend: when 401 received, call POST /api/auth/refresh with cookie (HttpOnly handled by browser)
+    Auth->>DB: validate refresh token
+    DB-->>Auth: refresh token row (valid?)
+    alt valid
+        Auth->>DB: revoke old, insert rotated refresh token
+        Auth-->>UI: 200 {newAccessToken} + Set-Cookie: refresh_token (rotated)
+        UI->>UI: retry original request with new accessToken
+    else invalid
+        Auth-->>UI: 401 -> UI shows login screen
+    end
+
+    Note over Backend,Ext: External metadata / targets
+    Ext-->>Backend: may return URLs, payload ids, timestamps used to dedupe
+    Backend->>DB: store relevant metadata (sender_queue.payload_id, created_at, source)
+
+    Note over Mail,UI: Optional user notification
+    Backend->>Mail: send report (list file attached)
+    Mail-->>User: mail received (optional)
+
+    Note over UI,DB: Audit & logs
+    Backend->>DB: write audit events (who/when/action)
+    DB-->>Backend: stored
+    Backend-->>UI: admin endpoints return audit logs if requested
+
+    Note over UI,Backend: End of flow
+    UI->>Auth: POST /api/auth/logout
+    Auth->>DB: revoke refresh token
+    Auth-->>UI: 200 + clear cookie
+
+%% End of diagram
