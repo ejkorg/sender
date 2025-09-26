@@ -1,6 +1,0 @@
-/workspaces/sender/backend/src/test/java/com/example/reloader/AuthControllerNegativeTests.java
-/workspaces/sender/backend/src/test/java/com/example/reloader/service/MetadataImporterServiceIntegrationTest.java
-/workspaces/sender/backend/src/test/java/com/example/reloader/AuthControllerIntegrationTest.java
-/workspaces/sender/backend/src/test/java/com/example/reloader/service/SenderServiceDuplicateHandlingTest.java
-/workspaces/sender/backend/src/test/java/com/example/reloader/AuthControllerControllerUnitTest.java
-/workspaces/sender/backend/src/test/java/com/example/reloader/repository/JdbcExternalMetadataRepositoryIntegrationTest.java

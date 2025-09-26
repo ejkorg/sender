@@ -1,6 +1,0 @@
-com/example/reloader/service/MetadataImporterServiceIntegrationTest.class
-com/example/reloader/service/SenderServiceDuplicateHandlingTest.class
-com/example/reloader/AuthControllerControllerUnitTest.class
-com/example/reloader/repository/JdbcExternalMetadataRepositoryIntegrationTest.class
-com/example/reloader/AuthControllerIntegrationTest.class
-com/example/reloader/AuthControllerNegativeTests.class
