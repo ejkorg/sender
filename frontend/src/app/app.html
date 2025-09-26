@@ -1,0 +1,146 @@
+
+<mat-toolbar color="primary">
+  <span>Reloader</span>
+  <span style="flex:1 1 auto"></span>
+  <span *ngIf="(auth.user$ | async) as u">
+    <span *ngIf="u.username">{{ u.username }}</span>
+    <button mat-button *ngIf="u.username" (click)="auth.logout()">Logout</button>
+    <app-login *ngIf="!u.username"></app-login>
+  </span>
+</mat-toolbar>
+
+<div class="app-container">
+  <mat-card>
+    <form (ngSubmit)="runNow()">
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Site</mat-label>
+        <mat-select [(ngModel)]="selectedSite" name="site" required>
+          <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Environment</mat-label>
+        <mat-select [(ngModel)]="selectedEnvironment" name="environment" (selectionChange)="loadLocationsForEnvironment(selectedEnvironment)">
+          <mat-option *ngFor="let e of environments" [value]="e.name">{{ e.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>DB Location (select saved connection)</mat-label>
+        <mat-select [(ngModel)]="selectedLocationId" name="locationId" (selectionChange)="onLocationSelected()">
+          <mat-option *ngFor="let l of locations" [value]="l.id">{{ l.label }} {{ l.site ? '(' + l.site + ')' : '' }} — {{ l.dbConnectionName }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>External DB Location value (fetched from selected connection)</mat-label>
+        <mat-select [(ngModel)]="externalLocationValue" name="externalLocationValue" (selectionChange)="onExternalLocationSelected()" [disabled]="!selectedLocationId || loadingExternalLocations">
+          <mat-option *ngFor="let v of externalLocations" [value]="v">{{ v }}</mat-option>
+        </mat-select>
+        <mat-hint *ngIf="loadingExternalLocations"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
+      </mat-form-field>
+
+      <div style="display:flex; gap:8px;">
+        <mat-form-field appearance="fill" style="flex:1 1 0;">
+          <mat-label>Data Type</mat-label>
+          <mat-select [(ngModel)]="dataType" name="dataType" [disabled]="!externalLocationValue || loadingDataTypes">
+            <mat-option *ngFor="let d of dataTypes" [value]="d">{{ d }}</mat-option>
+          </mat-select>
+          <mat-hint *ngIf="loadingDataTypes"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="fill" style="flex:1 1 0;">
+          <mat-label>Tester Type</mat-label>
+          <mat-select [(ngModel)]="testerType" name="testerType" [disabled]="!externalLocationValue || loadingTesterTypes">
+            <mat-option *ngFor="let t of testerTypes" [value]="t">{{ t }}</mat-option>
+          </mat-select>
+          <mat-hint *ngIf="loadingTesterTypes"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="fill" style="flex:1 1 0;">
+          <mat-label>Test Phase</mat-label>
+          <mat-select [(ngModel)]="testPhase" name="testPhase" [disabled]="!externalLocationValue || loadingTestPhases">
+            <mat-option *ngFor="let p of testPhases" [value]="p">{{ p }}</mat-option>
+          </mat-select>
+          <mat-hint *ngIf="loadingTestPhases"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Metadata location (filter used in all_metadata_view)</mat-label>
+        <input matInput [(ngModel)]="metadataLocation" name="metadataLocation" />
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Data Type</mat-label>
+        <input matInput [(ngModel)]="dataType" name="dataType" />
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Tester Type</mat-label>
+        <input matInput [(ngModel)]="testerType" name="testerType" />
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Test Phase (optional)</mat-label>
+        <input matInput [(ngModel)]="testPhase" name="testPhase" />
+      </mat-form-field>
+
+      <mat-checkbox [(ngModel)]="matchNoTestPhase" name="matchNoTestPhase">Match senders with no test phase</mat-checkbox>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Sender ID</mat-label>
+        <input matInput type="number" [(ngModel)]="senderId" name="senderId" required />
+        <mat-hint *ngIf="!senderId">Sender ID is required</mat-hint>
+      </mat-form-field>
+
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+        <button mat-stroked-button type="button" (click)="findSenders()" [disabled]="!selectedLocationId || loading">
+          <span *ngIf="!loading">Find Sender</span>
+          <span *ngIf="loading"><mat-progress-spinner mode="indeterminate" diameter="18"></mat-progress-spinner></span>
+        </button>
+        <div *ngIf="lookupResults && lookupResults.length">
+          <small>{{ lookupResults.length }} candidate(s)</small>
+        </div>
+      </div>
+
+      <div *ngIf="lookupResults && lookupResults.length" style="margin-bottom:12px;">
+        <mat-card *ngFor="let r of lookupResults" style="margin-bottom:6px;">
+          <mat-card-content style="display:flex; justify-content:space-between; align-items:center;">
+            <div>{{ r.idSender || 'unknown' }} — {{ r.name }}</div>
+            <div>
+              <button mat-button (click)="senderId = r.idSender">Use</button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>How many to push</mat-label>
+        <input matInput type="number" [(ngModel)]="numToSend" name="numToSend" />
+      </mat-form-field>
+
+      <div class="actions">
+        <button mat-raised-button color="primary" type="submit" [disabled]="!senderId || loading">
+          <span *ngIf="!loading">Run Now</span>
+          <span *ngIf="loading">Running...</span>
+        </button>
+      </div>
+      <div class="spinner" *ngIf="loading" style="text-align:center; margin-top:12px;">
+        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+      </div>
+    </form>
+  </mat-card>
+
+  <mat-card *ngIf="result" class="result-card">
+    <mat-card-title>Result</mat-card-title>
+    <mat-card-content>
+      <pre>{{ result }}</pre>
+    </mat-card-content>
+  </mat-card>
+</div>
+<!-- * * * * * * * * * * and can be replaced.  * * * * * * * * * * * -->
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+<!-- * * * * * * * * * * End of Placeholder  * * * * * * * * * * * * -->
+<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
+
+

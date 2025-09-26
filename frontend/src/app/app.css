@@ -1,0 +1,41 @@
+.app-container {
+  max-width: 800px;
+  margin: 24px auto;
+  padding: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+input, select {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.actions {
+  margin-top: 16px;
+}
+
+.result-card {
+  margin-top: 16px;
+}

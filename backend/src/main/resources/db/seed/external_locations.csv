@@ -1,0 +1,4 @@
+# Example CSV for external locations
+# Format: environment,label,db_connection_name,details
+QA,Site A,site_a_qa,Oracle host/service for Site A QA
+PROD,Site A,site_a_prod,Oracle host/service for Site A PROD
