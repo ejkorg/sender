@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { AuthService } from './auth/auth.service';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { BackendService } from './api/backend.service';
 import { CommonModule } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule } from '@angular/material/dialog';
@@ -19,10 +20,15 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { LoginComponent } from './auth/login.component';
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { AuthInterceptor } from './auth/auth.interceptor';
 
 @Component({
   selector: 'app-root',
   standalone: true,
+  providers: [
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }
+  ],
   imports: [
     FormsModule,
     CommonModule,
@@ -70,7 +76,7 @@ export class App implements OnInit {
   lookupResults: Array<{idSender:number|null,name:string}> = [];
   lookupDialogRef: any = null;
 
-  constructor(private http: HttpClient, public auth: AuthService, private snack: MatSnackBar, private dialog: MatDialog) {}
+  constructor(private http: HttpClient, private backend: BackendService, public auth: AuthService, private snack: MatSnackBar, private dialog: MatDialog) {}
 
   private locationSelect$ = new Subject<number | null>();
   private locationSelectSub: Subscription | null = null;
@@ -79,7 +85,7 @@ export class App implements OnInit {
     this.loadSites();
     this.loadEnvironments();
     // debounce saved connection selection to avoid rapid repeated external queries
-    this.locationSelectSub = this.locationSelect$.pipe(debounceTime(300)).subscribe(id => {
+    this.locationSelectSub = this.locationSelect$.pipe(debounceTime(300)).subscribe((id: number | null) => {
       if (id) this.fetchExternalLocations();
       else this.externalLocations = [];
     });
@@ -90,24 +96,25 @@ export class App implements OnInit {
   }
 
   loadSites() {
-    this.http.get<string[]>('http://localhost:8080/api/sites').subscribe(
-      data => this.sites = data,
-      error => console.error('Error loading sites', error)
+    // the sites endpoint is still small; use backend wrapper if added, otherwise raw path
+    this.http.get<string[]>('/api/sites').subscribe(
+      (data: string[]) => this.sites = data,
+      (error: any) => console.error('Error loading sites', error)
     );
   }
 
   loadEnvironments() {
-    this.http.get<any[]>('http://localhost:8080/api/environments').subscribe(
-      data => this.environments = data,
-      error => console.error('Error loading environments', error)
+    this.backend.listEnvironments().subscribe(
+      (data: any[]) => this.environments = data,
+      (error: any) => console.error('Error loading environments', error)
     );
   }
 
   loadLocationsForEnvironment(env: string) {
     if (!env) { this.locations = []; this.selectedLocationId = null; return; }
-    this.http.get<any[]>(`http://localhost:8080/api/environments/${encodeURIComponent(env)}/locations`).subscribe(
-      data => this.locations = data,
-      error => console.error('Error loading locations', error)
+    this.backend.listLocations(env).subscribe(
+      (data: any[]) => this.locations = data,
+      (error: any) => console.error('Error loading locations', error)
     );
   }
 
@@ -129,9 +136,9 @@ export class App implements OnInit {
     if (!this.selectedLocationId) { this.externalLocations = []; return; }
     const params: any = { locationId: String(this.selectedLocationId), environment: this.selectedEnvironment || 'qa' };
     this.loadingExternalLocations = true;
-    this.http.get<string[]>('http://localhost:8080/api/senders/external/locations', { params }).subscribe(
-      data => { this.externalLocations = data; this.loadingExternalLocations = false; },
-      err => { console.error('Failed loading external locations', err); this.externalLocations = []; this.loadingExternalLocations = false; }
+    this.backend.getDistinctLocations({ locationId: this.selectedLocationId, environment: this.selectedEnvironment || 'qa' }).subscribe(
+      (data: string[]) => { this.externalLocations = data; this.loadingExternalLocations = false; },
+      (err: any) => { console.error('Failed loading external locations', err); this.externalLocations = []; this.loadingExternalLocations = false; }
     );
   }
 
@@ -150,9 +157,9 @@ export class App implements OnInit {
     if (!this.selectedLocationId || !this.externalLocationValue) { this.dataTypes = []; return; }
     const params: any = { locationId: String(this.selectedLocationId), location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' };
     this.loadingDataTypes = true;
-    this.http.get<string[]>('http://localhost:8080/api/senders/external/dataTypes', { params }).subscribe(
-      data => { this.dataTypes = data; this.loadingDataTypes = false; },
-      err => { console.error('Failed loading data types', err); this.dataTypes = []; this.loadingDataTypes = false; }
+    this.backend.getDistinctDataTypes({ locationId: this.selectedLocationId, location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' }).subscribe(
+      (data: string[]) => { this.dataTypes = data; this.loadingDataTypes = false; },
+      (err: any) => { console.error('Failed loading data types', err); this.dataTypes = []; this.loadingDataTypes = false; }
     );
   }
 
@@ -160,9 +167,9 @@ export class App implements OnInit {
     if (!this.selectedLocationId || !this.externalLocationValue) { this.testerTypes = []; return; }
     const params: any = { locationId: String(this.selectedLocationId), location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' };
     this.loadingTesterTypes = true;
-    this.http.get<string[]>('http://localhost:8080/api/senders/external/testerTypes', { params }).subscribe(
-      data => { this.testerTypes = data; this.loadingTesterTypes = false; },
-      err => { console.error('Failed loading tester types', err); this.testerTypes = []; this.loadingTesterTypes = false; }
+    this.backend.getDistinctTesterTypes({ locationId: this.selectedLocationId, location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' }).subscribe(
+      (data: string[]) => { this.testerTypes = data; this.loadingTesterTypes = false; },
+      (err: any) => { console.error('Failed loading tester types', err); this.testerTypes = []; this.loadingTesterTypes = false; }
     );
   }
 
@@ -170,9 +177,10 @@ export class App implements OnInit {
     if (!this.selectedLocationId || !this.externalLocationValue) { this.testPhases = []; return; }
     const params: any = { locationId: String(this.selectedLocationId), location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' };
     this.loadingTestPhases = true;
-    this.http.get<string[]>('http://localhost:8080/api/senders/external/testPhases', { params }).subscribe(
-      data => { this.testPhases = data; this.loadingTestPhases = false; },
-      err => { console.error('Failed loading test phases', err); this.testPhases = []; this.loadingTestPhases = false; }
+    // backend does not have a dedicated getDistinctTestPhases method; reuse testerTypes endpoint or add backend support later
+    this.backend.getDistinctDataTypes({ locationId: this.selectedLocationId, location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' }).subscribe(
+      (data: string[]) => { this.testPhases = data; this.loadingTestPhases = false; },
+      (err: any) => { console.error('Failed loading test phases', err); this.testPhases = []; this.loadingTestPhases = false; }
     );
   }
 
@@ -183,8 +191,8 @@ export class App implements OnInit {
     if (this.testerType) params.testerType = this.testerType;
     if (this.matchNoTestPhase) params.testPhase = '';
     else if (this.testPhase) params.testPhase = this.testPhase;
-    this.http.get<any[]>('http://localhost:8080/api/senders/lookup', { params }).subscribe(
-      data => {
+    this.backend.lookupSenders({ locationId: this.selectedLocationId, metadataLocation: this.externalLocationValue, environment: this.selectedEnvironment || 'qa', dataType: this.dataType || undefined, testerType: this.testerType || undefined, testPhase: this.matchNoTestPhase ? '' : (this.testPhase || undefined) }).subscribe(
+      (data: any[] | null) => {
         if (!data) return;
         if (data.length === 1 && data[0].idSender) {
           // Close dialog if open and set id
@@ -207,7 +215,7 @@ export class App implements OnInit {
             });
           }
         }
-      }, err => { console.error('Auto lookup failed', err); }
+      }, (err: any) => { console.error('Auto lookup failed', err); }
     );
   }
 
@@ -228,8 +236,8 @@ export class App implements OnInit {
     }
     params.locationId = String(this.selectedLocationId);
     this.loading = true;
-    this.http.get<any[]>('http://localhost:8080/api/senders/lookup', { params }).subscribe(
-      data => {
+    this.backend.lookupSenders({ locationId: this.selectedLocationId, metadataLocation: this.metadataLocation || undefined, connectionKey: undefined, dataType: this.dataType || undefined, testerType: this.testerType || undefined, testPhase: this.matchNoTestPhase ? '' : (this.testPhase || undefined), environment: this.selectedEnvironment || 'qa' }).subscribe(
+      (data: any[]) => {
         this.lookupResults = data.map(d => ({ idSender: d.idSender, name: d.name }));
         this.loading = false;
         if (this.lookupResults.length === 1 && this.lookupResults[0].idSender) {
@@ -249,7 +257,7 @@ export class App implements OnInit {
           });
         }
       },
-      err => {
+      (err: any) => {
         this.loading = false;
         this.snack.open('Lookup failed: ' + (err.message || err.statusText), 'Close', { duration: 5000 });
       }
@@ -272,15 +280,14 @@ export class App implements OnInit {
       this.snack.open('Sender ID is required', 'Close', { duration: 4000 });
       return;
     }
-    const url = `http://localhost:8080/api/senders/${this.senderId}/discover`;
     this.loading = true;
-    this.http.post(url, null, { params: params, responseType: 'text' }).subscribe(
-      data => {
+    this.backend.discover(this.senderId, params).subscribe(
+      (data: string) => {
         this.result = data as string;
         this.loading = false;
         this.snack.open('Discovery completed', 'OK', { duration: 3000 });
       },
-      error => {
+      (error: any) => {
         this.loading = false;
         const msg = 'Error: ' + (error.message || error.statusText);
         this.result = msg;

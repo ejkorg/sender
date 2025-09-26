@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,6 +25,8 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthenticationManager authManager;
     private final JwtUtil jwtUtil;
@@ -59,8 +63,11 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<Map<String, String>> refresh(@CookieValue(value = "refresh_token", required = false) String refresh,
                                                       HttpServletResponse resp) {
-        Optional<RefreshToken> stored = refreshTokenService.findByToken(refresh == null ? "" : refresh);
+        String incoming = refresh == null ? "" : refresh;
+    logger.trace("[AuthController.refresh] incoming refresh cookie='{}'", incoming);
+        Optional<RefreshToken> stored = refreshTokenService.findByToken(incoming);
         if (stored.isEmpty()) {
+            logger.trace("[AuthController.refresh] no matching refresh token found for='{}'", incoming);
             return ResponseEntity.status(401).build();
         }
 
