@@ -61,6 +61,38 @@ spring:
             enable: true
 ```
 
+## Application configuration (application.yml) - datasource example
+
+Below is an example `application.yml` snippet showing the application datasource settings used for local development (H2) and notes on overriding for production.
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:h2:mem:reloader;DB_CLOSE_DELAY=-1;MODE=Oracle
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-1.0.xml
+```
+
+Notes:
+- For production, override these properties with environment variables (e.g. `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`) or provide a separate profile-specific YAML.
+- External DB connection definitions (used when the UI selects a DB location) are read from a JSON file specified by the `RELOADER_DBCONN_PATH` environment variable. Example:
+
+```bash
+export RELOADER_DBCONN_PATH=/etc/reloader/dbconnections.json
+```
+
+- For integration testing or offline development you can set `RELOADER_USE_H2_EXTERNAL=true` to have the code use an in-memory H2 database for external connections (seeded from `external_h2_seed.sql`).
+
+- The `ExternalDbConfig` supports connection pooling via HikariCP. The implementation caches a pooled `HikariDataSource` per resolved connection key (e.g. `EXTERNAL-qa`), improving performance for repeated external queries.
+
+
 ## Example environment variables (12-factor)
 
 - APP_DISCOVERY_SENDER-ID=42 or APP_DISCOVERY_SENDER_ID=42
