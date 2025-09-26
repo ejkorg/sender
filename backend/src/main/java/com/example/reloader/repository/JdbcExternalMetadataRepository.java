@@ -161,28 +161,24 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
 
     @Override
     public java.util.List<String> findDistinctLocationsWithConnection(Connection c, String dataType, String testerType, String testPhase) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("select distinct dl.location from dtp_dist_conf dc ");
-        sb.append("left join dtp_location dl on dc.id_location = dl.id ");
-        sb.append("left join dtp_data_type dd on dc.id_data_type = dd.id ");
-        sb.append("left join dtp_tester_type dt on dc.id_tester_type = dt.id ");
-        sb.append(" where 1=1 ");
+        // New source table: dtp_simple_client_setting
+        String sql = "select distinct location from dtp_simple_client_setting where enabled = 'Y'";
         List<Object> params = new ArrayList<>();
-        if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); params.add(dataType); }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and dt.type = ?"); params.add(testerType); }
+        if (dataType != null && !dataType.isBlank()) { sql += " and data_type = ?"; params.add(dataType); }
+        if (testerType != null && !testerType.isBlank()) { sql += " and tester_type = ?"; params.add(testerType); }
         if (testPhase != null) {
             if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
-                sb.append(" and dc.id_data_type_ext IS NULL");
+                sql += " and (data_type_ext IS NULL or data_type_ext = '')";
             } else {
-                sb.append(" and dc.id_data_type_ext = (select id from dtp_data_type_ext where data_type_ext = ?)"); params.add(testPhase);
+                sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sb.append(" order by dl.location");
+        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
 
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
-            ps = c.prepareStatement(sb.toString());
+            ps = c.prepareStatement(sql);
             int idx = 1;
             for (Object p : params) ps.setString(idx++, p == null ? null : p.toString());
             rs = ps.executeQuery();
@@ -193,7 +189,7 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
             }
             return out;
         } catch (Exception ex) {
-            log.error("Failed fetching distinct locations: {}", ex.getMessage(), ex);
+            log.error("Failed fetching distinct locations from simple_client_setting: {}", ex.getMessage(), ex);
             throw new RuntimeException("Distinct locations query failed", ex);
         } finally {
             try { if (rs != null) rs.close(); } catch (Exception ignore) {}
@@ -203,59 +199,44 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
 
     @Override
     public java.util.List<String> findDistinctDataTypesWithConnection(Connection c, String location, String testerType, String testPhase) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("select distinct dd.data_type from dtp_dist_conf dc ");
-        sb.append("left join dtp_data_type dd on dc.id_data_type = dd.id ");
-        sb.append("left join dtp_location dl on dc.id_location = dl.id ");
-        sb.append("left join dtp_tester_type dt on dc.id_tester_type = dt.id ");
-        sb.append(" where 1=1 ");
+        String sql = "select distinct data_type from dtp_simple_client_setting where enabled = 'Y'";
         List<Object> params = new ArrayList<>();
-        if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); params.add(location); }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and dt.type = ?"); params.add(testerType); }
+        if (location != null && !location.isBlank()) { sql += " and location = ?"; params.add(location); }
+        if (testerType != null && !testerType.isBlank()) { sql += " and tester_type = ?"; params.add(testerType); }
         if (testPhase != null) {
             if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
-                sb.append(" and dc.id_data_type_ext IS NULL");
+                sql += " and (data_type_ext IS NULL or data_type_ext = '')";
             } else {
-                sb.append(" and dc.id_data_type_ext = (select id from dtp_data_type_ext where data_type_ext = ?)"); params.add(testPhase);
+                sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sb.append(" order by dd.data_type");
+        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
 
-        PreparedStatement ps = null;
-        ResultSet rs = null;
+        PreparedStatement ps = null; ResultSet rs = null;
         try {
-            ps = c.prepareStatement(sb.toString());
+            ps = c.prepareStatement(sql);
             int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString());
-            rs = ps.executeQuery();
-            List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null && !v.isBlank()) out.add(v); } return out;
-        } catch (Exception ex) { log.error("Failed fetching distinct data types: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct data types query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
+            rs = ps.executeQuery(); List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null && !v.isBlank()) out.add(v); } return out;
+        } catch (Exception ex) { log.error("Failed fetching distinct data types from simple_client_setting: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct data types query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
     }
 
     @Override
     public java.util.List<String> findDistinctTesterTypesWithConnection(Connection c, String location, String dataType, String testPhase) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("select distinct dt.type from dtp_dist_conf dc ");
-        sb.append("left join dtp_tester_type dt on dc.id_tester_type = dt.id ");
-        sb.append("left join dtp_location dl on dc.id_location = dl.id ");
-        sb.append("left join dtp_data_type dd on dc.id_data_type = dd.id ");
-        sb.append(" where 1=1 ");
+        String sql = "select distinct tester_type from dtp_simple_client_setting where enabled = 'Y'";
         List<Object> params = new ArrayList<>();
-        if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); params.add(location); }
-        if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); params.add(dataType); }
+        if (location != null && !location.isBlank()) { sql += " and location = ?"; params.add(location); }
+        if (dataType != null && !dataType.isBlank()) { sql += " and data_type = ?"; params.add(dataType); }
         if (testPhase != null) {
             if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
-                sb.append(" and dc.id_data_type_ext IS NULL");
+                sql += " and (data_type_ext IS NULL or data_type_ext = '')";
             } else {
-                sb.append(" and dc.id_data_type_ext = (select id from dtp_data_type_ext where data_type_ext = ?)"); params.add(testPhase);
+                sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sb.append(" order by dt.type");
+        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
 
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            ps = c.prepareStatement(sb.toString()); int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString()); rs = ps.executeQuery(); List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null && !v.isBlank()) out.add(v); } return out;
-        } catch (Exception ex) { log.error("Failed fetching distinct tester types: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct tester types query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
+        PreparedStatement ps = null; ResultSet rs = null;
+        try { ps = c.prepareStatement(sql); int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString()); rs = ps.executeQuery(); List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null && !v.isBlank()) out.add(v); } return out; } catch (Exception ex) { log.error("Failed fetching distinct tester types from simple_client_setting: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct tester types query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
     }
 
     @Override
