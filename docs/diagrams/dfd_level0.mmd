@@ -1,0 +1,30 @@
+graph TD
+  subgraph External
+    User["User"]
+    ExternalDBs[("External Data Sources loaded from dbconnections.json")]
+    SMTP["SMTP / Mail Server"]
+  end
+
+  subgraph System
+    UI["Angular UI"]
+    API["Spring Boot API - controllers: SenderController, ExternalLocationController"]
+    Queue["Sender Queue table"]
+    Metadata["Metadata Store (ExternalMetadataRepository)"]
+    Scheduler["DiscoveryScheduler"]
+    Importer["MetadataImporterService"]
+    Mail["MailService"]
+  end
+
+  User -->|"enqueue request from UI"| UI
+  UI -->|"POST /enqueue"| API
+  API -->|"insert SenderQueueEntry"| Queue
+  Scheduler -->|"poll/process queue"| Queue
+  Scheduler -->|"trigger import"| Importer
+  Importer -->|"read/insert metadata"| Metadata
+  Importer -->|"read external data"| ExternalDBs
+  Scheduler -->|"trigger discovery"| ExternalDBs
+  Mail -->|"send"| SMTP
+  API -->|"GET metadata"| Metadata
+
+  classDef data fill:#fff7ed,stroke:#fb923c
+  class Queue,Metadata data

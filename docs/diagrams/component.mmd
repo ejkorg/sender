@@ -1,0 +1,26 @@
+graph TD
+  subgraph Frontend
+    Angular[Angular SPA]
+  end
+  subgraph Backend
+    Controller[Controllers]
+    Service[Services]
+    Repo[Repositories]
+    Entity[Entities/DTOs]
+    Config[Config & Boot]
+  end
+  Angular --> Controller
+  Controller --> Service
+  Service --> Repo
+  Repo --> Entity
+  Config --> Repo
+
+  %% Map files
+  Controller -->|SenderController| SenderController[SenderController.java]
+  Controller -->|ExternalLocationController| ExternalLocationController[ExternalLocationController.java]
+  Service -->|SenderService| SenderService[SenderService.java]
+  Service -->|MetadataImporter| MetadataImporter[MetadataImporterService.java]
+  Service -->|DiscoveryScheduler| DiscoveryScheduler[DiscoveryScheduler.java]
+  Repo -->|SenderQueueRepository| SenderQueueRepository[SenderQueueRepository.java]
+  Repo -->|ExternalMetadata| ExternalMetadataRepository[ExternalMetadataRepository.java]
+  Entity -->|SenderQueueEntry| SenderQueueEntry[SenderQueueEntry.java]
