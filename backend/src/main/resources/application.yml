@@ -17,3 +17,14 @@ spring:
 # Liquibase
   liquibase:
     change-log: classpath:db/changelog/db.changelog-1.0.xml
+
+external-db:
+  hikari:
+    maximum-pool-size: 10
+    minimum-idle: 1
+    connection-timeout-ms: 15000
+    idle-timeout-ms: 600000
+    validation-timeout-ms: 5000
+  cache:
+    max-pools: 50
+    expire-after-access-minutes: 60

@@ -2,6 +2,7 @@ package com.example.reloader.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +16,10 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 
 import jakarta.annotation.PreDestroy;
 
@@ -27,9 +32,28 @@ public class ExternalDbConfig {
     private final Map<String, Map<String, String>> dbConnections;
     // cache of pooled DataSources keyed by resolved connection key (e.g. "EXTERNAL-qa")
     private final ConcurrentMap<String, HikariDataSource> dsCache = new ConcurrentHashMap<>();
+    private final Cache<String, HikariDataSource> dsCaffeine;
 
-    public ExternalDbConfig() throws IOException {
+    private final Environment env;
+
+    public ExternalDbConfig(Environment env) throws IOException {
+        this.env = env;
         ObjectMapper mapper = new ObjectMapper();
+
+        // Initialize caffeine cache for DataSources with settings from application.yml
+        int maxPools = Integer.parseInt(env.getProperty("external-db.cache.max-pools", "50"));
+        long expireMinutes = Long.parseLong(env.getProperty("external-db.cache.expire-after-access-minutes", "60"));
+        this.dsCaffeine = Caffeine.newBuilder()
+                .maximumSize(maxPools)
+                .expireAfterAccess(expireMinutes, TimeUnit.MINUTES)
+                .removalListener((String key, HikariDataSource ds, RemovalCause cause) -> {
+                    if (ds != null) {
+                        try {
+                            ds.close();
+                        } catch (Exception ignored) {}
+                    }
+                })
+                .build();
 
         // Prefer an external file path via env var RELOADER_DBCONN_PATH for secrets in deployments.
         String externalPath = System.getenv("RELOADER_DBCONN_PATH");
@@ -108,20 +132,51 @@ public class ExternalDbConfig {
         String resolvedKey = environment != null && !environment.isBlank() ? key + "-" + environment : key;
         HikariDataSource ds = dsCache.get(resolvedKey);
         if (ds == null) {
+            // Try to load per-connection hikari overrides if present
+            Map<String, String> perConn = cfg; // alias
             HikariConfig cfgH = new HikariConfig();
             cfgH.setJdbcUrl(jdbcUrl);
             cfgH.setUsername(user);
             cfgH.setPassword(pw);
-            // sensible defaults for external DBs; tune as needed
-            cfgH.setMaximumPoolSize(10);
-            cfgH.setMinimumIdle(1);
-            cfgH.setConnectionTimeout(15000);
-            cfgH.setIdleTimeout(600000);
-            cfgH.setValidationTimeout(5000);
+            // Read defaults from application.yml (external-db.hikari)
+            int maxPool = Integer.parseInt(env.getProperty("external-db.hikari.maximum-pool-size", "10"));
+            int minIdle = Integer.parseInt(env.getProperty("external-db.hikari.minimum-idle", "1"));
+            long connTimeout = Long.parseLong(env.getProperty("external-db.hikari.connection-timeout-ms", "15000"));
+            long idleTimeout = Long.parseLong(env.getProperty("external-db.hikari.idle-timeout-ms", "600000"));
+            long validationTimeout = Long.parseLong(env.getProperty("external-db.hikari.validation-timeout-ms", "5000"));
+
+            // If the db config contains a nested 'hikari' map, merge overrides
+            if (perConn != null && perConn.containsKey("hikari")) {
+                try {
+                    // the raw config map may contain nested structures; reparse as object node
+                    Object obj = perConn.get("hikari");
+                    // If it's a JSON string embedded, try to parse it
+                    if (obj instanceof String) {
+                        Map<String, Object> overrides = new ObjectMapper().readValue((String) obj, new TypeReference<>() {});
+                        if (overrides.containsKey("maximumPoolSize")) maxPool = (int) ((Number) overrides.get("maximumPoolSize")).intValue();
+                        if (overrides.containsKey("minimumIdle")) minIdle = (int) ((Number) overrides.get("minimumIdle")).intValue();
+                        if (overrides.containsKey("connectionTimeoutMs")) connTimeout = ((Number) overrides.get("connectionTimeoutMs")).longValue();
+                        if (overrides.containsKey("idleTimeoutMs")) idleTimeout = ((Number) overrides.get("idleTimeoutMs")).longValue();
+                        if (overrides.containsKey("validationTimeoutMs")) validationTimeout = ((Number) overrides.get("validationTimeoutMs")).longValue();
+                    }
+                } catch (Exception e) {
+                    // ignore and use defaults
+                }
+            }
+
+            cfgH.setMaximumPoolSize(maxPool);
+            cfgH.setMinimumIdle(minIdle);
+            cfgH.setConnectionTimeout(connTimeout);
+            cfgH.setIdleTimeout(idleTimeout);
+            cfgH.setValidationTimeout(validationTimeout);
             cfgH.setPoolName("external-" + resolvedKey);
+
             HikariDataSource created = new HikariDataSource(cfgH);
+            // store in both the plain ConcurrentMap and the Caffeine cache for eviction support
             HikariDataSource existing = dsCache.putIfAbsent(resolvedKey, created);
-            ds = existing != null ? existing : created;
+            HikariDataSource toUse = existing != null ? existing : created;
+            dsCaffeine.put(resolvedKey, toUse);
+            ds = toUse;
         }
         return ds.getConnection();
     }
@@ -168,19 +223,42 @@ public class ExternalDbConfig {
         String resolvedKey = environment != null && !environment.isBlank() ? site + "-" + environment : site;
         HikariDataSource ds = dsCache.get(resolvedKey);
         if (ds == null) {
+            Map<String, String> perConn = cfg; // alias
             HikariConfig cfgH = new HikariConfig();
             cfgH.setJdbcUrl(jdbcUrl);
             cfgH.setUsername(user);
             cfgH.setPassword(pw);
-            cfgH.setMaximumPoolSize(10);
-            cfgH.setMinimumIdle(1);
-            cfgH.setConnectionTimeout(15000);
-            cfgH.setIdleTimeout(600000);
-            cfgH.setValidationTimeout(5000);
+            int maxPool = Integer.parseInt(env.getProperty("external-db.hikari.maximum-pool-size", "10"));
+            int minIdle = Integer.parseInt(env.getProperty("external-db.hikari.minimum-idle", "1"));
+            long connTimeout = Long.parseLong(env.getProperty("external-db.hikari.connection-timeout-ms", "15000"));
+            long idleTimeout = Long.parseLong(env.getProperty("external-db.hikari.idle-timeout-ms", "600000"));
+            long validationTimeout = Long.parseLong(env.getProperty("external-db.hikari.validation-timeout-ms", "5000"));
+            if (perConn != null && perConn.containsKey("hikari")) {
+                try {
+                    Object obj = perConn.get("hikari");
+                    if (obj instanceof String) {
+                        Map<String, Object> overrides = new ObjectMapper().readValue((String) obj, new TypeReference<>() {});
+                        if (overrides.containsKey("maximumPoolSize")) maxPool = (int) ((Number) overrides.get("maximumPoolSize")).intValue();
+                        if (overrides.containsKey("minimumIdle")) minIdle = (int) ((Number) overrides.get("minimumIdle")).intValue();
+                        if (overrides.containsKey("connectionTimeoutMs")) connTimeout = ((Number) overrides.get("connectionTimeoutMs")).longValue();
+                        if (overrides.containsKey("idleTimeoutMs")) idleTimeout = ((Number) overrides.get("idleTimeoutMs")).longValue();
+                        if (overrides.containsKey("validationTimeoutMs")) validationTimeout = ((Number) overrides.get("validationTimeoutMs")).longValue();
+                    }
+                } catch (Exception e) {
+                    // ignore and use defaults
+                }
+            }
+            cfgH.setMaximumPoolSize(maxPool);
+            cfgH.setMinimumIdle(minIdle);
+            cfgH.setConnectionTimeout(connTimeout);
+            cfgH.setIdleTimeout(idleTimeout);
+            cfgH.setValidationTimeout(validationTimeout);
             cfgH.setPoolName("external-" + resolvedKey);
             HikariDataSource created = new HikariDataSource(cfgH);
             HikariDataSource existing = dsCache.putIfAbsent(resolvedKey, created);
-            ds = existing != null ? existing : created;
+            HikariDataSource toUse = existing != null ? existing : created;
+            dsCaffeine.put(resolvedKey, toUse);
+            ds = toUse;
         }
         return ds.getConnection();
     }

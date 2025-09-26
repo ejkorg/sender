@@ -6,6 +6,11 @@
     "password": "RELOAD_PASSWORD",
     "driver": "oracle.jdbc.OracleDriver",
     "jdbcOptions": "",
+    "hikari": {
+      "maximumPoolSize": 5,
+      "minimumIdle": 1,
+      "connectionTimeoutMs": 15000
+    },
     "notes": "Replace values and do NOT commit secrets. Use RELOADER_DBCONN_PATH to point to a secure file."
   },
   "EXTERNAL-prod": {
@@ -15,6 +20,11 @@
     "password": "RELOAD_PASSWORD",
     "driver": "oracle.jdbc.OracleDriver",
     "jdbcOptions": "",
+    "hikari": {
+      "maximumPoolSize": 20,
+      "minimumIdle": 2,
+      "connectionTimeoutMs": 15000
+    },
     "notes": "Production connection - keep this out of source control."
   }
 }
