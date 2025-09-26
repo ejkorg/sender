@@ -12,7 +12,24 @@ Key components
   - `frontend/src/app/*` - UI and HTTP client
 - Backend (Spring Boot)
   - Controllers: `SenderController.java`, `ExternalLocationController.java`, `ReloaderController.java`, `DevDbInspectController.java`
-![System flow diagram](./diagrams/system_flow.svg)
+  - Services: `SenderService.java`, `MetadataImporterService.java`, `ExternalLocationService.java`, `MailService.java`, `DiscoveryScheduler.java`
+  - Repositories: `SenderQueueRepository.java`, `ExternalMetadataRepository.java`, `JdbcExternalMetadataRepository.java`, `ExternalLocationRepository.java`, `ExternalEnvironmentRepository.java`
+  - Entities/DTOs: `SenderQueueEntry.java`, `ExternalLocation.java`, `ExternalEnvironment.java`, `MetadataRow.java`, DTOs under `web/dto/`
+  - Config & boot: `ReloaderApplication.java`, `ExternalDbConfig.java`, `DiscoveryProperties.java`, `ExternalLocationDataLoader.java`
+
+### Contract: enqueue -> process
+- Input: POST `/enqueue` (body = `EnqueueRequest`) from frontend
+- Output: 200 OK with `EnqueueResult` (id) or validation 4xx
+- Processing: `DiscoveryScheduler` / `SenderService` reads `sender_queue` rows and resolves metadata via `JdbcExternalMetadataRepository`, updates row status, and triggers `MailService` on events.
+- Errors: validation errors (4xx), DB/external connectivity (5xx/transient), processing errors (per-entry ERROR marking). See `backend/scripts` for dedupe SQL.
+
+---
+
+## System flow
+
+Below is a high-level system flow diagram. A rendered image is included first for environments that can't render Mermaid; the Mermaid block follows for editors that do render it.
+
+![System flow diagram](./diagrams/system_flow.png)
 
 ```mermaid
 flowchart LR
@@ -25,15 +42,15 @@ flowchart LR
   end
 
   subgraph Backend "Spring Boot"
-    API[REST API - `SenderController`, `ExternalLocationController`]
-    Services[Services - `SenderService`, `MetadataImporterService`, `ExternalLocationService`, `MailService`]
-    Repos[Repositories - `SenderQueueRepository`, `ExternalMetadataRepository`, `ExternalLocationRepository`, `ExternalEnvironmentRepository`]
-    Scheduler[Scheduler - `DiscoveryScheduler`]
+    API[REST API - SenderController, ExternalLocationController]
+    Services[Services - SenderService, MetadataImporterService, ExternalLocationService, MailService]
+    Repos[Repositories - SenderQueueRepository, ExternalMetadataRepository, ExternalLocationRepository, ExternalEnvironmentRepository]
+    Scheduler[Scheduler - DiscoveryScheduler]
   end
 
   subgraph Datastores
     AppDB[(Application DB)]
-    ExternalDBs[(External/Data Sources) - via `ExternalDbConfig`]
+    ExternalDBs[(External/Data Sources) - via ExternalDbConfig]
   end
 
   SMTP[Mail / SMTP]
@@ -50,57 +67,6 @@ flowchart LR
 
   classDef infra fill:#f9f,stroke:#333,stroke-width:1px;
   class ExternalDBs,AppDB,SMTP,CI infra
-
-  %% Notes
-  click ExternalDBs "#" "External DBs loaded from dbconnections.json"
-  click AppDB "#" "Application DB contains sender queue, metadata, locations"
-
-  style Backend fill:#f2f8ff,stroke:#0366d6
-  style Frontend fill:#fff4e6,stroke:#d97706
-  style Datastores fill:#f3f4f6
-
-  %% Components mapping hints
-  note right of API
-    Controllers: ReloaderController, SenderController,
-    ExternalLocationController, DevDbInspectController
-  end
-  note right of Services
-    Key services: SenderService, MetadataImporterService,
-    ExternalLocationService, MailService, DiscoveryScheduler
-  end
-  note right of Repos
-    Repositories/Jdbc implementations for metadata and sender queue
-  end
-```
-  Repos --> AppDB
-  Services -->|connect| ExternalDBs
-  Scheduler --> Services
-  Services -->|send email| SMTP
-  CI -->|build & deploy| Backend
-
-  classDef infra fill:#f9f,stroke:#333,stroke-width:1px;
-  class ExternalDBs,AppDB,SMTP,CI infra
-
-  %% Notes
-  click ExternalDBs "#" "External DBs loaded from dbconnections.json"
-  click AppDB "#" "Application DB contains sender queue, metadata, locations"
-
-  style Backend fill:#f2f8ff,stroke:#0366d6
-  style Frontend fill:#fff4e6,stroke:#d97706
-  style Datastores fill:#f3f4f6
-
-  %% Components mapping hints
-  note right of API
-    Controllers: ReloaderController, SenderController,
-    ExternalLocationController, DevDbInspectController
-  end
-  note right of Services
-    Key services: SenderService, MetadataImporterService,
-    ExternalLocationService, MailService, DiscoveryScheduler
-  end
-  note right of Repos
-    Repositories/Jdbc implementations for metadata and sender queue
-  end
 ```
 
 ---
@@ -109,8 +75,7 @@ flowchart LR
 
 ### DFD Level 0 (context)
 
-graph TD
-![DFD Level 0](./diagrams/dfd_level0.svg)
+![DFD Level 0](./diagrams/dfd_level0.png)
 
 ```mermaid
 graph TD
@@ -144,18 +109,10 @@ graph TD
   classDef data fill:#fff7ed,stroke:#fb923c
   class Queue,Metadata data
 ```
-  %% Level 0 legend
-  subgraph Legend
-    L1[Process: API, Scheduler, Importer]
-    L2[Data stores: Queue, Metadata]
-    L3[External: ExternalDBs, SMTP]
-  end
-  linkStyle 0 stroke:#333,stroke-width:2px
-```
 
 ### DFD Level 1 (enqueue -> queue -> processing)
 
-![DFD Level 1](./diagrams/dfd_level1.svg)
+![DFD Level 1](./diagrams/dfd_level1.png)
 
 ```mermaid
 flowchart LR
@@ -178,11 +135,6 @@ flowchart LR
 
   classDef datastore fill:#f0f9ff,stroke:#0284c7
   class DB,ExternalDBs datastore
-
-  subgraph Notes
-    N1[Queue rows represented by SenderQueueEntry entity]
-    N2[Metadata rows in ExternalMetadataRepository / JdbcExternalMetadataRepository]
-  end
 ```
 
 ---
@@ -191,8 +143,7 @@ flowchart LR
 
 ### Component diagram
 
-graph TD
-![Component diagram](./diagrams/component.svg)
+![Component diagram](./diagrams/component.png)
 
 ```mermaid
 graph TD
@@ -222,12 +173,10 @@ graph TD
   Repo -->|ExternalMetadata| ExternalMetadataRepository[ExternalMetadataRepository.java]
   Entity -->|SenderQueueEntry| SenderQueueEntry[SenderQueueEntry.java]
 ```
-  classDef file fill:#fff,stroke:#6b7280
-```
 
 ### Sequence diagram (enqueue -> process)
 
-![Sequence diagram](./diagrams/sequence.svg)
+![Sequence diagram](./diagrams/sequence.png)
 
 ```mermaid
 sequenceDiagram
@@ -304,8 +253,8 @@ Security & secrets
 
 ## Where to go from here
 
-- I can add these diagrams to `docs/ARCHITECTURE.md` as rendered images (SVG/PNG), or leave them as Mermaid blocks (as done here). If you want SVGs in the repo, I can generate and add them.
-- I can also add a small `docs/README.md` linking this file and the build/test quickstart if you'd like.
+- Regenerating diagrams: see `docs/REGEN_DIAGRAMS.md` and `docs/regen_diagrams.sh`.
+- I can open a PR with these docs and images if you want to publish them.
 
 ---
 
