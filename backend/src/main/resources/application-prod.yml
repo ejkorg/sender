@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/reloader
+    driver-class-name: org.postgresql.Driver
+    username: reloader
+    password: "${RELOADER_DB_PASSWORD:}"
+
+external-db:
+  hikari:
+    maximum-pool-size: 20
+    minimum-idle: 2
+    connection-timeout-ms: 20000
+    idle-timeout-ms: 300000
+    validation-timeout-ms: 5000
+  cache:
+    max-pools: 200
+    expire-after-access-minutes: 120
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics"
