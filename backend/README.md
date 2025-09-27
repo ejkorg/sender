@@ -90,6 +90,23 @@ export RELOADER_DBCONN_PATH=/etc/reloader/dbconnections.json
 
 - For integration testing or offline development you can set `RELOADER_USE_H2_EXTERNAL=true` to have the code use an in-memory H2 database for external connections (seeded from `external_h2_seed.sql`).
 
+See also: `backend/docs/external-db-runbook.md` for detailed guidance on the opt-in flags (`reloader.use-h2-external` / `RELOADER_USE_H2_EXTERNAL` and `external-db.allow-writes`), pool lifecycle, and test patterns to avoid touching production databases.
+
+CI note: Prefer enabling H2-as-external only for specific CI jobs that need to exercise external-DB behavior. Example (GitHub Actions snippet):
+
+```yaml
+# job that runs integration tests with H2-as-external
+name: integration-tests-h2-external
+runs-on: ubuntu-latest
+steps:
+  - uses: actions/checkout@v4
+  - name: Run backend tests (H2-as-external)
+    env:
+      RELOADER_USE_H2_EXTERNAL: "true"
+      EXTERNAL_DB_ALLOW_WRITES: "true"
+    run: mvn -f backend/pom.xml -DskipITs=false -DskipTests=false test
+```
+
 - The `ExternalDbConfig` supports connection pooling via HikariCP. The implementation caches a pooled `HikariDataSource` per resolved connection key (e.g. `EXTERNAL-qa`), improving performance for repeated external queries.
 
 
