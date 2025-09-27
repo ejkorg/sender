@@ -72,3 +72,18 @@ Notes and best practices
 - If you need temporary dev access on a shared server, consider using a short-lived feature branch or a separate ephemeral environment.
 
 If you want, I can add a short paragraph to your main README pointing to this doc.
+
+---
+
+H2 as the dev "external" database (opt-in)
+
+For convenience the project can use an H2 in-memory database as the external database used by discovery and the dev helpers. Because production external databases are real, potentially shared systems, any code that performs DDL (CREATE TABLE) or writes to the external queue is guarded and requires an explicit opt-in in development.
+
+To enable the H2 external DB behavior set one of the following (the value must be "true") before running the app in the dev profile:
+
+- Environment variable: RELOADER_USE_H2_EXTERNAL=true
+- JVM system property: -Dreloader.use-h2-external=true
+
+When this flag is not set to true the dev helpers that might execute DDL will log and skip the operation. This prevents accidental schema changes on real external databases during local development or tests.
+
+Prefer the environment variable in local shells and CI scripts. If you'd like, I can add an example to the Docker or Kubernetes snippets above showing how to set the flag.
