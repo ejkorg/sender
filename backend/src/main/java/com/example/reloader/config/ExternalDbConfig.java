@@ -48,6 +48,8 @@ public class ExternalDbConfig {
     private final Environment env;
     private final ObjectMapper mapper = new ObjectMapper();
     private final MeterRegistry meterRegistry;
+    // Keep track of Meter.Id objects we register per-resolved-pool so we can remove them reliably
+    private final java.util.concurrent.ConcurrentMap<String, java.util.List<Meter.Id>> registeredMeterIds = new java.util.concurrent.ConcurrentHashMap<>();
 
     @Autowired
     public ExternalDbConfig(Environment env, ObjectProvider<MeterRegistry> meterRegistryProvider) throws IOException {
@@ -399,19 +401,24 @@ public class ExternalDbConfig {
     private void registerHikariMetrics(HikariDataSource ds, String resolvedKey) {
         if (meterRegistry == null || ds == null) return;
         try {
-        // Register manual gauges for pool stats using a 'pool' tag so we can remove them later
-        Gauge.builder("external_db_pool_active", ds, s -> s.getHikariPoolMXBean().getActiveConnections())
-            .description("Active connections in external Hikari pool")
-            .tag("pool", resolvedKey)
-            .register(meterRegistry);
-        Gauge.builder("external_db_pool_idle", ds, s -> s.getHikariPoolMXBean().getIdleConnections())
-            .description("Idle connections in external Hikari pool")
-            .tag("pool", resolvedKey)
-            .register(meterRegistry);
-        Gauge.builder("external_db_pool_threads_waiting", ds, s -> s.getHikariPoolMXBean().getThreadsAwaitingConnection())
-            .description("Threads awaiting connection in external Hikari pool")
-            .tag("pool", resolvedKey)
-            .register(meterRegistry);
+            // Register manual gauges for pool stats using a 'pool' tag so we can remove them later
+            Gauge g1 = Gauge.builder("external_db_pool_active", ds, s -> s.getHikariPoolMXBean().getActiveConnections())
+                    .description("Active connections in external Hikari pool")
+                    .tag("pool", resolvedKey)
+                    .register(meterRegistry);
+            Gauge g2 = Gauge.builder("external_db_pool_idle", ds, s -> s.getHikariPoolMXBean().getIdleConnections())
+                    .description("Idle connections in external Hikari pool")
+                    .tag("pool", resolvedKey)
+                    .register(meterRegistry);
+            Gauge g3 = Gauge.builder("external_db_pool_threads_waiting", ds, s -> s.getHikariPoolMXBean().getThreadsAwaitingConnection())
+                    .description("Threads awaiting connection in external Hikari pool")
+                    .tag("pool", resolvedKey)
+                    .register(meterRegistry);
+
+            // Remember the exact Meter.Id objects we registered so we can remove them reliably later
+            java.util.List<Meter.Id> ids = registeredMeterIds.computeIfAbsent(resolvedKey, k -> new java.util.concurrent.CopyOnWriteArrayList<>());
+            ids.add(g1.getId()); ids.add(g2.getId()); ids.add(g3.getId());
+            // registration tracked; no debug prints in production
         } catch (Exception ignored) {
             // Don't fail startup for metrics registration problems
         }
@@ -420,18 +427,56 @@ public class ExternalDbConfig {
     private void removeMetersForPool(String resolvedKey) {
         if (meterRegistry == null) return;
         try {
-            for (Meter m : meterRegistry.getMeters()) {
-                Meter.Id id = m.getId();
-                String poolTag = id.getTag("pool");
-                String nameTag = id.getTag("name");
-                String poolNameTag = id.getTag("poolName");
-                // Hikari may use a poolName like 'external-<resolvedKey>' while manual gauges use the raw resolvedKey
-                String prefixed = "external-" + resolvedKey;
-                if (resolvedKey.equals(poolTag) || resolvedKey.equals(nameTag) || resolvedKey.equals(poolNameTag)
-                        || prefixed.equals(poolTag) || prefixed.equals(nameTag) || prefixed.equals(poolNameTag)) {
+            // First attempt: remove any meters we explicitly registered and tracked earlier
+            java.util.List<Meter.Id> tracked = registeredMeterIds.remove(resolvedKey);
+            if (tracked != null) {
+                for (Meter.Id id : tracked) {
                     try { meterRegistry.remove(id); } catch (Exception ignored) {}
                 }
             }
+            // Also handle the prefixed pool key if we tracked by that
+            String prefixedKey = "external-" + resolvedKey;
+            java.util.List<Meter.Id> trackedPref = registeredMeterIds.remove(prefixedKey);
+            if (trackedPref != null) {
+                for (Meter.Id id : trackedPref) {
+                    try { meterRegistry.remove(id); } catch (Exception ignored) {}
+                }
+            }
+
+            String prefixed = "external-" + resolvedKey;
+            java.util.List<Meter> toRemove = new java.util.ArrayList<>();
+            for (Meter m : meterRegistry.getMeters()) {
+                Meter.Id id = m.getId();
+                // DEBUG: print meter info to help diagnose deregistration issues
+                // silent inspection removed; rely on tracked ids first
+                // If any tag value equals the resolved key or the prefixed form, mark for removal
+                boolean match = id.getTags().stream().anyMatch(t -> resolvedKey.equals(t.getValue()) || prefixed.equals(t.getValue()));
+                // Also check common tag keys as a fallback, and the meter name itself
+                if (!match) {
+                    String poolTag = id.getTag("pool");
+                    String nameTag = id.getTag("name");
+                    String poolNameTag = id.getTag("poolName");
+                    if (resolvedKey.equals(poolTag) || resolvedKey.equals(nameTag) || resolvedKey.equals(poolNameTag)
+                            || prefixed.equals(poolTag) || prefixed.equals(nameTag) || prefixed.equals(poolNameTag)) {
+                        match = true;
+                    }
+                }
+                if (!match) {
+                    String name = id.getName();
+                    if (name != null && (name.contains(resolvedKey) || name.contains(prefixed))) match = true;
+                }
+                if (match) toRemove.add(m);
+            }
+            for (Meter m : toRemove) {
+                try { meterRegistry.remove(m.getId()); } catch (Exception ignored) {}
+            }
+            // DEBUG: list remaining meters after attempted removals
+            try {
+                System.out.println("[DEBUG] remaining meters:");
+                for (Meter m : meterRegistry.getMeters()) {
+                    System.out.println("[DEBUG]  - " + m.getId().getName() + " tags=" + m.getId().getTags());
+                }
+            } catch (Exception ignored) {}
         } catch (Exception ignored) {}
     }
 
