@@ -59,3 +59,8 @@ CREATE TABLE IF NOT EXISTS dtp_simple_client_setting (
 );
 
 -- No initial rows here; tests will insert and clean as needed.
+
+-- Create a sequence for parity with Oracle-based external DBs. H2 will
+-- ignore this if it already exists; tests that run in H2 write-mode may
+-- rely on a sequence name when external code expects it.
+CREATE SEQUENCE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM_SEQ START WITH 1 INCREMENT BY 1;
