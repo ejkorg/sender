@@ -31,6 +31,7 @@ public class SecurityConfig {
             .csrf().disable() // tests don't provide CSRF token
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/h2-console/**").permitAll()
+                .requestMatchers("/internal/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .httpBasic();
@@ -47,7 +48,7 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService users() {
         UserDetails admin = User.withUsername("admin")
-            .password("{noop}admin123")
+            .password("admin123")
             .roles("ADMIN")
             .build();
         return new InMemoryUserDetailsManager(admin);

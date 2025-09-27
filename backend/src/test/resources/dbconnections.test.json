@@ -1,0 +1,16 @@
+{
+  "EXAMPLE_SITE": {
+    "host": "jdbc:h2:mem:external_repo",
+    "user": "sa",
+    "password": "",
+    "hikari": "{ \"maximumPoolSize\": 7 }"
+  },
+  "EXAMPLE_SITE_MAP": {
+    "host": "jdbc:h2:mem:external_repo",
+    "user": "sa",
+    "password": "",
+    "hikari": {
+      "maximumPoolSize": 13
+    }
+  }
+}

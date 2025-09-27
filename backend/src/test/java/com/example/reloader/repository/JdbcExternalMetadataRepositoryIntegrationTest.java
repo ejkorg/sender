@@ -34,7 +34,7 @@ public class JdbcExternalMetadataRepositoryIntegrationTest {
     @BeforeEach
     public void setup() throws Exception {
         // create a dedicated H2 database for this test and seed it
-        extConn = DriverManager.getConnection("jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1");
+    extConn = DriverManager.getConnection("jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1", "sa", "");
         try (Statement s = extConn.createStatement()) {
             s.execute("CREATE TABLE IF NOT EXISTS all_metadata_view (lot VARCHAR(50), id VARCHAR(50), id_data VARCHAR(50), end_time TIMESTAMP, tester_type VARCHAR(50), data_type VARCHAR(50), test_phase VARCHAR(50), location VARCHAR(50));");
             // ensure clean state for test runs
@@ -45,7 +45,7 @@ public class JdbcExternalMetadataRepositoryIntegrationTest {
         }
 
         // make ExternalDbConfig return fresh connections to the same in-memory DB
-        when(externalDbConfig.getConnection("TEST_SITE", "qa")).thenAnswer(inv -> DriverManager.getConnection("jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1"));
+    when(externalDbConfig.getConnection("TEST_SITE", "qa")).thenAnswer(inv -> DriverManager.getConnection("jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1", "sa", ""));
     }
 
     @AfterEach
@@ -100,7 +100,7 @@ public class JdbcExternalMetadataRepositoryIntegrationTest {
         }
 
         // Use repository.findSendersWithConnection to query
-        try (Connection c = DriverManager.getConnection("jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1")) {
+    try (Connection c = DriverManager.getConnection("jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1", "sa", "")) {
             // when testPhase = 'PH1' we should get sender 10
             java.util.List<SenderCandidate> res1 = repository.findSendersWithConnection(c, "LOC1", "D1", "T1", "PH1");
             assertThat(res1).extracting(SenderCandidate::getIdSender).contains(10);

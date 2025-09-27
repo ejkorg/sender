@@ -159,3 +159,46 @@ data:
 ---
 
 If you want, I can also add a short migration script and a PR note recommending a pre-deploy dedupe check. Tell me and I'll add it.
+
+## External DB connections & metrics (important operational notes)
+
+This application can connect to many external databases defined in a JSON file (`dbconnections.json`). The runtime supports loading that file from the classpath (dev) or from an external path for production secrets.
+
+- RELOADER_DBCONN_PATH (env / system property)
+  - If set, `ExternalDbConfig` will load the JSON file at this path. This is the recommended way to provide production connection definitions (keep secrets out of the JAR).
+  - Example: set `RELOADER_DBCONN_PATH=/etc/reloader/dbconnections.json` in your deployment manifest.
+
+- RELOADER_USE_H2_EXTERNAL (env)
+  - For local development / CI you can enable an in-memory H2 "external" DB by setting `RELOADER_USE_H2_EXTERNAL=true`. When enabled, external DB lookups use an H2 DB seeded from `classpath:external_h2_seed.sql` and ignore `dbconnections.json`.
+
+- `external-db.cache.max-pools` (application property)
+  - Controls the maximum number of active pooled DataSources the app will keep open at once. Default is `50`. Reduce this if you expect many distinct connection keys to avoid high memory and metric cardinality.
+  - Set this in `application.yml` or via environment properties (e.g., `EXTERNAL_DB_CACHE_MAX_POOLS=20` depending on your environment variable style).
+
+- Per-connection Hikari overrides
+  - Each connection entry in `dbconnections.json` may include a `hikari` block to override defaults for that connection. The `hikari` value may be either a nested JSON object or a JSON string (both are accepted). Supported keys: `maximumPoolSize`, `minimumIdle`, `connectionTimeoutMs`, `idleTimeoutMs`, `validationTimeoutMs`.
+
+- Metrics and cardinality concerns
+  - By default the app registers per-pool metrics (either via Hikari's Micrometer tracker factory or fallback manual gauges). These metrics include a `pool` or `poolName` tag containing the resolved pool name (e.g., `external-EXAMPLE_SITE`).
+  - If you have many unique connection keys (for example, dynamically generated per-tenant keys), metric cardinality can grow unbounded and overload your metrics system.
+  - Mitigations:
+    - Lower `external-db.cache.max-pools` to limit how many distinct pools are created/kept concurrently.
+    - Disable per-pool metrics in your environment by not providing a MeterRegistry or by adjusting metric filters at your metrics scrape/ingest pipeline.
+    - Use consistent connection keys (avoid dynamically generating distinct keys per request) and prefer a small set of long-lived connections.
+
+### Example `dbconnections.json` snippet
+
+```
+{
+  "EXAMPLE_SITE": {
+    "host": "jdbc:h2:mem:external_repo",
+    "user": "sa",
+    "password": "",
+    "hikari": { "maximumPoolSize": 5 }
+  }
+}
+```
+
+Notes:
+- The runtime will attempt to set HikariCP's Micrometer tracker factory when a `MeterRegistry` is available so Hikari's built-in metrics are emitted. The code also registers manual gauges as a fallback for robustness.
+- The application will automatically remove meters for a pool when the pool is closed/evicted from the cache to avoid long-lived metric leaks — however you should still monitor cardinality and size of `external-db.cache.max-pools` in production.
