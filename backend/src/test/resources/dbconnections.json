@@ -1,0 +1,8 @@
+{
+  "EXAMPLE_SITE": {
+    "host": "localhost/EXAMPLE",
+    "user": "sa",
+    "password": "",
+    "port": "1521"
+  }
+}
