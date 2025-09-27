@@ -26,10 +26,11 @@ public class ExternalDbConfigMicrometerIntegrationTest {
         }
 
         @Bean
-        public ExternalDbConfig externalDbConfig(org.springframework.core.env.Environment env, ObjectProvider<io.micrometer.core.instrument.MeterRegistry> provider) throws java.io.IOException {
-            // Ensure ExternalDbConfig loads the test dbconnections fixture
+        public ExternalDbConfig externalDbConfig(ObjectProvider<io.micrometer.core.instrument.MeterRegistry> provider) throws java.io.IOException {
+            // Ensure ExternalDbConfig loads the test dbconnections fixture from a MockEnvironment to avoid global System property changes
             String path = this.getClass().getClassLoader().getResource("dbconnections.test.json").getFile();
-            System.setProperty("RELOADER_DBCONN_PATH", path);
+            org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+            env.setProperty("RELOADER_DBCONN_PATH", path);
             return new ExternalDbConfig(env, provider);
         }
     }

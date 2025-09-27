@@ -32,8 +32,9 @@ public class MetadataImporterService {
     private final ExternalMetadataRepository externalMetadataRepository;
     private final ExternalLocationRepository externalLocationRepository;
     private final ExternalDbResolverService externalDbResolverService;
+    private final org.springframework.core.env.Environment env;
 
-    public MetadataImporterService(ExternalDbConfig externalDbConfig, SenderService senderService, MailService mailService, com.example.reloader.config.DiscoveryProperties discoveryProps, ExternalMetadataRepository externalMetadataRepository, ExternalLocationRepository externalLocationRepository, ExternalDbResolverService externalDbResolverService) {
+    public MetadataImporterService(ExternalDbConfig externalDbConfig, SenderService senderService, MailService mailService, com.example.reloader.config.DiscoveryProperties discoveryProps, ExternalMetadataRepository externalMetadataRepository, ExternalLocationRepository externalLocationRepository, ExternalDbResolverService externalDbResolverService, org.springframework.core.env.Environment env) {
         this.externalDbConfig = externalDbConfig;
         this.senderService = senderService;
         this.mailService = mailService;
@@ -41,6 +42,7 @@ public class MetadataImporterService {
         this.externalMetadataRepository = externalMetadataRepository;
         this.externalLocationRepository = externalLocationRepository;
         this.externalDbResolverService = externalDbResolverService;
+        this.env = env;
     }
 
     // Helper used by controller to find location by id
@@ -229,9 +231,11 @@ public class MetadataImporterService {
 
         log.info("Discovered {} rows and enqueued {} payloads for sender {}. Skipped {} already-present.", discoveredCount[0], addedCount[0], senderId, skippedOverall.size());
 
-        // Notification: prefer discovery properties, then fallback to env var
-        String recipient = discoveryProps.getNotifyRecipient();
-        if ((recipient == null || recipient.isBlank())) recipient = System.getenv("RELOADER_NOTIFY_RECIPIENT");
+            // Notification: prefer discovery properties, then fallback to env var
+            String recipient = discoveryProps.getNotifyRecipient();
+            if (recipient == null || recipient.isBlank()) {
+                recipient = com.example.reloader.config.ConfigUtils.getString(env, "reloader.notify-recipient", "RELOADER_NOTIFY_RECIPIENT", null);
+            }
         if (recipient != null && !recipient.isBlank()) {
             String subj = String.format("Reloader: discovery complete for sender %s", senderId);
             StringBuilder body = new StringBuilder();

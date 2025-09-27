@@ -1,6 +1,7 @@
 package com.example.reloader.web;
 
 import com.example.reloader.config.ExternalDbConfig;
+import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,9 +26,11 @@ import java.util.Map;
 @Profile("dev")
 public class DevDbInspectController {
     private final ExternalDbConfig externalDbConfig;
+    private final Environment env;
 
-    public DevDbInspectController(ExternalDbConfig externalDbConfig) {
+    public DevDbInspectController(ExternalDbConfig externalDbConfig, Environment env) {
         this.externalDbConfig = externalDbConfig;
+        this.env = env;
     }
 
     // Dev-only endpoint to inspect external H2 DB used by the app.
@@ -73,6 +76,14 @@ public class DevDbInspectController {
     public Map<String, Object> createExternalQueueTable(@RequestParam(defaultValue = "default") String site,
                                                         @RequestParam(defaultValue = "qa") String environment) {
         Map<String, Object> out = new HashMap<>();
+        // Guard: only allow creating the external queue table when explicitly configured
+        // Use Spring Environment so tests and Spring property sources control this behavior.
+        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
+        if (!useH2) {
+            out.put("created", false);
+            out.put("error", "Dev external DDL is disabled. Set RELOADER_USE_H2_EXTERNAL=true to enable");
+            return out;
+        }
         try (Connection c = externalDbConfig.getConnection(site, environment); Statement s = c.createStatement()) {
             // create a simple table with id_sender column; keep names compatible
             s.execute("CREATE TABLE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM (id BIGINT AUTO_INCREMENT PRIMARY KEY, id_metadata VARCHAR(255), id_data VARCHAR(255), id_sender INT, record_created TIMESTAMP)");
