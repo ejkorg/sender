@@ -30,11 +30,11 @@ public class DevExternalDbInitRunnerTest {
 
     @Test
     void run_skips_when_flag_false() throws Exception {
-        ExternalDbConfig cfg = mock(ExternalDbConfig.class);
-        // Use a real StandardEnvironment and ensure no system property is set so
-        // the flag resolves to false in a deterministic way (avoids mocking
-        // overloaded getProperty signatures).
-        Environment env = new org.springframework.core.env.StandardEnvironment();
+    ExternalDbConfig cfg = mock(ExternalDbConfig.class);
+    // Use a MockEnvironment and explicitly set the flag to false so this
+    // test is deterministic even if the suite is run with -Dreloader.use-h2-external=true
+    org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+    env.setProperty("reloader.use-h2-external", "false");
         DevExternalDbInitRunner runner = new DevExternalDbInitRunner(cfg, env);
 
         runner.run();
@@ -49,7 +49,9 @@ public class DevExternalDbInitRunnerTest {
         @Test
         void run_executes_when_flag_true() throws Exception {
             ExternalDbConfig cfg = mock(ExternalDbConfig.class);
-            Environment env = new org.springframework.core.env.StandardEnvironment();
+            org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+            // Make the true-case explicit and deterministic for the test
+            env.setProperty("reloader.use-h2-external", "true");
             Connection conn = mock(Connection.class);
             Statement stmt = mock(Statement.class);
 

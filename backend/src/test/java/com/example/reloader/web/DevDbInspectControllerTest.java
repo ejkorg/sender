@@ -30,9 +30,12 @@ public class DevDbInspectControllerTest {
 
     @Test
     void createExternalQueueTable_skips_when_flag_false() {
-        ExternalDbConfig cfg = mock(ExternalDbConfig.class);
-        Environment env = new org.springframework.core.env.StandardEnvironment();
-        DevDbInspectController c = new DevDbInspectController(cfg, env);
+    ExternalDbConfig cfg = mock(ExternalDbConfig.class);
+    // Use a MockEnvironment and explicitly set the flag to false so this
+    // test is deterministic even if the suite is run with -Dreloader.use-h2-external=true
+    org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+    env.setProperty("reloader.use-h2-external", "false");
+    DevDbInspectController c = new DevDbInspectController(cfg, env);
 
         Map<String, Object> out = c.createExternalQueueTable("default", "qa");
         assertEquals(false, out.get("created"));
@@ -46,7 +49,9 @@ public class DevDbInspectControllerTest {
         @Test
         void createExternalQueueTable_runs_with_property_true() throws Exception {
             ExternalDbConfig cfg = mock(ExternalDbConfig.class);
-            Environment env = new org.springframework.core.env.StandardEnvironment();
+            org.springframework.mock.env.MockEnvironment env = new org.springframework.mock.env.MockEnvironment();
+            // Make the true-case explicit and deterministic for the test
+            env.setProperty("reloader.use-h2-external", "true");
             Connection conn = mock(Connection.class);
             Statement stmt = mock(Statement.class);
 
