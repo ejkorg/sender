@@ -20,15 +20,24 @@ public class DevExternalDbInitRunner implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DevExternalDbInitRunner.class);
 
     private final ExternalDbConfig externalDbConfig;
+    private final org.springframework.core.env.Environment env;
 
-    public DevExternalDbInitRunner(ExternalDbConfig externalDbConfig) {
+    public DevExternalDbInitRunner(ExternalDbConfig externalDbConfig, org.springframework.core.env.Environment env) {
         this.externalDbConfig = externalDbConfig;
+        this.env = env;
     }
 
     @Override
     public void run(String... args) {
+        // Guard: only run dev DDL when explicitly configured to use H2 as external DB
+        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
+        if (!useH2) {
+            log.info("DevExternalDbInitRunner: skipping external DDL because RELOADER_USE_H2_EXTERNAL is not true");
+            return;
+        }
+
         try (Connection c = externalDbConfig.getConnection("default", "qa"); Statement s = c.createStatement()) {
-            log.info("DevExternalDbInitRunner: ensuring DTP_SENDER_QUEUE_ITEM exists in external DB");
+            log.info("DevExternalDbInitRunner: ensuring DTP_SENDER_QUEUE_ITEM exists in external DB (H2 mode)");
             s.execute("CREATE TABLE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM (id BIGINT AUTO_INCREMENT PRIMARY KEY, id_metadata VARCHAR(255), id_data VARCHAR(255), id_sender INT, record_created TIMESTAMP)");
             log.info("DevExternalDbInitRunner: table created or already exists");
         } catch (Exception e) {

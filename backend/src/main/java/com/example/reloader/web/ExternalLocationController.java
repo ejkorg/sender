@@ -14,9 +14,11 @@ import java.util.List;
 @RequestMapping("/api/environments")
 public class ExternalLocationController {
     private final ExternalLocationService service;
+    private final org.springframework.core.env.Environment env;
 
-    public ExternalLocationController(ExternalLocationService service) {
+    public ExternalLocationController(ExternalLocationService service, org.springframework.core.env.Environment env) {
         this.service = service;
+        this.env = env;
     }
 
     @GetMapping
@@ -32,7 +34,7 @@ public class ExternalLocationController {
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/import")
     public ResponseEntity<String> importCsv(@RequestParam("file") MultipartFile file) throws IOException {
-        String expected = System.getenv("EXTERNAL_IMPORT_TOKEN");
+        String expected = com.example.reloader.config.ConfigUtils.getString(env, "external.import-token", "EXTERNAL_IMPORT_TOKEN", null);
         if (expected != null && !expected.isBlank()) {
             String provided = null;
             // check header

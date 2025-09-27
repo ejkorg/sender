@@ -19,6 +19,8 @@ Build:
 mvn -f backend clean package
 ```
 
+Developer docs and runbooks for the backend are in `backend/docs/`. See `backend/docs/external-db-runbook.md` for details about external DB opt-in flags and testing guidance.
+
 Frontend
 
 Install deps and run unit tests (Karma/Jasmine):

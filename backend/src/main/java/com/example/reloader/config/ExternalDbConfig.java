@@ -59,8 +59,8 @@ public class ExternalDbConfig {
         // metrics registry not initialized here; admin endpoints expose pool stats instead
 
         // Initialize caffeine cache for DataSources with settings from application.yml
-        int maxPools = Integer.parseInt(env.getProperty("external-db.cache.max-pools", "50"));
-        long expireMinutes = Long.parseLong(env.getProperty("external-db.cache.expire-after-access-minutes", "60"));
+    int maxPools = Integer.parseInt(com.example.reloader.config.ConfigUtils.getString(env, "external-db.cache.max-pools", null, "50"));
+    long expireMinutes = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.cache.expire-after-access-minutes", null, "60"));
         this.dsCaffeine = Caffeine.newBuilder()
                 .maximumSize(maxPools)
                 .expireAfterAccess(expireMinutes, TimeUnit.MINUTES)
@@ -77,11 +77,8 @@ public class ExternalDbConfig {
                 })
                 .build();
 
-        // Prefer an external file path via env var RELOADER_DBCONN_PATH for secrets in deployments.
-        String externalPath = env.getProperty("RELOADER_DBCONN_PATH");
-        if (externalPath == null || externalPath.isBlank()) {
-            externalPath = System.getenv("RELOADER_DBCONN_PATH");
-        }
+    // Prefer an external file path via env var RELOADER_DBCONN_PATH for secrets in deployments.
+    String externalPath = com.example.reloader.config.ConfigUtils.getString(env, "RELOADER_DBCONN_PATH", "reloader.dbconn.path", null);
         if (externalPath != null && !externalPath.isBlank()) {
             try (InputStream is = Files.newInputStream(Paths.get(externalPath))) {
                 dbConnections = mapper.readValue(is, new TypeReference<>() {});
@@ -165,7 +162,12 @@ public class ExternalDbConfig {
         if (ds != null) {
             try { ds.close(); } catch (Exception ignored) {}
         }
+        // Invalidate the Caffeine entry (this triggers the removal listener asynchronously in some runtimes)
         dsCaffeine.invalidate(resolvedKey);
+        // Also call removeMetersForPool synchronously to ensure meters are removed deterministically
+        try { removeMetersForPool(resolvedKey); } catch (Exception ignored) {}
+        // Force a synchronous cleanup so the removal listener runs promptly during tests
+        try { dsCaffeine.cleanUp(); } catch (Exception ignored) {}
     }
 
     public Map<String, Object> getConfigForSite(String site) {
@@ -199,9 +201,8 @@ public class ExternalDbConfig {
      */
     public Connection getConnectionByKey(String key, String environment) throws SQLException {
         // DEV: support in-memory H2 external DB for offline testing. If set, return H2 connection seeded from classpath SQL.
-        String useH2 = env.getProperty("RELOADER_USE_H2_EXTERNAL");
-        if (useH2 == null) useH2 = System.getenv("RELOADER_USE_H2_EXTERNAL");
-        if (useH2 != null && (useH2.equalsIgnoreCase("true") || useH2.equalsIgnoreCase("1"))) {
+        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
+        if (useH2) {
             String h2url = "jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1;INIT=RUNSCRIPT FROM 'classpath:external_h2_seed.sql'";
             return DriverManager.getConnection(h2url, "sa", "");
         }
@@ -239,11 +240,11 @@ public class ExternalDbConfig {
             cfgH.setUsername(user);
             cfgH.setPassword(pw);
             // Read defaults from application.yml (external-db.hikari)
-            int maxPool = Integer.parseInt(env.getProperty("external-db.hikari.maximum-pool-size", "10"));
-            int minIdle = Integer.parseInt(env.getProperty("external-db.hikari.minimum-idle", "1"));
-            long connTimeout = Long.parseLong(env.getProperty("external-db.hikari.connection-timeout-ms", "15000"));
-            long idleTimeout = Long.parseLong(env.getProperty("external-db.hikari.idle-timeout-ms", "600000"));
-            long validationTimeout = Long.parseLong(env.getProperty("external-db.hikari.validation-timeout-ms", "5000"));
+            int maxPool = Integer.parseInt(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.maximum-pool-size", null, "10"));
+            int minIdle = Integer.parseInt(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.minimum-idle", null, "1"));
+            long connTimeout = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.connection-timeout-ms", null, "15000"));
+            long idleTimeout = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.idle-timeout-ms", null, "600000"));
+            long validationTimeout = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.validation-timeout-ms", null, "5000"));
 
             // If the db config contains a nested 'hikari' map, merge overrides.
             // Accept either a nested Map (Jackson-deserialized) or a JSON string.
@@ -312,8 +313,8 @@ public class ExternalDbConfig {
 
     public Connection getConnection(String site, String environment) throws SQLException {
         // DEV: support in-memory H2 external DB for offline testing
-        String useH2 = System.getenv("RELOADER_USE_H2_EXTERNAL");
-        if (useH2 != null && (useH2.equalsIgnoreCase("true") || useH2.equalsIgnoreCase("1"))) {
+        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
+        if (useH2) {
             String h2url = "jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1;INIT=RUNSCRIPT FROM 'classpath:external_h2_seed.sql'";
             return DriverManager.getConnection(h2url, "sa", "");
         }
@@ -349,11 +350,11 @@ public class ExternalDbConfig {
             cfgH.setJdbcUrl(jdbcUrl);
             cfgH.setUsername(user);
             cfgH.setPassword(pw);
-            int maxPool = Integer.parseInt(env.getProperty("external-db.hikari.maximum-pool-size", "10"));
-            int minIdle = Integer.parseInt(env.getProperty("external-db.hikari.minimum-idle", "1"));
-            long connTimeout = Long.parseLong(env.getProperty("external-db.hikari.connection-timeout-ms", "15000"));
-            long idleTimeout = Long.parseLong(env.getProperty("external-db.hikari.idle-timeout-ms", "600000"));
-            long validationTimeout = Long.parseLong(env.getProperty("external-db.hikari.validation-timeout-ms", "5000"));
+            int maxPool = Integer.parseInt(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.maximum-pool-size", null, "10"));
+            int minIdle = Integer.parseInt(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.minimum-idle", null, "1"));
+            long connTimeout = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.connection-timeout-ms", null, "15000"));
+            long idleTimeout = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.idle-timeout-ms", null, "600000"));
+            long validationTimeout = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.hikari.validation-timeout-ms", null, "5000"));
             if (perConn != null && perConn.containsKey("hikari")) {
                 try {
                     Object raw = perConn.get("hikari");

@@ -22,10 +22,12 @@ public class SenderService {
     private final Logger log = LoggerFactory.getLogger(SenderService.class);
     private final SenderQueueRepository repository;
     private final ExternalDbConfig externalDbConfig;
+    private final org.springframework.core.env.Environment env;
 
-    public SenderService(SenderQueueRepository repository, ExternalDbConfig externalDbConfig) {
+    public SenderService(SenderQueueRepository repository, ExternalDbConfig externalDbConfig, org.springframework.core.env.Environment env) {
         this.repository = repository;
         this.externalDbConfig = externalDbConfig;
+        this.env = env;
     }
 
     @Scheduled(cron = "${app.sender.cron:0 */5 * * * *}")
@@ -125,6 +127,11 @@ public class SenderService {
 
     // Example helper: when caller wants to push items directly into an external sender queue table on remote DB
     public int pushToExternalQueue(String site, Integer senderId, List<SenderQueueEntry> items) {
+        // Guard: require explicit configuration to allow remote writes
+            boolean allow = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "external-db.allow-writes", "EXTERNAL_DB_ALLOW_WRITES", false);
+            if (!allow) {
+                throw new IllegalStateException("External DB writes are disabled. Set EXTERNAL_DB_ALLOW_WRITES=true to enable");
+        }
         try (Connection c = externalDbConfig.getConnection(site)) {
             // simplistic insertion example; caller must ensure schema compatibility
             String insertSql = "insert into DTP_SENDER_QUEUE_ITEM (id, id_metadata, id_data, id_sender, record_created) values (DTP_SENDER_QUEUE_ITEM_SEQ.nextval, ?, ?, ?, ?)";
