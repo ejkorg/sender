@@ -64,3 +64,18 @@ CREATE TABLE IF NOT EXISTS dtp_simple_client_setting (
 -- ignore this if it already exists; tests that run in H2 write-mode may
 -- rely on a sequence name when external code expects it.
 CREATE SEQUENCE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM_SEQ START WITH 1 INCREMENT BY 1;
+
+-- External queue table used by the push logic in tests when H2 is used as
+-- the remote/external DB. Keep column names aligned with the Oracle schema
+-- used in production so the JDBC paths and fallback SELECTs behave the same.
+CREATE TABLE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  id_metadata VARCHAR(255),
+  id_data VARCHAR(255),
+  id_sender INT,
+  record_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add a uniqueness constraint similar to production so tests that expect
+-- constraint violations (treated as SKIPPED) can trigger reliably.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dtp_sender_unique ON DTP_SENDER_QUEUE_ITEM(id_metadata, id_data, id_sender);
