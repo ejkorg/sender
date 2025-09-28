@@ -1,0 +1,29 @@
+name: External-write tests (H2 external)
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'work/**'
+  workflow_dispatch: {}
+
+jobs:
+  external-write-tests:
+    runs-on: ubuntu-latest
+    env:
+      RELOADER_USE_H2_EXTERNAL: 'true'
+      EXTERNAL_DB_ALLOW_WRITES: 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Run backend tests (external-write paths)
+        working-directory: backend
+        run: |
+          mvn -DskipITs=true test
