@@ -24,9 +24,12 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Minimal compile-safe stub of SessionPushService.
- * This file intentionally contains simplified logic to unblock compilation
- * and allow tests to run. The full implementation will be restored later.
+ * SessionPushService
+ *
+ * Orchestrates claiming payloads and pushing them to external databases.
+ * The repository `LoadSessionPayloadRepositoryImpl` implements a JDBC-backed
+ * `claimNextBatch` which performs a safe SELECT -> conditional UPDATE -> load-by-id
+ * approach to avoid duplicate claims across concurrent processes.
  */
 @Service
 public class SessionPushService {
