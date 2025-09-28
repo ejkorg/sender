@@ -87,3 +87,31 @@ To enable the H2 external DB behavior set one of the following (the value must b
 When this flag is not set to true the dev helpers that might execute DDL will log and skip the operation. This prevents accidental schema changes on real external databases during local development or tests.
 
 Prefer the environment variable in local shells and CI scripts. If you'd like, I can add an example to the Docker or Kubernetes snippets above showing how to set the flag.
+
+External DB write gating and per-site vendor hints
+--------------------------------------------------
+
+Two additional runtime flags affect how the application interacts with external databases:
+
+- `external-db.allow-writes` (boolean, default: false)
+  - When set to `true` (for example `EXTERNAL_DB_ALLOW_WRITES=true`), the application is allowed to perform write operations against configured external databases. This is an intentional safety gate so CI/dev environments don't accidentally write to production-like databases.
+
+- Per-site `dbType`/`type`/`dialect` hint in `dbconnections.json`
+  - The optional `dbType` key (also accepted as `type` or `dialect`) can be included per-connection in `dbconnections.json` to force vendor detection. Example values: `oracle`, `h2`, `postgres`.
+  - When present, the application will prefer this hint over runtime JDBC metadata for branch-specific behavior (for example, Oracle sequence-based insert paths).
+
+Example `dbconnections.json` snippet (see `src/main/resources/dbconnections.json.example` for a full example):
+
+```json
+{
+  "SAMPLE": {
+    "host": "mydb-host.example.com/DBSERVICE",
+    "user": "DB_USER",
+    "password": "REPLACE_WITH_SECRET",
+    "port": "1521",
+    "dbType": "oracle"
+  }
+}
+```
+
+Use these flags carefully in CI and development. Prefer using dedicated test databases for integration tests and set `external-db.allow-writes` only when the external DB is intentionally a test instance.
