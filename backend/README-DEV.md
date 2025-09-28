@@ -1,3 +1,44 @@
+Backend development notes
+=========================
+
+This file documents a couple of important runtime flags and how to run the backend tests when exercising the "external DB" write paths during local development.
+
+Important flags
+---------------
+
+- reloader.use-h2-external (property) / RELOADER_USE_H2_EXTERNAL (env)
+  - When true the application will treat an H2 database as the "external" DB used for push tests. This is opt-in for local/dev use. Default: false.
+
+- external-db.allow-writes (property) / EXTERNAL_DB_ALLOW_WRITES (env)
+  - Safety guard. Must be true to allow the application to perform writes against the configured external DB. Default: false.
+
+Why both flags
+--------------
+We require both flags to avoid accidental writes to production-like external databases. Set `reloader.use-h2-external` when you want to run tests locally using the in-memory H2 external DB schema. Then set `external-db.allow-writes` to actually allow write operations during those tests.
+
+H2 seed file
+------------
+The H2 schema and seed used when `reloader.use-h2-external=true` are located at:
+
+  backend/src/main/resources/external_h2_seed.sql
+
+This seed file must include the external queue table and sequence used by tests (DTP_SENDER_QUEUE_ITEM and DTP_SENDER_QUEUE_ITEM_SEQ).
+
+Run tests locally (external write paths)
+--------------------------------------
+
+From the repository root run:
+
+```bash
+RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true \
+  mvn -f backend/pom.xml -DskipITs=true test
+```
+
+Notes
+-----
+- The env vars above map to Spring properties `reloader.use-h2-external` and `external-db.allow-writes`. You can also provide them via `-D` when invoking Maven or via your IDE run configuration.
+- Keep these flags off/false in CI/pipelines unless you explicitly want to run external-write tests there.
+- If tests that exercise the external DB fail with SQL exceptions about missing tables or sequences, verify `external_h2_seed.sql` is present and correct.
 Developer notes — enabling dev-only endpoints
 
 This file documents how to enable the dev-only REST endpoints in the backend during development or controlled testing. These endpoints are annotated with @Profile("dev") and will only be available when the Spring "dev" profile is active.
@@ -146,4 +187,112 @@ Run the same job locally (Unix shell):
 RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true mvn -f backend/pom.xml -DskipITs=true test
 ```
 
+Exact property names & where they're read (code references)
+----------------------------------------------------------
+
+For precision in the README, here are the exact property names and the places in the code that read them:
+
+- reloader.use-h2-external / RELOADER_USE_H2_EXTERNAL
+  - Read via: com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false)
+  - Example code locations:
+    - `com.example.reloader.boot.DevExternalDbInitRunner` — the dev runner checks this flag before attempting to create the minimal external table.
+    - `com.example.reloader.service.SessionPushService` — used to decide whether to take the H2 insert path and the generated-keys behavior.
+
+- external-db.allow-writes / EXTERNAL_DB_ALLOW_WRITES
+  - Read via: com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "external-db.allow-writes", "EXTERNAL_DB_ALLOW_WRITES", false)
+  - Example code locations:
+    - `com.example.reloader.service.SessionPushService` — the push path throws IllegalStateException if writes are not allowed.
+    - `com.example.reloader.service.SenderService` — guarded when the service may perform external writes.
+
+Helpful test annotations
+------------------------
+
+Several tests opt into the H2-external + external-writes behavior using Spring test annotations, for example:
+
+```java
+@TestPropertySource(properties={"reloader.use-h2-external=true","external-db.allow-writes=true"})
+```
+
+Look for these annotations in `backend/src/test/java/com/example/reloader/service` to find the tests that exercise remote-write code paths.
+
+Troubleshooting
+---------------
+
+If an external-write test fails or you see SQL errors when running with the H2 external DB, try the following checklist in order:
+
+1) Confirm you set the flags and (optionally) the dev profile
+
+   - Environment variables (recommended for interactive shells):
+
+```bash
+export RELOADER_USE_H2_EXTERNAL=true
+export EXTERNAL_DB_ALLOW_WRITES=true
+export SPRING_PROFILES_ACTIVE=dev    # optional: allows DevExternalDbInitRunner dev HTTP helpers and runner
+```
+
+   - Or pass as JVM properties to Maven or Java:
+
+```bash
+mvn -f backend/pom.xml -Dreloader.use-h2-external=true -Dexternal-db.allow-writes=true -Dspring.profiles.active=dev test
+```
+
+2) Check DevExternalDbInitRunner output
+
+   - When `reloader.use-h2-external` is false the runner will log:
+     "DevExternalDbInitRunner: skipping external DDL because RELOADER_USE_H2_EXTERNAL is not true"
+
+   - When enabled and running with the `dev` profile, the runner will attempt to create a minimal `DTP_SENDER_QUEUE_ITEM` table. If the runner logs a creation failure, check the stack trace for permission/connection details.
+
+3) Verify `external_h2_seed.sql` contains the expected DDL
+
+   - The tests and the H2 external helpers expect `DTP_SENDER_QUEUE_ITEM` and (when appropriate) `DTP_SENDER_QUEUE_ITEM_SEQ` to exist. If you see errors like "Table "DTP_SENDER_QUEUE_ITEM" not found" inspect `backend/src/main/resources/external_h2_seed.sql` and ensure it creates the table and sequence.
+
+4) If you see unique constraint errors in logs during tests, those are often intentional test scenarios asserting that SQL constraint violations are classified as SKIPPED. The code classifies such errors when either:
+
+   - the thrown exception is `java.sql.SQLIntegrityConstraintViolationException`, or
+   - the `SQLException#getSQLState()` string starts with `23` (SQL integrity constraint class).
+
+   These cases are handled in `SessionPushService` and are considered expected in specific tests (search for `Constraint violation pushing payload` in logs from tests).
+
+5) When generated keys are not returned by the driver
+
+   - The push code attempts `PreparedStatement.getGeneratedKeys()` and falls back to a `SELECT id FROM DTP_SENDER_QUEUE_ITEM ... ORDER BY record_created DESC` with a small time window if no key is returned. If you hit a failure here, make sure the H2 driver supports generated keys (the tests run with H2 in this repo and the fallback is exercised in tests).
+
+6) Connection / vendor detection
+
+   - The service uses two sources to detect vendor behavior:
+     - Per-site `dbType`/`type`/`dialect` hint in `dbconnections.json` (see `src/main/resources/dbconnections.json.example`).
+     - Fallback to JDBC `DatabaseMetaData.getDatabaseProductName()`.
+
+   - If vendor detection fails or is misconfigured you may see the generic insert path used; that is expected and covered by tests (generated-key fallback test and Oracle-sequence test).
+
+Quick local fix: create the external table manually in H2
+
+If you need a fast manual fix while iterating, run a small Java snippet or H2 console against the in-memory DB used by tests, or add the DDL to `backend/src/main/resources/external_h2_seed.sql` (the test-runner will pick it up when `reloader.use-h2-external=true`). Example DDL (H2-friendly):
+
+```sql
+CREATE TABLE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  id_metadata VARCHAR(255),
+  id_data VARCHAR(255),
+  id_sender INT,
+  record_created TIMESTAMP
+);
+CREATE SEQUENCE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM_SEQ START WITH 1;
+```
+
+If you want, I can also add a small helper script under `backend/scripts/` to run the SQL seed against a running H2 instance for manual testing.
+
+Where to look next in the code
+------------------------------
+
+- `com.example.reloader.config.ConfigUtils` — helper used across the codebase to read flags with a primary property and fallback env/property name.
+- `com.example.reloader.boot.DevExternalDbInitRunner` — dev-only runner that can create the minimal table when `reloader.use-h2-external=true` and `dev` profile is active.
+- `com.example.reloader.service.SessionPushService` — main push logic (oracle fast-path, generic path, generated-key fallback, SKIPPED classification, backoff/retry).
+- `backend/src/main/resources/dbconnections.json.example` — per-site vendor hints example.
+
+If you'd like I can:
+
+- Add the quick helper script to seed H2 automatically (low-risk) under `backend/scripts/`.
+- Add a short pointer in the project's top-level `README.md` linking to this DEV doc.
 If you'd like I can also add a short badge or a targeted workflow that runs on PR to `main` once we're comfortable with the behavior.
