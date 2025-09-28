@@ -131,3 +131,19 @@ RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true mvn -f backend/pom.x
 ```
 
 Set these with care in shared CI runners. Prefer scoped CI job steps using dedicated test databases or ephemeral runners so actual production systems are never affected.
+
+CI workflow for external-write tests
+------------------------------------
+
+We've added a GitHub Actions workflow that runs the test suite with the H2 "external" DB and external writes enabled. The workflow lives at `.github/workflows/external-write-tests.yml` and is configured to run on pushes to `feature/**` and `work/**`, and manually via the Actions UI.
+
+Why this helps:
+- Validates push/retry/backoff behavior and SQLState classification against an in-memory external DB without touching production databases.
+
+Run the same job locally (Unix shell):
+
+```bash
+RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true mvn -f backend/pom.xml -DskipITs=true test
+```
+
+If you'd like I can also add a short badge or a targeted workflow that runs on PR to `main` once we're comfortable with the behavior.
