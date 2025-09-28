@@ -115,3 +115,19 @@ Example `dbconnections.json` snippet (see `src/main/resources/dbconnections.json
 ```
 
 Use these flags carefully in CI and development. Prefer using dedicated test databases for integration tests and set `external-db.allow-writes` only when the external DB is intentionally a test instance.
+
+Test flags for running tests that hit external-write paths
+--------------------------------------------------------
+
+Some automated tests intentionally exercise the external write and push paths (for example, tests that validate SQLState classification, generated-key fallbacks, or the backoff/retry behavior). Those tests run against an in-memory H2 "external" instance and must opt-in to the runtime guards that normally prevent accidental writes. To run those tests locally or in CI, set both flags to true for the JVM/test run:
+
+- `RELOADER_USE_H2_EXTERNAL=true` (or `-Dreloader.use-h2-external=true`) — enables the in-memory H2 external DB helpers.
+- `EXTERNAL_DB_ALLOW_WRITES=true` (or `-Dexternal-db.allow-writes=true`) — allows the application to perform writes against the configured external DBs.
+
+Example (Unix shell) when running Maven tests:
+
+```bash
+RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true mvn -f backend/pom.xml -DskipITs=true test
+```
+
+Set these with care in shared CI runners. Prefer scoped CI job steps using dedicated test databases or ephemeral runners so actual production systems are never affected.
