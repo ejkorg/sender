@@ -3,14 +3,19 @@
     "host": "localhost/LOCAL",
     "user": "sa",
     "password": "",
-    "port": "1521"
-  }
-}
-{
+    "port": "1521",
+    "# Optional: force vendor detection (\"dbType\"/\"type\"/\"dialect\" accepted)": "oracle|h2|postgres",
+    "dbType": "h2",
+    "# Optional: hikari overrides (any Hikari config key can be supplied)": {
+      "maximumPoolSize": 5,
+      "connectionTimeout": 30000
+    }
+  },
   "SAMPLE": {
     "host": "mydb-host.example.com/DBSERVICE",
     "user": "DB_USER",
     "password": "REPLACE_WITH_SECRET",
-    "port": "1521"
+    "port": "1521",
+    "dbType": "oracle"
   }
 }
