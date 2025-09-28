@@ -99,4 +99,13 @@
         <sql dbms="oracle">UPDATE external_location SET site = UPPER(CASE WHEN INSTR(label, ' ') &gt; 0 THEN SUBSTR(label, 1, INSTR(label, ' ')-1) ELSE label END);</sql>
     </changeSet>
 
+    <changeSet id="7" author="copilot">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="load_session_payload" />
+        </preConditions>
+        <addColumn tableName="load_session_payload">
+            <column name="next_attempt_at" type="TIMESTAMP" />
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>
