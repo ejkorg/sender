@@ -91,6 +91,11 @@ If you're on Windows with Docker Desktop (WSL2 backend) follow the same `docker 
 .\backend\scripts\docker-seed-h2.ps1
 ```
 
+Tomcat / WAR deployment
+------------------------
+
+If you plan to deploy the backend as a WAR in Tomcat, see `backend/README-DEV.md` → "Tomcat WAR deployment" for build commands, a `setenv.sh` template, and runtime notes. A ready example `setenv.sh` is available at `backend/examples/setenv.sh`.
+
 Quick Windows examples
 ----------------------
 
