@@ -12,6 +12,9 @@ services:
       EXTERNAL_DB_ALLOW_WRITES: "true"
       SPRING_PROFILES_ACTIVE: "dev"
     volumes:
+      # If you're running on RHEL/Fedora with SELinux (podman), consider adding :Z to allow
+      # Podman to relabel the host directory for container access, e.g:
+      # - ./backend/external-h2-data:/workspace/external-h2-db:Z
       - ./backend/external-h2-data:/workspace/external-h2-db
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8005/actuator/health || exit 1"]
