@@ -97,7 +97,7 @@ ExecStart=/usr/bin/java -jar /opt/reloader/reloader-backend.jar
 Set the environment variable when running the container:
 
 ```bash
-docker run -e SPRING_PROFILES_ACTIVE=dev -p 8080:8080 --name reloader reloader-backend:latest
+docker run -e SPRING_PROFILES_ACTIVE=dev -p 8005:8080 --name reloader reloader-backend:latest
 ```
 
 4) Kubernetes example
@@ -116,14 +116,14 @@ Inspect external DB (safe read-only information):
 
 ```bash
 curl -s -H "Authorization: Bearer <JWT>" \
-  "http://localhost:8080/api/dev/db-inspect?site=default&environment=qa" | jq
+  "http://localhost:8005/api/dev/db-inspect?site=default&environment=qa" | jq
 ```
 
 Create minimal sender queue table (DEV-ONLY, creates table if missing):
 
 ```bash
 curl -s -X GET -H "Authorization: Bearer <JWT>" \
-  "http://localhost:8080/api/dev/create-external-queue-table?site=default&environment=qa" | jq
+  "http://localhost:8005/api/dev/create-external-queue-table?site=default&environment=qa" | jq
 ```
 
 Notes and best practices
@@ -358,3 +358,78 @@ Notes:
 - These PowerShell scripts assume `psql` (for Postgres) or `sqlplus` (for Oracle) are available on your PATH if you invoke the predeploy check against those databases.
 - The PowerShell seed helper will attempt to locate H2 in `%USERPROFILE%\.m2\repository` and otherwise runs `mvn dependency:copy-dependencies` (so you need Maven and Java on PATH).
 - If you'd like, I can add `.ps1` examples to the top-level README and to CI docs.
+
+````
+
+Docker & Podman — local containerized development
+-----------------------------------------------
+
+This project includes a simple multi-stage `Dockerfile` for building the backend and a `docker-compose.yml` that launches the backend for local development. The compose file is intentionally simple and enables the H2 "external" DB in dev mode so you can exercise discovery and enqueue/push paths without an external database.
+
+Files added:
+
+- `backend/Dockerfile` — multi-stage Dockerfile: build with Maven, run on a small JRE base image.
+- `docker-compose.yml` — compose file that builds the backend image and exposes port 8080. It configures the environment variables to enable the H2 external DB and the Spring `dev` profile by default.
+
+Quick Docker build & run (Linux / macOS / Windows with Docker Desktop):
+
+1) Build the image:
+
+```bash
+docker build -f backend/Dockerfile -t reloader-backend:local .
+```
+
+2) Run the container (enables H2 external DB and dev profile):
+
+```bash
+docker run -e RELOADER_USE_H2_EXTERNAL=true -e EXTERNAL_DB_ALLOW_WRITES=true -e SPRING_PROFILES_ACTIVE=dev -p 8080:8080 --name reloader-local reloader-backend:local
+```
+
+Or use docker-compose (recommended for local dev convenience):
+
+```bash
+docker compose up --build
+```
+
+Notes:
+
+- The compose file mounts `./backend/external-h2-data` to persist any file-backed H2 database files. If you prefer an ephemeral in-memory DB, you can remove the volume and use `jdbc:h2:mem:` style URLs in your `dbconnections.json` or runtime properties.
+- The container exposes port 8080 and runs the app jar as `java -jar /app/app.jar`.
+
+Podman and RHEL 8 notes
+-----------------------
+
+On RHEL 8 or other SELinux-enabled systems it's common to prefer `podman` over `docker`. The same `Dockerfile` works with `podman build` and `podman run`.
+
+Example (build and run with podman):
+
+```bash
+podman build -f backend/Dockerfile -t reloader-backend:local .
+podman run --name reloader-local -p 8080:8080 -e RELOADER_USE_H2_EXTERNAL=true -e EXTERNAL_DB_ALLOW_WRITES=true -e SPRING_PROFILES_ACTIVE=dev reloader-backend:local
+```
+
+SELinux volume considerations
+
+If you bind-mount a host directory into the container (for example to persist an H2 file), Podman on SELinux systems may block writes unless the volume has the correct SELinux label. Two common approaches:
+
+- Use the `:Z` or `:z` mount option to relabel the content for container use:
+
+```bash
+podman run -v $(pwd)/backend/external-h2-data:/workspace/external-h2-db:Z ...
+```
+
+- Or pre-create the directory and set a permissive SELinux label for the container user (admin exercise only):
+
+```bash
+mkdir -p backend/external-h2-data
+chcon -R -t container_file_t backend/external-h2-data
+```
+
+Troubleshooting & tips
+----------------------
+
+- If the application logs show that `DevExternalDbInitRunner` skipped creation, ensure `RELOADER_USE_H2_EXTERNAL=true` and `SPRING_PROFILES_ACTIVE=dev` are set in the container environment.
+- If you get port conflicts on 8080, change the `-p` mapping (for example `-p 9080:8080`) or edit `docker-compose.yml` to map a different host port.
+- For faster local iterative builds, prefer `docker compose up --build` which will reuse layers; when actively developing Java code consider running the app outside a container for faster incremental feedback.
+
+If you'd like, I can add a small `backend/scripts/docker-seed-h2.sh` helper that runs the existing seed SQL against a running containerized H2 instance or a `Makefile` target that wraps the compose commands.
