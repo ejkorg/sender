@@ -39,3 +39,10 @@ jobs:
           # allow script execution for this session and run the seed helper
           Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
           .\backend\scripts\seed_external_h2.ps1
+
+      - name: Upload backend jar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: |
+            backend/target/*.jar
