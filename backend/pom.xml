@@ -179,5 +179,57 @@
                 </plugins>
             </build>
         </profile>
+
+        <!-- Profile to build a WAR for deployment to an external servlet container (Tomcat) -->
+        <profile>
+            <id>tomcat</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <!-- When building for Tomcat, we skip the plain jar so the WAR is the primary artifact -->
+                <skip.jar>true</skip.jar>
+            </properties>
+            <build>
+                <plugins>
+                    <!-- Enforce war packaging when the tomcat profile is active -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-war-plugin</artifactId>
+                        <version>3.3.2</version>
+                        <executions>
+                            <execution>
+                                <id>build-war</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>war</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <failOnMissingWebXml>false</failOnMissingWebXml>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Configure jar plugin to skip creating a jar when tomcat profile is active -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-jar-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <configuration>
+                            <skip>${skip.jar}</skip>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            <dependencies>
+                <!-- Mark embedded Tomcat as provided so the container's servlet impl is used instead -->
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-tomcat</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
     </profiles>
 </project>
