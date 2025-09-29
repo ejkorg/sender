@@ -116,5 +116,68 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
         </plugins>
+        <!-- Optional developer profiles are declared below. Use -Pdev or -Pexternal-oracle when running Maven to
+             enable convenient system properties for tests and local runs. These profiles only set test/system
+             properties; you still must provide real DB credentials for the external-oracle profile via -D or
+             environment variables as appropriate. -->
     </build>
+    
+    <profiles>
+        <profile>
+            <id>dev</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <!-- These maven properties are convenient defaults for running tests locally against the in-memory H2 external DB -->
+                <reloader.use-h2-external>true</reloader.use-h2-external>
+                <external-db.allow-writes>true</external-db.allow-writes>
+                <spring.profiles.active>dev</spring.profiles.active>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <reloader.use-h2-external>${reloader.use-h2-external}</reloader.use-h2-external>
+                                <external-db.allow-writes>${external-db.allow-writes}</external-db.allow-writes>
+                                <spring.profiles.active>${spring.profiles.active}</spring.profiles.active>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>external-oracle</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <!-- Use the real external DB (Oracle) for integration or manual tests. This profile does NOT
+                     supply credentials; pass them via -D or environment variables or use your usual secret store. -->
+                <reloader.use-h2-external>false</reloader.use-h2-external>
+                <external-db.allow-writes>true</external-db.allow-writes>
+                <external.db.vendor>oracle</external.db.vendor>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <reloader.use-h2-external>${reloader.use-h2-external}</reloader.use-h2-external>
+                                <external-db.allow-writes>${external-db.allow-writes}</external-db.allow-writes>
+                                <external.db.vendor>${external.db.vendor}</external.db.vendor>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

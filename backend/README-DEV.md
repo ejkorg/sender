@@ -34,6 +34,26 @@ RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true \
   mvn -f backend/pom.xml -DskipITs=true test
 ```
 
+Maven profile shortcuts
+-----------------------
+
+You can use the Maven profiles defined in `backend/pom.xml` to make running these scenarios more convenient.
+
+- Use the `dev` profile to enable the in-memory H2 external DB, enable writes, and activate the Spring `dev` profile:
+
+```bash
+mvn -f backend/pom.xml -Pdev -DskipITs=true test
+```
+
+- Use the `external-oracle` profile when you want to run tests or manual checks against a real Oracle external DB. This profile does not provide credentials; pass them via `-D` or environment variables. Example (replace placeholders):
+
+```bash
+mvn -f backend/pom.xml -Pexternal-oracle -DskipITs=true \
+  -Dexternal.db.username=MYUSER -Dexternal.db.password=MYSECRET -Dexternal.db.url=jdbc:oracle:thin:@//host:1521/DBSERVICE test
+```
+
+Note: For CI or automated runs prefer injecting credentials via your CI secret store or environment variables rather than on the command line.
+
 Notes
 -----
 - The env vars above map to Spring properties `reloader.use-h2-external` and `external-db.allow-writes`. You can also provide them via `-D` when invoking Maven or via your IDE run configuration.
@@ -282,6 +302,22 @@ CREATE SEQUENCE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM_SEQ START WITH 1;
 ```
 
 If you want, I can also add a small helper script under `backend/scripts/` to run the SQL seed against a running H2 instance for manual testing.
+
+Seed helper script
+------------------
+
+A small convenience script is included to seed a local H2 database with the external queue schema used by tests:
+
+- Path: `backend/scripts/seed_external_h2.sh`
+- Default DB URL: `jdbc:h2:./external-h2-db`
+
+Usage (from repository root):
+
+```bash
+bash backend/scripts/seed_external_h2.sh
+```
+
+The script will attempt to locate an H2 jar in your local Maven cache and fall back to copying the project's dependencies into `target/dependency` before invoking H2's RunScript tool against `backend/src/main/resources/external_h2_seed.sql`.
 
 Where to look next in the code
 ------------------------------
