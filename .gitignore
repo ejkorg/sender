@@ -1,2 +1,5 @@
 # Ignore build output
 backend/target/
+
+# H2 external DB files
+external-h2-db*
