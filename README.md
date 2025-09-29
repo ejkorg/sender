@@ -91,6 +91,31 @@ If you're on Windows with Docker Desktop (WSL2 backend) follow the same `docker 
 .\backend\scripts\docker-seed-h2.ps1
 ```
 
+Quick Windows examples
+----------------------
+
+Open PowerShell (run as your regular dev user; with Docker Desktop/WSL2 running) and from the repository root:
+
+```powershell
+# start the stack (foreground)
+docker compose up --build
+
+# or start detached and override host ports (backend default 8005, frontend default 80)
+$env:BACKEND_HOST_PORT = 9005; $env:FRONTEND_HOST_PORT = 8081
+docker compose up --build -d
+
+# seed the H2 external DB (PowerShell helper)
+.\backend\scripts\docker-seed-h2.ps1
+
+# use the containerized seeder if you don't have Maven/Java locally
+.\scripts\seed-h2-container.sh --db-url jdbc:h2:./backend/external-h2-db
+```
+
+Notes
+-----
+- If you change host ports, the backend API will be available at http://localhost:<BACKEND_HOST_PORT>/api/.
+- `seed-h2-container.sh` works with Docker Desktop (and Podman) and requires no local Maven/JDK — it creates a temporary container volume to copy dependencies and runs org.h2.tools.RunScript inside a Java container.
+
 Local dev (Podman - RHEL8)
 --------------------------
 
