@@ -6,6 +6,23 @@ Note: a legacy Python script previously provided similar functionality. The Pyth
 
 Quick start
 
+Local quick-start (copy/paste)
+------------------------------
+
+Local dev (Docker - Windows)
+```powershell
+# from repo root (PowerShell)
+docker compose up --build
+.\backend\scripts\docker-seed-h2.ps1
+```
+
+Local dev (Podman - RHEL8)
+```bash
+# from repo root (RHEL 8)
+podman compose up --build
+./backend/scripts/docker-seed-h2.sh
+```
+
 Prerequisites
 - Java 17+ and Maven
 - Node 20+ and npm
