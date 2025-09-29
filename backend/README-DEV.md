@@ -303,6 +303,53 @@ CREATE SEQUENCE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM_SEQ START WITH 1;
 
 If you want, I can also add a small helper script under `backend/scripts/` to run the SQL seed against a running H2 instance for manual testing.
 
+Tomcat WAR deployment
+---------------------
+
+You can build the backend either as a runnable JAR (default) or as a WAR suitable for deployment to an external servlet container (Tomcat). The repository includes a Maven `tomcat` profile that produces a WAR while keeping the default jar flow intact.
+
+Build commands
+
+```bash
+# runnable jar (default)
+mvn -f backend clean package
+
+# war for Tomcat (uses -Ptomcat profile)
+mvn -f backend -Ptomcat clean package
+```
+
+Tomcat `setenv.sh` example
+
+Create `$CATALINA_BASE/bin/setenv.sh` (ensure it is executable) and add JVM options and app-specific system properties. Example below sets the external H2 DB path and increases heap for the containerized environment:
+
+```bash
+#!/bin/sh
+JAVA_OPTS="-Xms512m -Xmx1g -Dspring.profiles.active=prod \
+  -Dreloader.use-h2-external=true \
+  -Dexternal.db.allow-writes=true \
+  -Dexternal.h2.path=/opt/reloader/external-h2-db"
+export JAVA_OPTS
+
+# Optionally set CATALINA_OPTS for Tomcat-specific runtime flags
+CATALINA_OPTS="-Djava.security.egd=file:/dev/./urandom"
+export CATALINA_OPTS
+```
+
+Deployment notes
+
+- Use Tomcat 10.1+ (required for Spring Boot 3 / Jakarta EE namespaces).
+- Deploy the WAR by copying `target/reloader-backend-<version>.war` into `$CATALINA_BASE/webapps/` or use the Tomcat manager to upload.
+- If you need the app on the root context, rename the WAR to `ROOT.war` before deployment.
+- Ensure the Tomcat user has read/write permission to any host directories referenced by `external.h2.path` or other file-backed storage.
+- If your environment uses SELinux, ensure proper labels on mounted volumes (or use appropriate container entitlements when running Tomcat in a container).
+
+Troubleshooting
+
+- If you see `ClassNotFoundException` for `javax.*` classes, you are likely running an older Tomcat (e.g., Tomcat 9). Upgrade to Tomcat 10.1+ which implements Jakarta namespaces used by Spring Boot 3.
+- If the WAR still contains an embedded Tomcat (port conflict or duplicate server), ensure the `tomcat` Maven profile is active and that `spring-boot-starter-tomcat` is provided-scoped in that profile.
+
+Want me to commit a `setenv.sh` template under `backend/examples/` and add a short section in the top-level `README.md` linking to this doc? I can commit that change next.
+
 Seed helper script
 ------------------
 
