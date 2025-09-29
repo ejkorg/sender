@@ -24,10 +24,31 @@ Local dev (Docker)
 
 You can run the full stack (backend + frontend) locally with Docker Compose. The backend is published on host port 8005 by default in the compose file.
 
-```bash
-docker compose up --build
 ```
 
+Local dev (Docker - Windows)
+---------------------------
+
+If you're on Windows with Docker Desktop (WSL2 backend) follow the same `docker compose up --build` flow. Use PowerShell to run the included seed helper when you need to populate the H2 external DB:
+
+```powershell
+.\backend\scripts\docker-seed-h2.ps1
+```
+
+Local dev (Podman - RHEL8)
+--------------------------
+
+On RHEL 8 use `podman` (rootless) and `podman compose` to run the stack. The compose file works with Podman in most setups — see the Podman troubleshooting notes below for SELinux and ports.
+
+```bash
+podman compose up --build
+```
+
+Seed the H2 external DB from the repo root:
+
+```bash
+./backend/scripts/docker-seed-h2.sh
+```
 After the stack is up the backend dev endpoints are available at:
 
 http://localhost:8005/api/
