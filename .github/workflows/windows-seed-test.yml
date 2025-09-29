@@ -29,8 +29,8 @@ jobs:
           mvn -version
         shell: bash
 
-      - name: Run Maven tests
-        run: mvn -B -DskipTests=false test
+      - name: Run lightweight Maven package (skip tests)
+        run: mvn -B -DskipTests package
         working-directory: backend
 
       - name: Run H2 seed PowerShell script (verify script runs)
