@@ -10,6 +10,11 @@
 </mat-toolbar>
 
 <div class="app-container">
+  <div style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+    <button mat-stroked-button type="button" (click)="loadStepper()" *ngIf="!stepperLoaded" [disabled]="stepperLoading">Load Stepper</button>
+    <mat-progress-spinner *ngIf="stepperLoading" diameter="20" mode="indeterminate"></mat-progress-spinner>
+  </div>
+  <ng-template #stepperHost></ng-template>
   <mat-card>
     <form (ngSubmit)="runNow()">
       <mat-form-field appearance="fill" class="full-width">

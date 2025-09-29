@@ -1,0 +1,100 @@
+<mat-card class="stepper-card">
+  <div *ngIf="step === 1">
+    <h3>1. Provide connection and filter</h3>
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Connection Key (optional)</mat-label>
+      <input matInput [(ngModel)]="connectionKey" name="connectionKey" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Saved Location ID (optional)</mat-label>
+      <input matInput type="number" [(ngModel)]="locationId" name="locationId" />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="full-width">
+      <mat-label>Metadata location (required)</mat-label>
+      <input matInput [(ngModel)]="metadataLocation" name="metadataLocation" />
+    </mat-form-field>
+
+    <div style="display:flex; gap:8px;">
+      <button mat-raised-button color="primary" (click)="doSearch()" [disabled]="!canSearch() || loading">Search</button>
+    </div>
+  </div>
+
+  <div *ngIf="step === 2">
+    <h3>2. Discovered results</h3>
+    <div *ngIf="loading"><mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner> Searching...</div>
+    <div *ngIf="!loading && discovered && discovered.length === 0">No results</div>
+    <div *ngIf="senders && senders.length">
+      <mat-form-field appearance="fill" class="full-width">
+        <mat-label>Choose sender (for enqueue)</mat-label>
+        <mat-select [(ngModel)]="selectedSenderId" name="selectedSenderId">
+          <mat-option *ngFor="let s of senders" [value]="s.idSender">{{ s.idSender }} — {{ s.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div *ngIf="!loading && discovered && discovered.length">
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px;">
+        <button mat-button (click)="selectAll(sel)">Select all</button>
+        <button mat-button (click)="clearSelection(sel)">Clear</button>
+      </div>
+      <mat-selection-list #sel>
+        <mat-list-option *ngFor="let d of discovered" [value]="d">
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+            <div>{{ d.idSender || 'unknown' }} — {{ d.name }}</div>
+            <div><small>{{ d.extra || '' }}</small></div>
+          </div>
+        </mat-list-option>
+      </mat-selection-list>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button mat-button (click)="backToInputs()">Back</button>
+        <button mat-raised-button color="primary" (click)="submitSelectionFromList(sel.selectedOptions.selected)" [disabled]="!selectedSenderId">Enqueue selected</button>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button mat-button (click)="backToInputs()">Back</button>
+      <button mat-button color="primary" (click)="step = 3">Go to monitoring</button>
+    </div>
+  </div>
+
+  <div *ngIf="step === 3">
+    <h3>3. Monitoring</h3>
+    <div *ngIf="monitoringQueue && monitoringQueue.length === 0">No queue items found</div>
+
+    <!-- Enqueue response details card -->
+    <div *ngIf="enqueueResponse" style="margin-bottom:12px;">
+      <mat-card>
+        <mat-card-title>Enqueue result</mat-card-title>
+        <mat-card-content>
+          <div><strong>Enqueued:</strong> {{ enqueueResponse.enqueued != null ? enqueueResponse.enqueued : 'N/A' }}</div>
+          <div *ngIf="enqueueResponse.skipped && enqueueResponse.skipped.length">
+            <p><strong>Skipped ({{ enqueueResponse.skipped.length }}):</strong></p>
+            <mat-list>
+              <mat-list-item *ngFor="let sid of enqueueResponse.skipped">{{ sid }}</mat-list-item>
+            </mat-list>
+            <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+              <button mat-button (click)="copySkippedToClipboard()">Copy Skipped IDs</button>
+              <button mat-button (click)="showFullResponse = !showFullResponse">{{ showFullResponse ? 'Hide' : 'Show' }} Full Response</button>
+            </div>
+            <mat-expansion-panel *ngIf="showFullResponse" style="margin-top:8px;">
+              <mat-expansion-panel-header>
+                <mat-panel-title>Full Enqueue Response</mat-panel-title>
+              </mat-expansion-panel-header>
+              <pre style="white-space:pre-wrap">{{ enqueueResponse | json }}</pre>
+            </mat-expansion-panel>
+          </div>
+          <div *ngIf="!enqueueResponse.skipped || enqueueResponse.skipped.length === 0"><small>No skipped payloads reported.</small></div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+    <mat-card *ngFor="let q of monitoringQueue" style="margin-bottom:8px;">
+      <mat-card-content style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; gap:12px; align-items:center;">
+          <div>{{ q.id }} — {{ q.payloadId || q.id_data || q.id_metadata }}</div>
+          <mat-chip [color]="getStatusColor(q.status)" selected>{{ q.status }}</mat-chip>
+        </div>
+      </mat-card-content>
+    </mat-card>
+    <div style="margin-top:8px;"><button mat-button (click)="loadMonitoring()">Refresh</button></div>
+  </div>
+</mat-card>

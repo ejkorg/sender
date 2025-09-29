@@ -56,4 +56,9 @@ export class BackendService {
   enqueue(senderId: number, req: EnqueueRequest){
     return this.http.post(`${this.base}/senders/${senderId}/enqueue`, req);
   }
+
+  getQueue(senderId: number, status: string = 'NEW', limit: number = 100) {
+    const params = new HttpParams().set('status', status).set('limit', String(limit));
+    return this.http.get<any[]>(`${this.base}/senders/${senderId}/queue`, { params });
+  }
 }
