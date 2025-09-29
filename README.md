@@ -50,6 +50,18 @@ Examples:
 .\scripts\win-dev-up.ps1 -Detach -BackendPort 9005 -FrontendPort 8081
 ```
 
+Containerized seed (no local Maven/Java)
+---------------------------------------
+
+If you don't have Maven or a JDK locally, use the containerized helper which runs a Maven container to fetch dependencies and a Java container to execute the H2 RunScript:
+
+```bash
+./scripts/seed-h2-container.sh --db-url jdbc:h2:./backend/external-h2-db
+```
+
+This works with Docker or Podman. The script creates a temporary container volume to hold the copied dependencies, runs RunScript against `src/main/resources/external_h2_seed.sql`, then cleans up the temporary volume.
+
+
 Prerequisites
 - Java 17+ and Maven
 - Node 20+ and npm
