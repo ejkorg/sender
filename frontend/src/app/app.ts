@@ -20,6 +20,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { LoginComponent } from './auth/login.component';
+import { ViewChild, ViewContainerRef } from '@angular/core';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { AuthInterceptor } from './auth/auth.interceptor';
 
@@ -47,6 +48,11 @@ import { AuthInterceptor } from './auth/auth.interceptor';
   styleUrls: ['./app.css']
 })
 export class App implements OnInit {
+
+  @ViewChild('stepperHost', { read: ViewContainerRef, static: true }) stepperHost!: ViewContainerRef;
+  stepperLoaded = false;
+  stepperLoading = false;
+
 
   sites: string[] = [];
   selectedSite: string = '';
@@ -89,6 +95,21 @@ export class App implements OnInit {
       if (id) this.fetchExternalLocations();
       else this.externalLocations = [];
     });
+  }
+
+  async loadStepper() {
+    if (this.stepperLoaded) return;
+    this.stepperLoading = true;
+    try {
+      // dynamic import to lazy-load the stepper bundle
+      const m = await import('./stepper/stepper.component');
+      const cmp = m.StepperComponent;
+      this.stepperHost.clear();
+      this.stepperHost.createComponent(cmp);
+      this.stepperLoaded = true;
+    } finally {
+      this.stepperLoading = false;
+    }
   }
 
   ngOnDestroy() {
