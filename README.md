@@ -19,6 +19,11 @@ Build:
 mvn -f backend clean package
 ```
 
+Windows developers
+------------------
+
+If you're developing on Windows, the backend includes PowerShell helper scripts and a Windows usage section in `backend/README-DEV.md` (seed and predeploy helpers: `backend/scripts/seed_external_h2.ps1`, `backend/scripts/predeploy_check.ps1`). See that file for copy-paste examples to run the H2 seed helper and predeploy checks in PowerShell.
+
 Developer docs and runbooks for the backend are in `backend/docs/`. See `backend/docs/external-db-runbook.md` for details about external DB opt-in flags and testing guidance.
 
 Frontend

@@ -1,0 +1,41 @@
+name: CI - Windows Maven + seed check
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'backend/scripts/**'
+      - '.github/workflows/**'
+
+jobs:
+  windows-seed:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Ensure Maven
+        run: choco install maven -y
+
+      - name: Show versions
+        run: |
+          java -version
+          mvn -version
+        shell: bash
+
+      - name: Run Maven tests
+        run: mvn -B -DskipTests=false test
+        working-directory: backend
+
+      - name: Run H2 seed PowerShell script (verify script runs)
+        shell: pwsh
+        run: |
+          # allow script execution for this session and run the seed helper
+          Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
+          .\backend\scripts\seed_external_h2.ps1
