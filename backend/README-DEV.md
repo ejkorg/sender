@@ -332,3 +332,29 @@ If you'd like I can:
 - Add the quick helper script to seed H2 automatically (low-risk) under `backend/scripts/`.
 - Add a short pointer in the project's top-level `README.md` linking to this DEV doc.
 If you'd like I can also add a short badge or a targeted workflow that runs on PR to `main` once we're comfortable with the behavior.
+
+Windows (PowerShell) usage
+---------------------------
+
+If you're developing on Windows or prefer PowerShell, equivalents of the convenience scripts are provided in `backend/scripts/`:
+
+- `seed_external_h2.ps1` — PowerShell seed helper (same behavior as the shell script). Example usage (PowerShell):
+
+```powershell
+# From repository root (PowerShell)
+.\backend\scripts\seed_external_h2.ps1
+# You can set DB_URL in the session if you want a different file:
+$env:DB_URL='jdbc:h2:./mydb'; .\backend\scripts\seed_external_h2.ps1
+```
+
+- `predeploy_check.ps1` — PowerShell predeploy check wrapper. Example usage:
+
+```powershell
+.\backend\scripts\predeploy_check.ps1 -dbtype postgres -user dbuser -host dbhost -db reloaderdb
+```
+
+Notes:
+
+- These PowerShell scripts assume `psql` (for Postgres) or `sqlplus` (for Oracle) are available on your PATH if you invoke the predeploy check against those databases.
+- The PowerShell seed helper will attempt to locate H2 in `%USERPROFILE%\.m2\repository` and otherwise runs `mvn dependency:copy-dependencies` (so you need Maven and Java on PATH).
+- If you'd like, I can add `.ps1` examples to the top-level README and to CI docs.
