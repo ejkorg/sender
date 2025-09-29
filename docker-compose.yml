@@ -1,0 +1,37 @@
+version: '3.8'
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: reloader-backend:local
+    ports:
+      - "8005:8080"
+    environment:
+      RELOADER_USE_H2_EXTERNAL: "true"
+      EXTERNAL_DB_ALLOW_WRITES: "true"
+      SPRING_PROFILES_ACTIVE: "dev"
+    volumes:
+      - ./backend/external-h2-data:/workspace/external-h2-db
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8005/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    networks:
+      - reloader-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: reloader-frontend:local
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - reloader-net
+
+networks:
+  reloader-net: {}

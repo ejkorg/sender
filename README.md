@@ -19,6 +19,20 @@ Build:
 mvn -f backend clean package
 ```
 
+Local dev (Docker)
+------------------
+
+You can run the full stack (backend + frontend) locally with Docker Compose. The backend is published on host port 8005 by default in the compose file.
+
+```bash
+docker compose up --build
+```
+
+After the stack is up the backend dev endpoints are available at:
+
+http://localhost:8005/api/
+
+
 Windows developers
 ------------------
 
