@@ -15,6 +15,12 @@ function Ensure-Command($name) {
     return $cmd
 }
 
+param(
+  [switch]$Detach,
+  [int]$BackendPort = 8005,
+  [int]$FrontendPort = 80
+)
+
 Write-Host "Running Windows dev helper (fetch deps, seed H2, docker compose up)"
 
 # Ensure required tools
@@ -34,8 +40,16 @@ try {
     # Call the included PowerShell seed helper
     & "$repoRoot\backend\scripts\docker-seed-h2.ps1"
 
-    Write-Host "3) Start the stack with Docker Compose"
-    & docker compose up --build
+    Write-Host "3) Start the stack with Docker Compose (backend port=$BackendPort frontend port=$FrontendPort)"
+    $env:BACKEND_HOST_PORT = $BackendPort.ToString()
+    $env:FRONTEND_HOST_PORT = $FrontendPort.ToString()
+
+    if ($Detach) {
+        & docker compose up --build -d
+    }
+    else {
+        & docker compose up --build
+    }
 }
 catch {
     Write-Error "Error during flow: $_"
@@ -45,4 +59,4 @@ finally {
     Pop-Location
 }
 
-Write-Host "Done. Frontend: http://localhost/  Backend: http://localhost:8005/"
+Write-Host "Done. Frontend: http://localhost/  Backend: http://localhost:$($env:BACKEND_HOST_PORT)"

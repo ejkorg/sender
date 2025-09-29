@@ -23,6 +23,33 @@ podman compose up --build
 ./backend/scripts/docker-seed-h2.sh
 ```
 
+Helper scripts
+--------------
+
+We provide small helpers to automate the common dev flow (fetch deps, seed H2, start compose):
+
+- `scripts/rhel-dev-up.sh` — RHEL/Podman helper. Flags:
+	- `-d|--detach` : run `podman compose up` in detached mode
+	- `-b|--backend-port PORT` : override backend host port (default 8005)
+	- `-f|--frontend-port PORT` : override frontend host port (default 80)
+
+- `scripts/win-dev-up.ps1` — Windows PowerShell helper. Parameters:
+	- `-Detach` : run Docker Compose in detached mode
+	- `-BackendPort <port>` : override backend host port (default 8005)
+	- `-FrontendPort <port>` : override frontend host port (default 80)
+
+Examples:
+
+```bash
+# RHEL detached on different ports
+./scripts/rhel-dev-up.sh -d -b 9005 -f 8081
+```
+
+```powershell
+# Windows (PowerShell)
+.\scripts\win-dev-up.ps1 -Detach -BackendPort 9005 -FrontendPort 8081
+```
+
 Prerequisites
 - Java 17+ and Maven
 - Node 20+ and npm
