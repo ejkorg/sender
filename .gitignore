@@ -3,3 +3,7 @@ backend/target/
 
 # H2 external DB files
 external-h2-db*
+
+# Node modules (ignore top-level and nested node_modules folders)
+node_modules/
+**/node_modules/
