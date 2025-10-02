@@ -2,8 +2,15 @@
   <h3>Discovery</h3>
   <div>
     <label>Environment</label>
-    <select [(ngModel)]="selectedEnv" (change)="loadLocations()">
+    <select [(ngModel)]="selectedEnv" (change)="loadLocations(); loadInstances()">
       <option *ngFor="let e of environments" [value]="e.name">{{e.name}}</option>
+    </select>
+  </div>
+  <div>
+    <label>DTP Instance</label>
+    <select [(ngModel)]="selectedInstanceKey" (change)="onInstanceChange()">
+      <option [ngValue]="null">-- pick --</option>
+      <option *ngFor="let i of instances" [value]="i.key">{{i.label}}</option>
     </select>
   </div>
   <div>
@@ -13,9 +20,45 @@
       <option *ngFor="let l of locations" [value]="l.id">{{l.label}}</option>
     </select>
   </div>
-  <div>
+  <div *ngIf="selectedInstanceKey">
+    <label>External Locations</label>
+    <select [(ngModel)]="metadataLocation" (change)="onFilterChange()" [disabled]="loadingDistinctLocations">
+      <option *ngIf="loadingDistinctLocations">Loading...</option>
+      <option [ngValue]="''">-- pick --</option>
+      <option *ngFor="let loc of distinctLocations" [value]="loc">{{loc}}</option>
+    </select>
+  </div>
+  <div *ngIf="selectedInstanceKey">
+    <label>Data type</label>
+    <select [(ngModel)]="dataType" (change)="onFilterChange()" [disabled]="loadingDistinctDataTypes">
+      <option *ngIf="loadingDistinctDataTypes">Loading...</option>
+      <option [ngValue]="''">-- pick --</option>
+      <option *ngFor="let dt of distinctDataTypes" [value]="dt">{{dt}}</option>
+    </select>
+  </div>
+  <div *ngIf="selectedInstanceKey">
+    <label>Tester type</label>
+    <select [(ngModel)]="testerType" (change)="onFilterChange()" [disabled]="loadingDistinctTesterTypes">
+      <option *ngIf="loadingDistinctTesterTypes">Loading...</option>
+      <option [ngValue]="''">-- pick --</option>
+      <option *ngFor="let tt of distinctTesterTypes" [value]="tt">{{tt}}</option>
+    </select>
+  </div>
+  <div *ngIf="!selectedInstanceKey">
     <label>Metadata location (filter)</label>
-    <input [(ngModel)]="metadataLocation" />
+    <input [(ngModel)]="metadataLocation" (input)="onFilterChange()" />
+  </div>
+  <div *ngIf="!selectedInstanceKey">
+    <label>Data type</label>
+    <input [(ngModel)]="dataType" (input)="onFilterChange()" />
+  </div>
+  <div *ngIf="!selectedInstanceKey">
+    <label>Tester type</label>
+    <input [(ngModel)]="testerType" (input)="onFilterChange()" />
+  </div>
+  <div>
+    <label>Test phase</label>
+    <input [(ngModel)]="testPhase" />
   </div>
   <div>
     <button (click)="runDiscovery(22)">Run discovery for senderId=22</button>

@@ -108,6 +108,11 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-core</artifactId>
         </dependency>
+        <!-- YAML parsing for local dbconnections.yml support -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -230,6 +235,33 @@
                     <scope>provided</scope>
                 </dependency>
             </dependencies>
+        </profile>
+
+        <!-- Local development profile: activates Spring 'local' profile and keeps embedded Tomcat -->
+        <profile>
+            <id>local</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <spring.profiles.active>local</spring.profiles.active>
+                <!-- Default classpath path for YAML connection list; can be overridden via -D or env -->
+                <reloader.dbconn.yaml.path>classpath:dbconnections.yml</reloader.dbconn.yaml.path>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <systemPropertyVariables>
+                                <spring.profiles.active>${spring.profiles.active}</spring.profiles.active>
+                                <reloader.dbconn.yaml.path>${reloader.dbconn.yaml.path}</reloader.dbconn.yaml.path>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>
