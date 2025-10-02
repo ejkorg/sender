@@ -18,6 +18,11 @@ export class BackendService {
     return this.http.get<ExternalLocation[]>(`${this.base}/environments/${encodeURIComponent(envName)}/locations`);
   }
 
+  listInstances(environment: string){
+    const params = new HttpParams().set('environment', environment);
+    return this.http.get<{key:string,label:string,environment:string}[]>(`${this.base}/external/instances`, { params });
+  }
+
   lookupSenders(params: { locationId?: number; connectionKey?: string; metadataLocation?: string; dataType?: string; testerType?: string; testPhase?: string; environment?: string; } ):
     Observable<SenderCandidate[]> {
     let p = new HttpParams();

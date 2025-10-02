@@ -67,6 +67,69 @@ Prerequisites
 - Node 20+ and npm
 - Chrome/Chromium for headless tests
 
+Local run (embedded Tomcat + H2 app DB)
+--------------------------------------
+
+The backend includes a "local" Maven profile that runs with embedded Tomcat and uses H2 for the application database. You can also provide external DTP (Oracle) connection entries via YAML or JSON to power the UI dropdown of instances.
+
+Build and run:
+
+```bash
+mvn -f backend/pom.xml -Plocal -DskipTests package
+java -jar backend/target/reloader-backend-0.0.1-SNAPSHOT.jar
+```
+
+Provide connection definitions (YAML preferred for readability):
+
+```yaml
+# /path/to/dbconnections.yml
+EXTERNAL-qa:
+	host: gyqsq-db.onsemi.com:1545:GYQSQ
+	user: DATAPORT_USER
+	password: "<SECRET>"
+	dbType: oracle
+
+EXTERNAL-prod:
+	host: prod-db.onsemi.com:1545:GYPSQ
+	user: DATAPORT_USER
+	password: "<SECRET>"
+	dbType: oracle
+```
+
+Point the app at the YAML/JSON file:
+
+```bash
+# YAML (recommended)
+java -Dspring.profiles.active=local \
+		 -Dreloader.dbconn.yaml.path=/path/to/dbconnections.yml \
+		 -jar backend/target/reloader-backend-0.0.1-SNAPSHOT.jar
+
+# JSON (also supported)
+java -Dspring.profiles.active=local \
+		 -Dreloader.dbconn.path=/path/to/dbconnections.json \
+		 -jar backend/target/reloader-backend-0.0.1-SNAPSHOT.jar
+```
+
+Environment suffix conventions for instances
+
+- Use baseKey with an environment suffix to define per-env entries. Supported suffix styles: `baseKey-qa`, `baseKey_qa`, `baseKey.qa` (same for `prod`).
+- The backend instances endpoint groups by base key per environment and returns the base key (e.g., `EXTERNAL`) for the UI dropdown.
+
+API endpoints used by the UI
+
+- `GET /api/external/instances?environment=qa|prod` — list available DTP instance base keys for the selected environment.
+- `POST /api/senders/{id}/discover` — trigger discovery. The UI passes `environment=qa|prod` and `site=<baseKey>`; the backend resolves the full connection.
+- Optional lookups when using a direct instance key:
+	- `GET /api/senders/external/locations?connectionKey=<baseKey>&environment=qa`
+	- `GET /api/senders/external/dataTypes?connectionKey=<baseKey>&environment=qa`
+	- `GET /api/senders/external/testerTypes?connectionKey=<baseKey>&environment=qa`
+	- `GET /api/senders/external/testPhases?connectionKey=<baseKey>&environment=qa`
+
+Security
+
+- Do not commit real credentials to the repository. Prefer supplying an external YAML/JSON file via `reloader.dbconn.yaml.path` or `reloader.dbconn.path`.
+- For local-only experimentation you can keep a dev-only `dbconnections.yml` under `backend/src/main/resources/` but ensure secrets are not real.
+
 Backend
 
 Build:

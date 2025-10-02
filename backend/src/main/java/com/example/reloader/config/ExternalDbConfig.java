@@ -2,6 +2,7 @@ package com.example.reloader.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -47,9 +48,12 @@ public class ExternalDbConfig {
 
     private final Environment env;
     private final ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
     private final MeterRegistry meterRegistry;
     // Keep track of Meter.Id objects we register per-resolved-pool so we can remove them reliably
     private final java.util.concurrent.ConcurrentMap<String, java.util.List<Meter.Id>> registeredMeterIds = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // no extra fields for loading temp state
 
     @Autowired
     public ExternalDbConfig(Environment env, ObjectProvider<MeterRegistry> meterRegistryProvider) throws IOException {
@@ -58,7 +62,7 @@ public class ExternalDbConfig {
         this.meterRegistry = meterRegistryProvider.getIfAvailable();
         // metrics registry not initialized here; admin endpoints expose pool stats instead
 
-        // Initialize caffeine cache for DataSources with settings from application.yml
+    // Initialize caffeine cache for DataSources with settings from application.yml
     int maxPools = Integer.parseInt(com.example.reloader.config.ConfigUtils.getString(env, "external-db.cache.max-pools", null, "50"));
     long expireMinutes = Long.parseLong(com.example.reloader.config.ConfigUtils.getString(env, "external-db.cache.expire-after-access-minutes", null, "60"));
         this.dsCaffeine = Caffeine.newBuilder()
@@ -77,18 +81,42 @@ public class ExternalDbConfig {
                 })
                 .build();
 
-    // Prefer an external file path via env var RELOADER_DBCONN_PATH for secrets in deployments.
-    String externalPath = com.example.reloader.config.ConfigUtils.getString(env, "RELOADER_DBCONN_PATH", "reloader.dbconn.path", null);
+        // Load connection definitions (JSON or YAML): external path, then YAML hint, then classpath default
+        Map<String, Map<String, Object>> loadedLocal = null;
+        // Prefer an external file path via env var RELOADER_DBCONN_PATH for secrets in deployments.
+        String externalPath = com.example.reloader.config.ConfigUtils.getString(env, "RELOADER_DBCONN_PATH", "reloader.dbconn.path", null);
         if (externalPath != null && !externalPath.isBlank()) {
             try (InputStream is = Files.newInputStream(Paths.get(externalPath))) {
-                dbConnections = mapper.readValue(is, new TypeReference<>() {});
-                return;
+                loadedLocal = mapper.readValue(is, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            }
+        }
+
+        // Optional: YAML path for local convenience (e.g., classpath:dbconnections.yml or file path)
+        String yamlPathProp = com.example.reloader.config.ConfigUtils.getString(env, "reloader.dbconn.yaml.path", "RELOADER_DBCONN_YAML_PATH", null);
+        if (loadedLocal == null && yamlPathProp != null && !yamlPathProp.isBlank()) {
+            try {
+                if (yamlPathProp.startsWith("classpath:")) {
+                    String res = yamlPathProp.substring("classpath:".length());
+                    ClassPathResource y = new ClassPathResource(res.startsWith("/") ? res.substring(1) : res);
+                    try (InputStream is = y.getInputStream()) {
+                        loadedLocal = yamlMapper.readValue(is, new TypeReference<>() {});
+                    }
+                } else {
+                    try (InputStream is = Files.newInputStream(Paths.get(yamlPathProp))) {
+                        loadedLocal = yamlMapper.readValue(is, new TypeReference<>() {});
+                    }
+                }
+            } catch (Exception ignored) {
+                // fall back to json classpath below
             }
         }
 
         // Fallback to classpath resource (for local dev only). Avoid packaging real secrets into JAR.
-        ClassPathResource r = new ClassPathResource("dbconnections.json");
-        dbConnections = mapper.readValue(r.getInputStream(), new TypeReference<>() {});
+        if (loadedLocal == null) {
+            ClassPathResource r = new ClassPathResource("dbconnections.json");
+            loadedLocal = mapper.readValue(r.getInputStream(), new TypeReference<>() {});
+        }
+        this.dbConnections = loadedLocal;
     }
 
     // Backwards-compatible constructor for callers/tests that don't provide a MeterRegistry
@@ -144,6 +172,14 @@ public class ExternalDbConfig {
      */
     public java.util.Set<String> getActivePoolKeys() {
         return java.util.Collections.unmodifiableSet(dsCache.keySet());
+    }
+
+    /**
+     * Return the set of configured connection keys (raw keys from configuration).
+     * This method exposes only the keys, not values with secrets.
+     */
+    public java.util.Set<String> getConfiguredKeys() {
+        return java.util.Collections.unmodifiableSet(dbConnections.keySet());
     }
 
     // Helper used by tests to inspect the configured maximum pool size for a resolved key.
@@ -218,7 +254,12 @@ public class ExternalDbConfig {
     String port = cfg.containsKey("port") ? cfg.get("port").toString() : "1521";
 
         String jdbcUrl;
-        if (host != null && host.contains("/")) {
+        // Prefer explicit JDBC URL fields if present
+        Object jdbcField = cfg.get("jdbc");
+        if (jdbcField == null) jdbcField = cfg.get("jdbcUrl");
+        if (jdbcField != null && jdbcField.toString().startsWith("jdbc:")) {
+            jdbcUrl = jdbcField.toString();
+        } else if (host != null && host.contains("/")) {
             String[] parts = host.split("/");
             String hostname = parts[0];
             String service = parts[1];
@@ -226,7 +267,10 @@ public class ExternalDbConfig {
             jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s:%s", hostname, port, sid);
         } else {
             if (host != null && host.startsWith("jdbc:")) jdbcUrl = host;
-            else jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s", host, port);
+            else if (host != null && host.contains(":")) {
+                // Support host:port:SID format directly
+                jdbcUrl = "jdbc:oracle:thin:@" + host;
+            } else jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s", host, port);
         }
 
         // Use a pooled DataSource per resolved key+env to avoid creating raw DriverManager connections each time.
@@ -328,7 +372,10 @@ public class ExternalDbConfig {
 
         // If host contains a slash (host/SERVICE) assume Oracle thin format
         String jdbcUrl;
-        if (host != null && host.contains("/")) {
+        Object jdbcField = cfg.get("jdbc"); if (jdbcField == null) jdbcField = cfg.get("jdbcUrl");
+        if (jdbcField != null && jdbcField.toString().startsWith("jdbc:")) {
+            jdbcUrl = jdbcField.toString();
+        } else if (host != null && host.contains("/")) {
             String[] parts = host.split("/");
             String hostname = parts[0];
             String service = parts[1];
@@ -338,6 +385,7 @@ public class ExternalDbConfig {
         } else {
             // Fallback - try as JDBC URL or generic mysql-style host
             if (host != null && host.startsWith("jdbc:")) jdbcUrl = host;
+            else if (host != null && host.contains(":")) jdbcUrl = "jdbc:oracle:thin:@" + host;
             else jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s", host, port);
         }
 

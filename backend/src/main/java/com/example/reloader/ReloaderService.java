@@ -1,6 +1,7 @@
 package com.example.reloader;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -26,19 +27,40 @@ public class ReloaderService {
                            com.example.reloader.repository.LoadSessionRepository loadSessionRepository,
                            com.example.reloader.repository.LoadSessionPayloadRepository loadSessionPayloadRepository,
                            org.springframework.core.env.Environment env) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
+    ObjectMapper mapper = new ObjectMapper();
+    ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
         this.senderService = senderService;
         this.loadSessionRepository = loadSessionRepository;
         this.loadSessionPayloadRepository = loadSessionPayloadRepository;
 
         this.env = env;
         // Allow specifying an external dbconnections.json path via RELOADER_DBCONN_PATH (Spring property)
-    String externalPath = com.example.reloader.config.ConfigUtils.getString(env, "reloader.dbconn.path", "RELOADER_DBCONN_PATH", null);
+        String externalPath = com.example.reloader.config.ConfigUtils.getString(env, "reloader.dbconn.path", "RELOADER_DBCONN_PATH", null);
         if (externalPath != null && !externalPath.isBlank()) {
             try (InputStream is = Files.newInputStream(Paths.get(externalPath))) {
                 dbConnections = mapper.readValue(is, Map.class);
                 return;
             }
+        }
+
+        // Optional YAML path (classpath:dbconnections.yml or file path)
+        String yamlPath = com.example.reloader.config.ConfigUtils.getString(env, "reloader.dbconn.yaml.path", "RELOADER_DBCONN_YAML_PATH", null);
+        if (yamlPath != null && !yamlPath.isBlank()) {
+            try {
+                if (yamlPath.startsWith("classpath:")) {
+                    String res = yamlPath.substring("classpath:".length());
+                    ClassPathResource y = new ClassPathResource(res.startsWith("/") ? res.substring(1) : res);
+                    try (InputStream is = y.getInputStream()) {
+                        dbConnections = yamlMapper.readValue(is, Map.class);
+                        return;
+                    }
+                } else {
+                    try (InputStream is = Files.newInputStream(Paths.get(yamlPath))) {
+                        dbConnections = yamlMapper.readValue(is, Map.class);
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
         // Fallback to classpath resource for local/dev use.
