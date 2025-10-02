@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:reloader;DB_CLOSE_DELAY=-1;MODE=Oracle
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-1.0.xml
+
+# External DB pool defaults (used when connecting to selected Oracle from dropdown)
+external-db:
+  hikari:
+    maximum-pool-size: 5
+    minimum-idle: 1
+    connection-timeout-ms: 15000
+    idle-timeout-ms: 600000
+    validation-timeout-ms: 5000
+  cache:
+    max-pools: 20
+    expire-after-access-minutes: 30
+
+# In local profile you can optionally set this to true to simulate the external DB as in-memory H2
+# reloader:
+#   use-h2-external: true
+
+# Point the app to the local YAML list of external DB connections for the UI dropdown
+reloader:
+  dbconn:
+    yaml:
+      path: classpath:dbconnections.yml

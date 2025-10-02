@@ -1,0 +1,23 @@
+# Example YAML connection list for local development
+# Keys become the dropdown entries in the UI (via /api/sites endpoint)
+
+SAMPLE_QA:
+  host: myqa-db.example.com/MYQA
+  port: "1521"
+  user: db_user
+  password: db_password
+  dbType: oracle
+
+SAMPLE_PROD:
+  host: myprod-db.example.com/MYPROD
+  port: "1521"
+  user: db_user
+  password: db_password
+  dbType: oracle
+
+# You can also include an H2 JDBC URL entry for quick testing
+H2_LOCAL:
+  host: jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1;INIT=RUNSCRIPT FROM 'classpath:external_h2_seed.sql'
+  user: sa
+  password: ""
+  dbType: h2
