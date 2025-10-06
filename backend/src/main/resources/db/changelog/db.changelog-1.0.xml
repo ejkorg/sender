@@ -108,4 +108,7 @@
         </addColumn>
     </changeSet>
 
+    <!-- Include additional changelogs -->
+    <include file="db.changelog-1.1-add-load-session-payload-remote-fields.xml" relativeToChangelogFile="true" />
+
 </databaseChangeLog>

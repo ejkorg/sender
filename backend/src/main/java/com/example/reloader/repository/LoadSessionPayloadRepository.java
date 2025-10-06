@@ -17,4 +17,8 @@ public interface LoadSessionPayloadRepository extends JpaRepository<LoadSessionP
     int countBySessionId(Long sessionId);
 
     int countBySessionIdAndStatus(Long sessionId, String status);
+
+    java.util.Optional<com.example.reloader.entity.LoadSessionPayload> findBySessionIdAndPayloadId(Long sessionId, String payloadId);
+
+    long countBySessionIdAndPayloadId(Long sessionId, String payloadId);
 }

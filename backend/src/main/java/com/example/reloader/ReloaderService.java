@@ -204,7 +204,17 @@ public class ReloaderService {
             while (rs.next()) {
                 String payload = rs.getString(2) + "," + rs.getString(3);
                 com.example.reloader.entity.LoadSessionPayload p = new com.example.reloader.entity.LoadSessionPayload(session, payload);
-                try { loadSessionPayloadRepository.save(p); } catch (Exception ignored) {}
+                try {
+                    // Pre-insert check to reduce duplicates (race conditions still possible; DB constraint will be final guard)
+                    var exists = loadSessionPayloadRepository.findBySessionIdAndPayloadId(session.getId(), payload);
+                    if (exists.isEmpty()) {
+                        try {
+                            loadSessionPayloadRepository.save(p);
+                        } catch (org.springframework.dao.DataIntegrityViolationException dive) {
+                            // concurrent insert created the same row; treat as skipped
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
         } finally {
             try { rs.close(); } catch (Exception ignore) {}
