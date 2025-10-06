@@ -8,7 +8,9 @@ spring:
     username: sa
     password: ""
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    # Let Hibernate auto-detect the dialect at runtime. Override with
+    # -Dspring.jpa.database-platform=org.hibernate.dialect.Oracle12cDialect
+    # when you explicitly want to force Oracle in local runs.
     hibernate:
       ddl-auto: update
     show-sql: true

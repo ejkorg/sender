@@ -163,8 +163,10 @@ public class ReloaderService {
     }
 
     private void queryData(String host, String user, String password, String sid, String port, String startDate, String endDate, String testerType, String dataType, String listFile) throws SQLException, IOException {
-        Connection connection = DriverManager.getConnection(
-            "jdbc:oracle:thin:@" + host + ":" + port + ":" + sid, user, password);
+    String jdbcUrl = (sid != null && !sid.isBlank())
+        ? "jdbc:oracle:thin:@//" + host + ":" + port + "/" + sid
+        : "jdbc:oracle:thin:@" + host + ":" + port;
+    Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
         String query = "select lot,id,id_data from all_metadata_view where end_time between (?) AND (?) and tester_type = ? and data_type = ?";
         PreparedStatement stmt = connection.prepareStatement(query);
         stmt.setString(1, startDate);
@@ -191,8 +193,10 @@ public class ReloaderService {
      * Helper: query remote external DB and persist results into the given LoadSession via LoadSessionPayloadRepository
      */
     private void queryDataToSession(String host, String user, String password, String sid, String port, String startDate, String endDate, String testerType, String dataType, com.example.reloader.entity.LoadSession session) throws SQLException {
-        Connection connection = DriverManager.getConnection(
-            "jdbc:oracle:thin:@" + host + ":" + port + ":" + sid, user, password);
+    String jdbcUrl = (sid != null && !sid.isBlank())
+        ? "jdbc:oracle:thin:@//" + host + ":" + port + "/" + sid
+        : "jdbc:oracle:thin:@" + host + ":" + port;
+    Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
         String query = "select lot,id,id_data from all_metadata_view where end_time between (?) AND (?) and tester_type = ? and data_type = ?";
         PreparedStatement stmt = connection.prepareStatement(query);
         stmt.setString(1, startDate);

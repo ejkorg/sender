@@ -380,6 +380,53 @@ If you'd like I can:
 - Add a short pointer in the project's top-level `README.md` linking to this DEV doc.
 If you'd like I can also add a short badge or a targeted workflow that runs on PR to `main` once we're comfortable with the behavior.
 
+Temporary dev helper: relax Liquibase preConditions
+-----------------------------------------------
+
+When iterating locally you may want to relax the `onFail="HALT"` preConditions so Liquibase marks changeSets as run in dev environments where the schema was created by other means. To support this workflow safely a helper script is provided under `backend/scripts`:
+
+  - `backend/scripts/relax_liquibase_for_dev.sh`
+
+Usage (local development only):
+
+```bash
+# Temporarily replaces onFail="HALT" with onFail="MARK_RAN" in the main changelogs,
+# optionally runs Liquibase update if RUN_LIQUIBASE=true is set, then restores originals.
+bash backend/scripts/relax_liquibase_for_dev.sh
+
+# To also run Liquibase update during the relaxed window:
+RUN_LIQUIBASE=true bash backend/scripts/relax_liquibase_for_dev.sh
+```
+
+Important safety notes:
+
+- This script is intended for local development and refuses to run in CI (it checks the `CI` env var).
+- Do NOT run this script in production environments. The repository now uses `onFail="HALT"` in changelogs to ensure deployments fail fast if schema objects are missing.
+- The helper backs up the original changelog files and restores them after you confirm (it will prompt you to press Enter). If you cancel restoration, restore them manually from the backup directory created under `target/`.
+
+If you prefer an environment-driven toggle rather than editing files on disk, the project now supports a parameterized preCondition behavior via the Liquibase property
+`liquibase.precondition.onFail` and a convenience Maven profile.
+
+Usage options:
+
+- Use the Maven profile `liquibase-relaxed` (recommended for local dev):
+
+```bash
+# sets liquibase.precondition.onFail=MARK_RAN for the duration of the build/run
+mvn -f backend/pom.xml -Pliquibase-relaxed -DskipITs=true test
+```
+
+- Or pass the property directly at runtime:
+
+```bash
+# Pass the property to Maven or Java
+mvn -f backend/pom.xml -Dliquibase.precondition.onFail=MARK_RAN liquibase:update
+# or when running the jar
+java -Dliquibase.precondition.onFail=MARK_RAN -jar target/reloader-backend-0.0.1-SNAPSHOT.jar ...
+```
+
+This avoids editing changelog files and preserves `onFail="HALT"` as the production default.
+
 Windows (PowerShell) usage
 ---------------------------
 

@@ -1,1 +1,8 @@
-{}
+{
+		"xe-local": {
+			"host": "localhost/XEPDB1",
+			"user": "reloader",
+			"password": "Password123",
+			"port": "1521"
+		}
+}

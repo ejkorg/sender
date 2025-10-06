@@ -6,7 +6,7 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
 
     <changeSet id="2025-09-27-1" author="copilot">
-        <preConditions onFail="MARK_RAN">
+        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
             <tableExists tableName="load_session_payload" />
         </preConditions>
         <addColumn tableName="load_session_payload">
@@ -17,7 +17,7 @@
     </changeSet>
 
     <changeSet id="2025-09-27-2" author="copilot">
-        <preConditions onFail="MARK_RAN">
+        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
             <tableExists tableName="load_session_payload" />
         </preConditions>
         <createIndex tableName="load_session_payload" indexName="idx_load_session_payload_session_status">
