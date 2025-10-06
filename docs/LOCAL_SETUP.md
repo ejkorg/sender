@@ -161,4 +161,17 @@ Optional tweaks / enhancements (I can implement)
 - Add a small regression test verifying the `registeredMeterIds` list is cleaned after `recreatePool` or eviction.
 - Provide a simple docker-compose for quick local Oracle replacement (e.g., with Oracle XE) — I can scaffold this if useful.
 
+Tests and schema strategy
+-------------------------
+
+In tests we use an in-memory H2 database. Liquibase is the canonical source of production migrations (the changelogs under `src/main/resources/db/changelog`).
+
+However, in the test environment Hibernate may create the schema after Liquibase runs which can create ordering/visibility issues for changeSets that alter an already-created table. To keep tests simple and reliable we apply the following pragmatic approach:
+
+- Keep a JPA-level `@UniqueConstraint` on `LoadSessionPayload(session_id, payload_id)` so the Hibernate-created test schema enforces the same uniqueness expected in production. This prevents duplicate rows from being inserted in tests and surface SQL errors (H2 SQLState 23505) where appropriate.
+- Keep Liquibase as the canonical migration source for production. The Liquibase changelog added to perform dedupe and create a unique constraint remains the authoritative migration and should be applied during deployments.
+- If you prefer tests to rely strictly on Liquibase, switch test config to disable Hibernate DDL (`spring.jpa.hibernate.ddl-auto=none`) and ensure Liquibase creates the full schema in tests before tests start. That is more canonical but requires additional test config adjustments.
+
+If you want me to switch tests to use Liquibase-only schema creation (disable Hibernate DDL) I can implement that change and update the CI config accordingly.
+
 If you'd like, I can add a `docs/LOCAL_SETUP.md` (this content) into the repo (I can commit it), implement the metrics toggle, or add the regression test. Which would you like me to do next?

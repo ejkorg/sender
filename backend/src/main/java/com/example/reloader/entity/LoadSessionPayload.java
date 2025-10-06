@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "load_session_payload")
+@Table(name = "load_session_payload", uniqueConstraints = @UniqueConstraint(name = "uk_load_session_payload_session_payload", columnNames = {"session_id", "payload_id"}))
 public class LoadSessionPayload {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,6 +23,9 @@ public class LoadSessionPayload {
     private int attempts = 0;
     private Instant createdAt = Instant.now();
     private Instant updatedAt = Instant.now();
+    // Placeholder for future global payload mapping. Nullable; populated later when available.
+    @Column(name = "global_payload_id")
+    private Long globalPayloadId;
 
     public LoadSessionPayload() {}
 
@@ -53,6 +56,9 @@ public class LoadSessionPayload {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public Long getGlobalPayloadId() { return globalPayloadId; }
+    public void setGlobalPayloadId(Long globalPayloadId) { this.globalPayloadId = globalPayloadId; }
 
     // Convenience state transition helpers used by SessionPushService and tests
     public void markStaged() {
