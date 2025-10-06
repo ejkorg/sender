@@ -404,7 +404,28 @@ Important safety notes:
 - Do NOT run this script in production environments. The repository now uses `onFail="HALT"` in changelogs to ensure deployments fail fast if schema objects are missing.
 - The helper backs up the original changelog files and restores them after you confirm (it will prompt you to press Enter). If you cancel restoration, restore them manually from the backup directory created under `target/`.
 
-If you prefer an environment-driven toggle rather than editing files on disk, I can add a build-time switch or a Maven profile to handle dev vs. prod preCondition behavior; tell me which approach you'd like and I’ll implement it.
+If you prefer an environment-driven toggle rather than editing files on disk, the project now supports a parameterized preCondition behavior via the Liquibase property
+`liquibase.precondition.onFail` and a convenience Maven profile.
+
+Usage options:
+
+- Use the Maven profile `liquibase-relaxed` (recommended for local dev):
+
+```bash
+# sets liquibase.precondition.onFail=MARK_RAN for the duration of the build/run
+mvn -f backend/pom.xml -Pliquibase-relaxed -DskipITs=true test
+```
+
+- Or pass the property directly at runtime:
+
+```bash
+# Pass the property to Maven or Java
+mvn -f backend/pom.xml -Dliquibase.precondition.onFail=MARK_RAN liquibase:update
+# or when running the jar
+java -Dliquibase.precondition.onFail=MARK_RAN -jar target/reloader-backend-0.0.1-SNAPSHOT.jar ...
+```
+
+This avoids editing changelog files and preserves `onFail="HALT"` as the production default.
 
 Windows (PowerShell) usage
 ---------------------------

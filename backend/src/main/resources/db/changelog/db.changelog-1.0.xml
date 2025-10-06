@@ -100,7 +100,7 @@
     </changeSet>
 
     <changeSet id="7" author="copilot">
-        <preConditions onFail="MARK_RAN">
+        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
             <tableExists tableName="load_session_payload" />
         </preConditions>
         <addColumn tableName="load_session_payload">

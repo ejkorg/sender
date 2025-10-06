@@ -6,35 +6,54 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
 
     <changeSet id="2025-10-04-1-dedupe-load-session-payload" author="copilot">
-        <preConditions onFail="MARK_RAN">
+       <!-- The onFail behavior is parameterized so devs can relax it with -Dliquibase.precondition.onFail=MARK_RAN
+           without editing changelog files. Default is HALT (safe for production). -->
+       <preConditions onFail="${liquibase.precondition.onFail:HALT}">
             <tableExists tableName="load_session_payload" />
         </preConditions>
-        <!-- Delete duplicate rows keeping the lowest id for each (session_id, payload_id) -->
+        <!--
+            Dedupe using a window function so this works on Oracle (and H2 with window support):
+            Deletes any row where ROW_NUMBER() over (partition by session_id, payload_id order by id) > 1
+            This keeps the lowest id per (session_id, payload_id).
+            This operation is destructive: take a backup/snapshot before running on production.
+        -->
         <comment>Dedupe existing load_session_payload rows keeping lowest id per (session_id, payload_id)</comment>
         <sql>
-            -- H2/Generic SQL: delete rows where id is not the min id for that session/payload
-            DELETE FROM load_session_payload WHERE id NOT IN (
-                SELECT MIN(id) FROM load_session_payload GROUP BY session_id, payload_id
+            DELETE FROM load_session_payload WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY session_id, payload_id ORDER BY id) rn
+                    FROM load_session_payload
+                ) WHERE rn &gt; 1
             );
         </sql>
+        <rollback>
+            <!-- No practical automatic rollback for deleted rows: restore from backup if needed -->
+        </rollback>
     </changeSet>
 
     <changeSet id="2025-10-04-2-add-global-payload-id" author="copilot">
-        <preConditions onFail="MARK_RAN">
+        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
             <tableExists tableName="load_session_payload" />
         </preConditions>
         <addColumn tableName="load_session_payload">
             <column name="global_payload_id" type="BIGINT" />
         </addColumn>
+        <rollback>
+            <dropColumn tableName="load_session_payload" columnName="global_payload_id"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="2025-10-04-3-add-unique-constraint-session-payload" author="copilot">
-        <preConditions onFail="MARK_RAN">
+        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
             <and>
                 <tableExists tableName="load_session_payload" />
             </and>
         </preConditions>
-        <addUniqueConstraint tableName="load_session_payload" columnNames="session_id, payload_id" constraintName="uk_load_session_payload_session_payload"/>
+        <!-- Constraint name shortened for Oracle identifier limits (<= 30 chars) -->
+        <addUniqueConstraint tableName="load_session_payload" columnNames="session_id, payload_id" constraintName="uk_lsp_sess_pl"/>
+        <rollback>
+            <dropUniqueConstraint tableName="load_session_payload" constraintName="uk_lsp_sess_pl"/>
+        </rollback>
     </changeSet>
 
 </databaseChangeLog>

@@ -156,6 +156,18 @@
             </build>
         </profile>
 
+        <!-- Profile to relax Liquibase preConditions for local dev/testing. This sets a property that the changelogs
+             read via ${liquibase.precondition.onFail} and defaults to HALT when the profile is not used. -->
+        <profile>
+            <id>liquibase-relaxed</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <properties>
+                <liquibase.precondition.onFail>MARK_RAN</liquibase.precondition.onFail>
+            </properties>
+        </profile>
+
         <profile>
             <id>external-oracle</id>
             <activation>
