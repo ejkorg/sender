@@ -380,6 +380,32 @@ If you'd like I can:
 - Add a short pointer in the project's top-level `README.md` linking to this DEV doc.
 If you'd like I can also add a short badge or a targeted workflow that runs on PR to `main` once we're comfortable with the behavior.
 
+Temporary dev helper: relax Liquibase preConditions
+-----------------------------------------------
+
+When iterating locally you may want to relax the `onFail="HALT"` preConditions so Liquibase marks changeSets as run in dev environments where the schema was created by other means. To support this workflow safely a helper script is provided under `backend/scripts`:
+
+  - `backend/scripts/relax_liquibase_for_dev.sh`
+
+Usage (local development only):
+
+```bash
+# Temporarily replaces onFail="HALT" with onFail="MARK_RAN" in the main changelogs,
+# optionally runs Liquibase update if RUN_LIQUIBASE=true is set, then restores originals.
+bash backend/scripts/relax_liquibase_for_dev.sh
+
+# To also run Liquibase update during the relaxed window:
+RUN_LIQUIBASE=true bash backend/scripts/relax_liquibase_for_dev.sh
+```
+
+Important safety notes:
+
+- This script is intended for local development and refuses to run in CI (it checks the `CI` env var).
+- Do NOT run this script in production environments. The repository now uses `onFail="HALT"` in changelogs to ensure deployments fail fast if schema objects are missing.
+- The helper backs up the original changelog files and restores them after you confirm (it will prompt you to press Enter). If you cancel restoration, restore them manually from the backup directory created under `target/`.
+
+If you prefer an environment-driven toggle rather than editing files on disk, I can add a build-time switch or a Maven profile to handle dev vs. prod preCondition behavior; tell me which approach you'd like and I’ll implement it.
+
 Windows (PowerShell) usage
 ---------------------------
 
