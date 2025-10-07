@@ -3,6 +3,12 @@ Backend development notes
 
 This file documents a couple of important runtime flags and how to run the backend tests when exercising the "external DB" write paths during local development.
 
+Quick links
+-----------
+
+- Windows Quick Start (Oracle XE): see the top-level `README.md` → "Windows Quick Start (Oracle XE)" for a copy-paste flow to run the backend locally and point external lookups at Oracle XE. It also links to the Postman collection/environment and the Angular dev proxy.
+- Full local setup with Oracle and end-to-end guidance: `docs/LOCAL_SETUP.md`
+
 Important flags
 ---------------
 

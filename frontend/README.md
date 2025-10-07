@@ -12,6 +12,17 @@ ng serve
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
+Using the backend dev proxy
+---------------------------
+
+When developing locally against the backend, you can use the included proxy configuration to avoid CORS and keep API calls on the same origin:
+
+```bash
+ng serve --proxy-config proxy.conf.json
+```
+
+This proxies `/api/*` requests to the backend (default http://localhost:8080). For a copy-paste Windows setup with Oracle XE, see the top-level `README.md` → "Windows Quick Start (Oracle XE)".
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
