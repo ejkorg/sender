@@ -198,8 +198,7 @@ export class App implements OnInit {
     if (!this.selectedLocationId || !this.externalLocationValue) { this.testPhases = []; return; }
     const params: any = { locationId: String(this.selectedLocationId), location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' };
     this.loadingTestPhases = true;
-    // backend does not have a dedicated getDistinctTestPhases method; reuse testerTypes endpoint or add backend support later
-    this.backend.getDistinctDataTypes({ locationId: this.selectedLocationId, location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' }).subscribe(
+    this.backend.getDistinctTestPhases({ locationId: this.selectedLocationId, location: this.externalLocationValue, environment: this.selectedEnvironment || 'qa' }).subscribe(
       (data: string[]) => { this.testPhases = data; this.loadingTestPhases = false; },
       (err: any) => { console.error('Failed loading test phases', err); this.testPhases = []; this.loadingTestPhases = false; }
     );

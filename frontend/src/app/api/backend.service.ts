@@ -37,6 +37,13 @@ export class BackendService {
     return this.http.get<string[]>(`${this.base}/senders/external/testerTypes`, { params: p, headers: headers || undefined });
   }
 
+  getDistinctTestPhases(options: { locationId?: number; connectionKey?: string; location?: string; dataType?: string; testerType?: string; environment?: string }){
+    let p = new HttpParams();
+    Object.entries(options).forEach(([k,v]) => { if (v != null) p = p.set(k, String(v)); });
+    const headers = this.auth.getAuthHeaders();
+    return this.http.get<string[]>(`${this.base}/senders/external/testPhases`, { params: p, headers: headers || undefined });
+  }
+
   getDistinctDataTypes(options: { locationId?: number; connectionKey?: string; location?: string; testerType?: string; testPhase?: string; environment?: string }){
     let p = new HttpParams();
     Object.entries(options).forEach(([k,v]) => { if (v != null) p = p.set(k, String(v)); });
