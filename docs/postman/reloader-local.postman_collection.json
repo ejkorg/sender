@@ -1,0 +1,130 @@
+{
+  "info": {
+    "name": "Reloader Local (Oracle)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "http://localhost:8080/api/auth/login", "protocol": "http", "host": ["localhost"], "port": "8080", "path": ["api","auth","login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}" }
+      }
+    },
+    {
+      "name": "Auth - Refresh",
+      "request": {
+        "method": "POST",
+        "url": { "raw": "http://localhost:8080/api/auth/refresh", "protocol": "http", "host": ["localhost"], "port": "8080", "path": ["api","auth","refresh"] }
+      }
+    },
+    {
+      "name": "External - Instances (qa)",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "http://localhost:8080/api/external/instances?environment=qa", "protocol": "http", "host": ["localhost"], "port": "8080", "path": ["api","external","instances"], "query": [ {"key":"environment","value":"qa"} ] }
+      }
+    },
+    {
+      "name": "Senders - Lookup (by locationId)",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": {
+          "raw": "http://localhost:8080/api/senders/lookup?locationId={{locationId}}&environment=qa",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api","senders","lookup"],
+          "query": [
+            {"key":"locationId","value":"{{locationId}}"},
+            {"key":"environment","value":"qa"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "Senders - Distinct Locations (by connectionKey)",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": {
+          "raw": "http://localhost:8080/api/senders/external/locations?connectionKey={{connectionKey}}&environment=qa",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api","senders","external","locations"],
+          "query": [
+            {"key":"connectionKey","value":"{{connectionKey}}"},
+            {"key":"environment","value":"qa"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "Senders - Discover",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": {
+          "raw": "http://localhost:8080/api/senders/{{senderId}}/discover?environment=qa&locationId={{locationId}}&metadataLocation={{metadataLocation}}&numberOfDataToSend=200&countLimitTrigger=600",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api","senders","{{senderId}}","discover"],
+          "query": [
+            {"key":"environment","value":"qa"},
+            {"key":"locationId","value":"{{locationId}}"},
+            {"key":"metadataLocation","value":"{{metadataLocation}}"},
+            {"key":"numberOfDataToSend","value":"200"},
+            {"key":"countLimitTrigger","value":"600"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "Senders - Queue (NEW)",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": {
+          "raw": "http://localhost:8080/api/senders/{{senderId}}/queue?status=NEW&limit=100",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api","senders","{{senderId}}","queue"],
+          "query": [
+            {"key":"status","value":"NEW"},
+            {"key":"limit","value":"100"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "Senders - Run Batch",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Authorization", "value": "Bearer {{accessToken}}" } ],
+        "url": {
+          "raw": "http://localhost:8080/api/senders/{{senderId}}/run?limit=200",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api","senders","{{senderId}}","run"],
+          "query": [
+            {"key":"limit","value":"200"}
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "accessToken", "value": "" },
+    { "key": "senderId", "value": "" },
+    { "key": "locationId", "value": "" },
+    { "key": "connectionKey", "value": "" },
+    { "key": "metadataLocation", "value": "" }
+  ]
+}
