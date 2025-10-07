@@ -7,3 +7,9 @@ external-h2-db*
 # Node modules (ignore top-level and nested node_modules folders)
 node_modules/
 **/node_modules/
+
+# Local runtime and test artifacts
+backend/*.log
+backend/nohup*
+scripts/artifacts/
+tmp/
