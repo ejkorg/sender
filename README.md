@@ -210,6 +210,60 @@ If you're developing on Windows, the backend includes PowerShell helper scripts 
 
 Developer docs and runbooks for the backend are in `backend/docs/`. See `backend/docs/external-db-runbook.md` for details about external DB opt-in flags and testing guidance.
 
+Windows Quick Start (Oracle XE)
+-------------------------------
+
+If you want to quickly run the backend locally on Windows while pointing “external” connections at a local Oracle XE, use this abbreviated flow. For deeper context and alternatives, see `docs/LOCAL_SETUP.md`.
+
+Prereqs
+- Oracle XE installed and running (for example: service name `XEPDB1` on port 1521)
+- A database user with privileges to read the external source tables you’ll query (see `backend/docs/external-db-runbook.md`)
+
+Steps (PowerShell)
+
+1) Build the backend JAR from the repo root:
+
+```powershell
+mvn -f .\backend\pom.xml -DskipTests package
+```
+
+2) Create a YAML file with your external connection(s), for example `C:\reloader\dbconnections.yml`:
+
+```yaml
+# C:\reloader\dbconnections.yml
+EXTERNAL-qa:
+	host: localhost:1521/XEPDB1   # service-style URL part for XE
+	user: RELOADER                # replace with your Oracle user
+	password: "<SECRET>"
+	dbType: oracle
+```
+
+3) Run the backend pointing at that YAML. The app itself will still use its default local app DB; only external lookups go to Oracle XE:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = "local"
+java -Dreloader.dbconn.yaml.path="C:\reloader\dbconnections.yml" -jar .\backend\target\reloader-backend-0.0.1-SNAPSHOT.jar
+```
+
+4) Exercise endpoints quickly with Postman. Import these two files:
+- `docs/postman/reloader-local.postman_environment.json`
+- `docs/postman/reloader-local.postman_collection.json`
+
+Then set the environment variables, send the Login request, and walk through Lookup → Discover → Queue → Run.
+
+5) Optional: run the Angular dev server against the local backend using the included proxy:
+
+```powershell
+cd .\frontend
+npm ci
+ng serve --proxy-config proxy.conf.json
+```
+
+Notes
+- Prefer service-style Oracle URLs (e.g., `jdbc:oracle:thin:@//host:port/SERVICE`) for XE; the backend will respect full `jdbc:` URLs if provided.
+- The database uniqueness constraint on `(session_id, payload_id)` is enforced in production via Liquibase, and tests mirror it with a JPA `@UniqueConstraint`.
+- For full end-to-end guidance (including running the app’s primary datasource on Oracle and Liquibase considerations), see `docs/LOCAL_SETUP.md` and `backend/docs/external-db-runbook.md`.
+
 RHEL 8 / Podman
 ---------------
 
