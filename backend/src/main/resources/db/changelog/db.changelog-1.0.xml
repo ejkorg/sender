@@ -99,6 +99,59 @@
         <sql dbms="oracle">UPDATE external_location SET site = UPPER(CASE WHEN INSTR(label, ' ') &gt; 0 THEN SUBSTR(label, 1, INSTR(label, ' ')-1) ELSE label END);</sql>
     </changeSet>
 
+    <!-- Create load_session and load_session_payload base tables so later changeSets can modify them -->
+    <changeSet id="6a-create-load-session-tables" author="copilot">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="load_session" />
+            </not>
+        </preConditions>
+        <createTable tableName="load_session">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="initiated_by" type="VARCHAR(255)" />
+            <column name="site" type="VARCHAR(100)" />
+            <column name="environment" type="VARCHAR(100)" />
+            <column name="sender_id" type="INT" />
+            <column name="source" type="VARCHAR(200)" />
+            <column name="status" type="VARCHAR(50)" />
+            <column name="total_payloads" type="INT" />
+            <column name="enqueued_local_count" type="INT" />
+            <column name="pushed_remote_count" type="INT" />
+            <column name="skipped_count" type="INT" />
+            <column name="failed_count" type="INT" />
+            <column name="created_at" type="TIMESTAMP" />
+            <column name="updated_at" type="TIMESTAMP" />
+        </createTable>
+
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="load_session_payload" />
+            </not>
+        </preConditions>
+        <createTable tableName="load_session_payload">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="session_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload_id" type="VARCHAR(1000)" />
+            <column name="status" type="VARCHAR(50)" />
+            <column name="error" type="VARCHAR(2000)" />
+            <column name="external_id" type="VARCHAR(255)" />
+            <column name="pushed_at" type="TIMESTAMP" />
+            <column name="next_attempt_at" type="TIMESTAMP" />
+            <column name="attempts" type="INT" />
+            <column name="created_at" type="TIMESTAMP" />
+            <column name="updated_at" type="TIMESTAMP" />
+            <column name="global_payload_id" type="BIGINT" />
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="load_session_payload" baseColumnNames="session_id" referencedTableName="load_session" referencedColumnNames="id" constraintName="fk_lsp_session"/>
+    </changeSet>
+
     <changeSet id="7" author="copilot">
         <preConditions onFail="HALT">
             <tableExists tableName="load_session_payload" />
@@ -106,6 +159,39 @@
         <addColumn tableName="load_session_payload">
             <column name="next_attempt_at" type="TIMESTAMP" />
         </addColumn>
+    </changeSet>
+
+    <!-- Oracle-specific sequences and triggers for auto-increment behavior -->
+    <changeSet id="6b-oracle-sequences-triggers" author="copilot">
+        <preConditions onFail="MARK_RAN">
+            <dbms type="oracle" />
+        </preConditions>
+        <!-- Create sequences only on Oracle; H2 uses autoIncrement columns above -->
+        <createSequence sequenceName="seq_load_session" startValue="1" incrementBy="1" />
+        <createSequence sequenceName="seq_load_session_payload" startValue="1" incrementBy="1" />
+
+        <!-- Triggers to populate IDs from sequences on Oracle. Use splitStatements=false for PL/SQL blocks. -->
+        <sql dbms="oracle" splitStatements="false">
+            CREATE OR REPLACE TRIGGER trg_load_session_bi
+            BEFORE INSERT ON load_session
+            FOR EACH ROW
+            BEGIN
+                IF :new.id IS NULL THEN
+                    SELECT seq_load_session.NEXTVAL INTO :new.id FROM dual;
+                END IF;
+            END;
+        </sql>
+
+        <sql dbms="oracle" splitStatements="false">
+            CREATE OR REPLACE TRIGGER trg_lsp_bi
+            BEFORE INSERT ON load_session_payload
+            FOR EACH ROW
+            BEGIN
+                IF :new.id IS NULL THEN
+                    SELECT seq_load_session_payload.NEXTVAL INTO :new.id FROM dual;
+                END IF;
+            END;
+        </sql>
     </changeSet>
 
     <!-- Include additional changelogs -->
