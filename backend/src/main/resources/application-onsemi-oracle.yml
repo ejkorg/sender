@@ -1,0 +1,36 @@
+```yaml
+spring:
+  profiles: onsemi-oracle
+
+# Oracle application DB used for staging and dispatch in the onsemi environment.
+refdb:
+  host: exndev-db.onsemi.com
+  port: 1739
+  sid: EXNDEV
+  user: refdb
+  password: "XBfjCq#$1542FFz"
+  staging-table: SENDER_STAGE
+  pool:
+    max-size: 5
+    min-idle: 1
+  dispatch:
+    per-send: 100
+    interval-ms: 60000
+
+external-db:
+  hikari:
+    maximum-pool-size: 10
+    minimum-idle: 1
+    connection-timeout-ms: 15000
+    idle-timeout-ms: 600000
+    validation-timeout-ms: 5000
+  cache:
+    max-pools: 50
+    expire-after-access-minutes: 60
+
+reloader:
+  dbconn:
+    yaml:
+      path: classpath:dbconnections.yml
+
+``` 

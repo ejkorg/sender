@@ -21,11 +21,8 @@ external-db:
     expire-after-access-minutes: 60
 
 refdb:
-  host: exndev-db.onsemi.com
-  port: 1739
-  sid: EXNDEV
-  user: refdb
-  password: "XBfjCq#$1542FFz"
+  # Base refdb configuration. Per-environment overrides should be placed in
+  # the corresponding profile such as `application-onsemi-oracle.yml`.
   staging-table: SENDER_STAGE
   pool:
     max-size: 5
