@@ -30,3 +30,22 @@ external-db:
   cache:
     max-pools: 50
     expire-after-access-minutes: 60
+
+refdb:
+  host: exndev-db.onsemi.com
+  port: 1739
+  sid: EXNDEV
+  user: refdb
+  password: "XBfjCq#$1542FFz"
+  staging-table: SENDER_STAGE
+  pool:
+    max-size: 5
+    min-idle: 1
+  dispatch:
+    per-send: 100
+    interval-ms: 60000
+
+reloader:
+  dbconn:
+    yaml:
+      path: classpath:dbconnections.yml

@@ -1,6 +1,5 @@
-
 <mat-toolbar color="primary">
-  <span>Reloader</span>
+  <span>Dataport Reload</span>
   <span style="flex:1 1 auto"></span>
   <span *ngIf="(auth.user$ | async) as u">
     <span *ngIf="u.username">{{ u.username }}</span>
@@ -10,154 +9,95 @@
 </mat-toolbar>
 
 <div class="app-container">
-  <div style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-    <button mat-stroked-button type="button" (click)="loadStepper()" *ngIf="!stepperLoaded" [disabled]="stepperLoading">Load Stepper</button>
-    <mat-progress-spinner *ngIf="stepperLoading" diameter="20" mode="indeterminate"></mat-progress-spinner>
-  </div>
-  <ng-template #stepperHost></ng-template>
-  <div *ngIf="stepperLoading" class="stepper-skeleton">
-    <mat-card>
-      <mat-card-title>
-        <div class="skeleton-line short"></div>
-      </mat-card-title>
-      <mat-card-content>
-        <div class="skeleton-line"></div>
-        <div class="skeleton-line"></div>
-        <div class="skeleton-line half"></div>
-      </mat-card-content>
-    </mat-card>
-  </div>
   <mat-card>
     <form (ngSubmit)="runNow()">
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Site</mat-label>
-        <mat-select [(ngModel)]="selectedSite" name="site" required>
-          <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Environment</mat-label>
-        <mat-select [(ngModel)]="selectedEnvironment" name="environment" (selectionChange)="loadLocationsForEnvironment(selectedEnvironment)">
-          <mat-option *ngFor="let e of environments" [value]="e.name">{{ e.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>DB Location (select saved connection)</mat-label>
-        <mat-select [(ngModel)]="selectedLocationId" name="locationId" (selectionChange)="onLocationSelected()">
-          <mat-option *ngFor="let l of locations" [value]="l.id">{{ l.label }} {{ l.site ? '(' + l.site + ')' : '' }} — {{ l.dbConnectionName }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>External DB Location value (fetched from selected connection)</mat-label>
-        <mat-select [(ngModel)]="externalLocationValue" name="externalLocationValue" (selectionChange)="onExternalLocationSelected()" [disabled]="!selectedLocationId || loadingExternalLocations">
-          <mat-option *ngFor="let v of externalLocations" [value]="v">{{ v }}</mat-option>
-        </mat-select>
-        <mat-hint *ngIf="loadingExternalLocations"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
-      </mat-form-field>
-
-      <div style="display:flex; gap:8px;">
-        <mat-form-field appearance="fill" style="flex:1 1 0;">
-          <mat-label>Data Type</mat-label>
-          <mat-select [(ngModel)]="dataType" name="dataType" [disabled]="!externalLocationValue || loadingDataTypes">
-            <mat-option *ngFor="let d of dataTypes" [value]="d">{{ d }}</mat-option>
+      <mat-card-title>Stage Payloads</mat-card-title>
+      <mat-card-content>
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Site</mat-label>
+          <mat-select [(ngModel)]="selectedSite" name="site" required>
+            <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
           </mat-select>
-          <mat-hint *ngIf="loadingDataTypes"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
         </mat-form-field>
-        <mat-form-field appearance="fill" style="flex:1 1 0;">
-          <mat-label>Tester Type</mat-label>
-          <mat-select [(ngModel)]="testerType" name="testerType" [disabled]="!externalLocationValue || loadingTesterTypes">
-            <mat-option *ngFor="let t of testerTypes" [value]="t">{{ t }}</mat-option>
-          </mat-select>
-          <mat-hint *ngIf="loadingTesterTypes"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Sender ID</mat-label>
+          <input matInput type="number" [(ngModel)]="senderId" name="senderId" required />
         </mat-form-field>
-        <mat-form-field appearance="fill" style="flex:1 1 0;">
-          <mat-label>Test Phase</mat-label>
-          <mat-select [(ngModel)]="testPhase" name="testPhase" [disabled]="!externalLocationValue || loadingTestPhases">
-            <mat-option *ngFor="let p of testPhases" [value]="p">{{ p }}</mat-option>
-          </mat-select>
-          <mat-hint *ngIf="loadingTestPhases"><mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner> Loading...</mat-hint>
-        </mat-form-field>
-      </div>
 
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Metadata location (filter used in all_metadata_view)</mat-label>
-        <input matInput [(ngModel)]="metadataLocation" name="metadataLocation" />
-      </mat-form-field>
-
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Data Type</mat-label>
-        <input matInput [(ngModel)]="dataType" name="dataType" />
-      </mat-form-field>
-
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Tester Type</mat-label>
-        <input matInput [(ngModel)]="testerType" name="testerType" />
-      </mat-form-field>
-
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Test Phase (optional)</mat-label>
-        <input matInput [(ngModel)]="testPhase" name="testPhase" />
-      </mat-form-field>
-
-      <mat-checkbox [(ngModel)]="matchNoTestPhase" name="matchNoTestPhase">Match senders with no test phase</mat-checkbox>
-
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Sender ID</mat-label>
-        <input matInput type="number" [(ngModel)]="senderId" name="senderId" required />
-        <mat-hint *ngIf="!senderId">Sender ID is required</mat-hint>
-      </mat-form-field>
-
-      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
-        <button mat-stroked-button type="button" (click)="findSenders()" [disabled]="!selectedLocationId || loading">
-          <span *ngIf="!loading">Find Sender</span>
-          <span *ngIf="loading"><mat-progress-spinner mode="indeterminate" diameter="18"></mat-progress-spinner></span>
-        </button>
-        <div *ngIf="lookupResults && lookupResults.length">
-          <small>{{ lookupResults.length }} candidate(s)</small>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <mat-form-field appearance="fill" style="flex:1 1 240px;">
+            <mat-label>Start Date</mat-label>
+            <input matInput type="date" [(ngModel)]="startDate" name="startDate" />
+          </mat-form-field>
+          <mat-form-field appearance="fill" style="flex:1 1 240px;">
+            <mat-label>End Date</mat-label>
+            <input matInput type="date" [(ngModel)]="endDate" name="endDate" />
+          </mat-form-field>
         </div>
-      </div>
 
-      <div *ngIf="lookupResults && lookupResults.length" style="margin-bottom:12px;">
-        <mat-card *ngFor="let r of lookupResults" style="margin-bottom:6px;">
-          <mat-card-content style="display:flex; justify-content:space-between; align-items:center;">
-            <div>{{ r.idSender || 'unknown' }} — {{ r.name }}</div>
-            <div>
-              <button mat-button (click)="senderId = r.idSender">Use</button>
-            </div>
-          </mat-card-content>
-        </mat-card>
-      </div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <mat-form-field appearance="fill" style="flex:1 1 240px;">
+            <mat-label>Tester Type</mat-label>
+            <input matInput [(ngModel)]="testerType" name="testerType" />
+          </mat-form-field>
+          <mat-form-field appearance="fill" style="flex:1 1 240px;">
+            <mat-label>Data Type</mat-label>
+            <input matInput [(ngModel)]="dataType" name="dataType" />
+          </mat-form-field>
+        </div>
 
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>How many to push</mat-label>
-        <input matInput type="number" [(ngModel)]="numToSend" name="numToSend" />
-      </mat-form-field>
-
-      <div class="actions">
-        <button mat-raised-button color="primary" type="submit" [disabled]="!senderId || loading">
-          <span *ngIf="!loading">Run Now</span>
-          <span *ngIf="loading">Running...</span>
-        </button>
-      </div>
-      <div class="spinner" *ngIf="loading" style="text-align:center; margin-top:12px;">
-        <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
-      </div>
+        <div class="actions">
+          <button mat-raised-button color="primary" type="submit" [disabled]="loading">Reload</button>
+          <button mat-stroked-button type="button" (click)="refreshStageStatus()" [disabled]="stageLoading">Refresh Status</button>
+        </div>
+        <div *ngIf="loading" class="spinner">
+          <mat-progress-spinner mode="indeterminate" diameter="36"></mat-progress-spinner>
+        </div>
+      </mat-card-content>
     </form>
   </mat-card>
 
   <mat-card *ngIf="result" class="result-card">
-    <mat-card-title>Result</mat-card-title>
+    <mat-card-title>Backend Response</mat-card-title>
     <mat-card-content>
       <pre>{{ result }}</pre>
     </mat-card-content>
   </mat-card>
+
+  <mat-card>
+    <mat-card-title>Staging Overview</mat-card-title>
+    <mat-card-content>
+      <div *ngIf="stageLoading" style="display:flex; justify-content:center; padding:12px;">
+        <mat-progress-spinner mode="indeterminate" diameter="32"></mat-progress-spinner>
+      </div>
+      <table *ngIf="!stageLoading && stageStatuses.length" class="status-table">
+        <thead>
+        <tr>
+          <th>Site</th>
+          <th>Sender</th>
+          <th>Total</th>
+          <th>Ready</th>
+          <th>Sent</th>
+          <th>Failed</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr *ngFor="let s of stageStatuses">
+          <td>{{ s.site }}</td>
+          <td>{{ s.senderId }}</td>
+          <td>{{ s.total }}</td>
+          <td>{{ s.ready }}</td>
+          <td>{{ s.sent }}</td>
+          <td>{{ s.failed }}</td>
+        </tr>
+        </tbody>
+      </table>
+      <div *ngIf="!stageLoading && !stageStatuses.length" style="text-align:center; color:#666; padding:12px;">
+        No staged payloads yet.
+      </div>
+    </mat-card-content>
+  </mat-card>
 </div>
-<!-- * * * * * * * * * * and can be replaced.  * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * End of Placeholder  * * * * * * * * * * * * -->
-<!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
 
 
