@@ -8,7 +8,7 @@
     <changeSet id="2025-10-04-1-dedupe-load-session-payload" author="copilot">
        <!-- The onFail behavior is parameterized so devs can relax it with -Dliquibase.precondition.onFail=MARK_RAN
            without editing changelog files. Default is HALT (safe for production). -->
-       <preConditions onFail="${liquibase.precondition.onFail:HALT}">
+    <preConditions onFail="HALT">
             <tableExists tableName="load_session_payload" />
         </preConditions>
         <!--
@@ -32,7 +32,7 @@
     </changeSet>
 
     <changeSet id="2025-10-04-2-add-global-payload-id" author="copilot">
-        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
+    <preConditions onFail="HALT">
             <tableExists tableName="load_session_payload" />
         </preConditions>
         <addColumn tableName="load_session_payload">
@@ -44,7 +44,7 @@
     </changeSet>
 
     <changeSet id="2025-10-04-3-add-unique-constraint-session-payload" author="copilot">
-        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
+    <preConditions onFail="HALT">
             <and>
                 <tableExists tableName="load_session_payload" />
             </and>

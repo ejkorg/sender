@@ -1,5 +1,9 @@
 spring:
-  profiles: onsemi-oracle
+  config:
+    activate:
+      on-profile: onsemi-oracle
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-1.0.xml
 
 # Oracle application DB used for staging and dispatch in the onsemi environment.
 refdb:
