@@ -162,6 +162,38 @@ public class RefDbService {
         return statuses;
     }
 
+    public List<StageStatus> fetchStatusesFor(String site, Integer senderId) {
+        String table = properties.getStagingTable();
+        String where = " WHERE 1=1" + (site != null ? " AND site = ?" : "") + (senderId != null ? " AND sender_id = ?" : "");
+        String sql = "SELECT site, sender_id, COUNT(*), " +
+                "SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'SENT' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) " +
+                "FROM " + table + where + " GROUP BY site, sender_id";
+        List<StageStatus> statuses = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            int i = 1;
+            if (site != null) ps.setString(i++, site);
+            if (senderId != null) ps.setInt(i++, senderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    statuses.add(new StageStatus(
+                            rs.getString(1),
+                            rs.getInt(2),
+                            rs.getLong(3),
+                            rs.getLong(4),
+                            rs.getLong(5),
+                            rs.getLong(6)
+                    ));
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed loading stage status (filtered)", ex);
+        }
+        return statuses;
+    }
+
     public Set<String> findSitesWithPending() {
         String table = properties.getStagingTable();
         String sql = "SELECT DISTINCT site FROM " + table + " WHERE status = 'NEW'";

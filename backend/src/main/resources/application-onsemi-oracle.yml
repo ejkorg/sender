@@ -5,7 +5,8 @@ spring:
 refdb:
   host: exndev-db.onsemi.com
   port: 1739
-  sid: EXNDEV
+  # Use service-style URL as requested: exndev-db.onsemi.com:1739/EXNDEV.onsemi.com
+  service: EXNDEV.onsemi.com
   user: refdb
   password: "XBfjCq#$1542FFz"
   staging-table: SENDER_STAGE

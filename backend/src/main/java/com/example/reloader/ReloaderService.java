@@ -99,6 +99,10 @@ public class ReloaderService {
         return refDbService.fetchStatuses();
     }
 
+    public List<StageStatus> getStageStatuses(String site, Integer senderId) {
+        return refDbService.fetchStatusesFor(site, senderId);
+    }
+
     private List<PayloadCandidate> discoverPayloads(String site, String startDate, String endDate, String testerType, String dataType) throws SQLException {
         List<PayloadCandidate> results = new ArrayList<>();
         String sql = "SELECT id, id_data FROM all_metadata_view WHERE 1=1";

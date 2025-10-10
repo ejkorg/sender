@@ -25,6 +25,12 @@ public class ReloaderController {
         return reloaderService.getStageStatuses();
     }
 
+    @GetMapping("/stage/status/by")
+    public List<StageStatus> getStageStatusFiltered(@RequestParam(required = false) String site,
+                                                    @RequestParam(required = false) Integer senderId) {
+        return reloaderService.getStageStatuses(site, senderId);
+    }
+
     @PostMapping("/reload")
     public String reload(@RequestBody Map<String, String> params) {
         return reloaderService.processReload(params);
