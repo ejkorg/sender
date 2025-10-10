@@ -12,7 +12,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -132,35 +131,18 @@ public class SenderService {
             if (!allow) {
                 throw new IllegalStateException("External DB writes are disabled. Set EXTERNAL_DB_ALLOW_WRITES=true to enable");
         }
-        // Choose insert SQL depending on whether we're using H2-as-external (dev mode)
-        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
         try (Connection c = externalDbConfig.getConnection(site)) {
-            String insertSql;
-            if (useH2) {
-                // H2 dev table uses AUTO_INCREMENT primary key; omit sequence usage
-                insertSql = "insert into DTP_SENDER_QUEUE_ITEM (id_metadata, id_data, id_sender, record_created) values (?, ?, ?, ?)";
-            } else {
-                // Oracle-style insert using sequence
-                insertSql = "insert into DTP_SENDER_QUEUE_ITEM (id, id_metadata, id_data, id_sender, record_created) values (DTP_SENDER_QUEUE_ITEM_SEQ.nextval, ?, ?, ?, ?)";
-            }
+            String insertSql = "insert into DTP_SENDER_QUEUE_ITEM (id, id_metadata, id_data, id_sender, record_created) values (DTP_SENDER_QUEUE_ITEM_SEQ.nextval, ?, ?, ?, ?)";
 
             PreparedStatement ps = c.prepareStatement(insertSql);
             int pushed = 0;
             for (SenderQueueEntry e : items) {
                 String[] parts = e.getPayloadId().split(",");
                 if (parts.length >= 2) {
-                    // Bind parameters depending on SQL form
-                    if (useH2) {
-                        ps.setString(1, parts[0]);
-                        ps.setString(2, parts[1]);
-                        ps.setInt(3, senderId);
-                        ps.setTimestamp(4, Timestamp.from(Instant.now()));
-                    } else {
-                        ps.setString(1, parts[0]);
-                        ps.setString(2, parts[1]);
-                        ps.setInt(3, senderId);
-                        ps.setTimestamp(4, Timestamp.from(Instant.now()));
-                    }
+                    ps.setString(1, parts[0]);
+                    ps.setString(2, parts[1]);
+                    ps.setInt(3, senderId);
+                    ps.setTimestamp(4, Timestamp.from(Instant.now()));
                     ps.executeUpdate();
                     pushed++;
                 }

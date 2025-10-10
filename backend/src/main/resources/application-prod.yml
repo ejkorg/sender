@@ -1,10 +1,3 @@
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/reloader
-    driver-class-name: org.postgresql.Driver
-    username: reloader
-    password: "${RELOADER_DB_PASSWORD:}"
-
 external-db:
   hikari:
     maximum-pool-size: 20

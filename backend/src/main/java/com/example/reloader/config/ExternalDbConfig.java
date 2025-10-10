@@ -236,12 +236,6 @@ public class ExternalDbConfig {
      * This is useful when locations store a lookup key instead of full connection details.
      */
     public Connection getConnectionByKey(String key, String environment) throws SQLException {
-        // DEV: support in-memory H2 external DB for offline testing. If set, return H2 connection seeded from classpath SQL.
-        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
-        if (useH2) {
-            String h2url = "jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1;INIT=RUNSCRIPT FROM 'classpath:external_h2_seed.sql'";
-            return DriverManager.getConnection(h2url, "sa", "");
-        }
         if (key == null) throw new SQLException("null connection key");
         // Try key with environment qualifiers first
     Map<String, Object> cfg = getConfigForSite(key, environment);
@@ -356,12 +350,7 @@ public class ExternalDbConfig {
     }
 
     public Connection getConnection(String site, String environment) throws SQLException {
-        // DEV: support in-memory H2 external DB for offline testing
-        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
-        if (useH2) {
-            String h2url = "jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1;INIT=RUNSCRIPT FROM 'classpath:external_h2_seed.sql'";
-            return DriverManager.getConnection(h2url, "sa", "");
-        }
+        
     Map<String, Object> cfg = getConfigForSite(site, environment);
     if (cfg == null) throw new SQLException("No DB configuration for site " + site);
 

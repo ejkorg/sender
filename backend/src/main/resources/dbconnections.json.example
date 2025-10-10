@@ -1,21 +1,16 @@
 {
-  "LOCAL": {
-    "host": "localhost/LOCAL",
-    "user": "sa",
-    "password": "",
-    "port": "1521",
-    "# Optional: force vendor detection (\"dbType\"/\"type\"/\"dialect\" accepted)": "oracle|h2|postgres",
-    "dbType": "h2",
-    "# Optional: hikari overrides (any Hikari config key can be supplied)": {
-      "maximumPoolSize": 5,
-      "connectionTimeout": 30000
-    }
+  "EXTERNAL_QA": {
+    "host": "gyqsq-db.onsemi.com:1545/GYQSQ",
+    "port": "1545",
+    "user": "DATAPORT_USER",
+    "password": "dpusr^401",
+    "dbType": "oracle"
   },
-  "SAMPLE": {
-    "host": "mydb-host.example.com/DBSERVICE",
-    "user": "DB_USER",
-    "password": "REPLACE_WITH_SECRET",
-    "port": "1521",
+  "EXTERNAL_PROD": {
+    "host": "gyqsq-db.onsemi.com:1545/GYQSQ",
+    "port": "1545",
+    "user": "DATAPORT_USER",
+    "password": "dpusr^401",
     "dbType": "oracle"
   }
 }

@@ -1,24 +1,13 @@
 server:
   port: 8080
 
-# JPA / H2 defaults for local development
 spring:
-  datasource:
-    url: jdbc:h2:mem:reloader;DB_CLOSE_DELAY=-1;MODE=Oracle
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
-  jpa:
-    # Let Hibernate auto-detect the dialect at runtime. Override with
-    # -Dspring.jpa.database-platform=org.hibernate.dialect.Oracle12cDialect
-    # when you explicitly want to force Oracle in local runs.
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-
-# Liquibase
-  liquibase:
-    change-log: classpath:db/changelog/db.changelog-1.0.xml
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
 
 external-db:
   hikari:
