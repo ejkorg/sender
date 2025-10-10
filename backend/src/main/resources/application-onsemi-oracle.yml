@@ -4,6 +4,18 @@ spring:
       on-profile: onsemi-oracle
   liquibase:
     change-log: classpath:db/changelog/db.changelog-1.0.xml
+  datasource:
+    # Use refdb.* properties below via placeholders so the canonical values live in refdb
+    url: "jdbc:oracle:thin:@//${refdb.host}:${refdb.port}/${refdb.service}"
+    username: ${refdb.user}
+    password: ${refdb.password}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: ${refdb.pool.max-size:5}
+      minimum-idle: ${refdb.pool.min-idle:1}
+      connection-timeout: 15000
+      idle-timeout: 600000
+      validation-timeout: 5000
 
 # Oracle application DB used for staging and dispatch in the onsemi environment.
 refdb:

@@ -120,6 +120,20 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- Liquibase plugin to generate update SQL for review without applying to DB -->
+            <plugin>
+                <groupId>org.liquibase</groupId>
+                <artifactId>liquibase-maven-plugin</artifactId>
+                <version>4.24.0</version>
+                <configuration>
+                    <propertyFile>src/main/resources/application-onsemi-oracle.yml</propertyFile>
+                    <changeLogFile>src/main/resources/db/changelog/db.changelog-1.0.xml</changeLogFile>
+                    <driver>oracle.jdbc.OracleDriver</driver>
+                    <!-- We will pass url/username/password via CLI to avoid embedding secrets in the plugin config -->
+                    <outputFile>${project.build.directory}/liquibase-update-oracle.sql</outputFile>
+                    <promptOnNonLocalDatabase>false</promptOnNonLocalDatabase>
+                </configuration>
+            </plugin>
         </plugins>
         <!-- Optional developer profiles are declared below. Use -Pdev or -Pexternal-oracle when running Maven to
              enable convenient system properties for tests and local runs. These profiles only set test/system
