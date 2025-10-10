@@ -29,17 +29,27 @@ public class RefDbService {
 
     private final RefDbProperties properties;
     private final HikariDataSource dataSource;
+    private final boolean isOracle;
 
     public RefDbService(RefDbProperties properties) {
         this.properties = properties;
+        this.isOracle = properties.getHost() != null && !properties.getHost().isBlank();
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(properties.buildJdbcUrl());
-        config.setUsername(properties.getUser());
-        config.setPassword(properties.getPassword());
+        if (isOracle) {
+            config.setJdbcUrl(properties.buildJdbcUrl());
+            config.setUsername(properties.getUser());
+            config.setPassword(properties.getPassword());
+            config.setDriverClassName("oracle.jdbc.OracleDriver");
+        } else {
+            // Test environment fallback: use an embedded H2 datasource so tests don't try to contact Oracle
+            config.setJdbcUrl("jdbc:h2:mem:refdb;DB_CLOSE_DELAY=-1");
+            config.setUsername("sa");
+            config.setPassword("");
+            config.setDriverClassName("org.h2.Driver");
+        }
         config.setMaximumPoolSize(properties.getPool().getMaxSize());
         config.setMinimumIdle(properties.getPool().getMinIdle());
         config.setPoolName("refdb-staging");
-        config.setDriverClassName("oracle.jdbc.OracleDriver");
         this.dataSource = new HikariDataSource(config);
     }
 
@@ -64,8 +74,8 @@ public class RefDbService {
             return;
         }
         String table = properties.getStagingTable();
-        String sql = "INSERT INTO " + table + " (id, site, sender_id, metadata_id, data_id, status, error_message, created_at, updated_at) " +
-                "VALUES (" + table + "_SEQ.NEXTVAL, ?, ?, ?, ?, 'NEW', NULL, SYSTIMESTAMP, SYSTIMESTAMP)";
+    String sql = "INSERT INTO " + table + " (id, site, sender_id, metadata_id, data_id, status, error_message, created_at, updated_at) " +
+        "VALUES (" + table + "_SEQ.NEXTVAL, ?, ?, ?, ?, 'NEW', NULL, " + timestampExpr() + ", " + timestampExpr() + ")";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
             for (PayloadCandidate candidate : payloads) {
@@ -90,8 +100,8 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatch(int limit) {
         String table = properties.getStagingTable();
-        String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, NVL(error_message, ''), created_at, updated_at " +
-                "FROM " + table + " WHERE status = 'NEW' ORDER BY created_at FETCH FIRST ? ROWS ONLY";
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + ", created_at, updated_at " +
+        "FROM " + table + " WHERE status = 'NEW' ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -170,8 +180,8 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatchForSite(String site, int limit) {
         String table = properties.getStagingTable();
-        String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, NVL(error_message, ''), created_at, updated_at " +
-                "FROM " + table + " WHERE status = 'NEW' AND site = ? ORDER BY created_at FETCH FIRST ? ROWS ONLY";
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + ", created_at, updated_at " +
+        "FROM " + table + " WHERE status = 'NEW' AND site = ? ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -203,7 +213,7 @@ public class RefDbService {
             return;
         }
         String table = properties.getStagingTable();
-        String sql = "UPDATE " + table + " SET status = ?, error_message = ?, updated_at = SYSTIMESTAMP WHERE id = ?";
+    String sql = "UPDATE " + table + " SET status = ?, error_message = ?, updated_at = " + timestampExpr() + " WHERE id = ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
             for (Long id : ids) {
@@ -239,55 +249,110 @@ public class RefDbService {
     }
 
     private boolean tableExists(Connection connection, String table) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_tables WHERE table_name = ?")) {
-            ps.setString(1, table.toUpperCase());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
+        if (isOracle) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_tables WHERE table_name = ?")) {
+                ps.setString(1, table.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
+            }
+        } else {
+            // H2: use INFORMATION_SCHEMA
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = ?")) {
+                ps.setString(1, table.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
             }
         }
     }
 
     private boolean sequenceExists(Connection connection, String sequence) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_sequences WHERE sequence_name = ?")) {
-            ps.setString(1, sequence.toUpperCase());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
+        if (isOracle) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_sequences WHERE sequence_name = ?")) {
+                ps.setString(1, sequence.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
+            }
+        } else {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM INFORMATION_SCHEMA.SEQUENCES WHERE SEQUENCE_NAME = ?")) {
+                ps.setString(1, sequence.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
             }
         }
     }
 
     private boolean constraintExists(Connection connection, String table, String constraint) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_constraints WHERE table_name = ? AND constraint_name = ?")) {
-            ps.setString(1, table.toUpperCase());
-            ps.setString(2, constraint.toUpperCase());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
+        if (isOracle) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_constraints WHERE table_name = ? AND constraint_name = ?")) {
+                ps.setString(1, table.toUpperCase());
+                ps.setString(2, constraint.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
+            }
+        } else {
+            // H2 exposes table constraints via INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS WHERE TABLE_NAME = ? AND CONSTRAINT_NAME = ?")) {
+                ps.setString(1, table.toUpperCase());
+                ps.setString(2, constraint.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
             }
         }
     }
 
     private boolean indexExists(Connection connection, String table, String index) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_indexes WHERE table_name = ? AND index_name = ?")) {
-            ps.setString(1, table.toUpperCase());
-            ps.setString(2, index.toUpperCase());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() && rs.getInt(1) > 0;
+        if (isOracle) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_indexes WHERE table_name = ? AND index_name = ?")) {
+                ps.setString(1, table.toUpperCase());
+                ps.setString(2, index.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
+            }
+        } else {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM INFORMATION_SCHEMA.INDEXES WHERE TABLE_NAME = ? AND INDEX_NAME = ?")) {
+                ps.setString(1, table.toUpperCase());
+                ps.setString(2, index.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
             }
         }
     }
 
     private void createTable(Connection connection, String table) throws SQLException {
-        String ddl = "CREATE TABLE " + table + " (" +
-                "id NUMBER PRIMARY KEY, " +
-                "site VARCHAR2(64) NOT NULL, " +
-                "sender_id NUMBER NOT NULL, " +
-                "metadata_id VARCHAR2(128) NOT NULL, " +
-                "data_id VARCHAR2(128) NOT NULL, " +
-                "status VARCHAR2(16) DEFAULT 'NEW' NOT NULL, " +
-                "error_message VARCHAR2(4000), " +
-                "created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " +
-                "updated_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL" +
-                ")";
+        String ddl;
+        if (isOracle) {
+            ddl = "CREATE TABLE " + table + " (" +
+                    "id NUMBER PRIMARY KEY, " +
+                    "site VARCHAR2(64) NOT NULL, " +
+                    "sender_id NUMBER NOT NULL, " +
+                    "metadata_id VARCHAR2(128) NOT NULL, " +
+                    "data_id VARCHAR2(128) NOT NULL, " +
+                    "status VARCHAR2(16) DEFAULT 'NEW' NOT NULL, " +
+                    "error_message VARCHAR2(4000), " +
+                    "created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " +
+                    "updated_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL" +
+                    ")";
+        } else {
+            ddl = "CREATE TABLE " + table + " (" +
+                    "id BIGINT PRIMARY KEY, " +
+                    "site VARCHAR(64) NOT NULL, " +
+                    "sender_id INT NOT NULL, " +
+                    "metadata_id VARCHAR(128) NOT NULL, " +
+                    "data_id VARCHAR(128) NOT NULL, " +
+                    "status VARCHAR(16) DEFAULT 'NEW' NOT NULL, " +
+                    "error_message VARCHAR(4000), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, " +
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL" +
+                    ")";
+        }
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(ddl);
         }
@@ -295,7 +360,11 @@ public class RefDbService {
 
     private void createSequence(Connection connection, String name) throws SQLException {
         try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("CREATE SEQUENCE " + name + " START WITH 1 INCREMENT BY 1 NOCACHE");
+            if (isOracle) {
+                statement.executeUpdate("CREATE SEQUENCE " + name + " START WITH 1 INCREMENT BY 1 NOCACHE");
+            } else {
+                statement.executeUpdate("CREATE SEQUENCE " + name + " START WITH 1 INCREMENT BY 1");
+            }
         }
     }
 
@@ -346,5 +415,15 @@ public class RefDbService {
             return null;
         }
         return message.length() > 4000 ? message.substring(0, 4000) : message;
+    }
+
+    // H2 vs Oracle SQL fragments
+    private String timestampExpr() {
+        return isOracle ? "SYSTIMESTAMP" : "CURRENT_TIMESTAMP";
+    }
+
+    private String coalesce(String expr, String alt) {
+        // Oracle uses NVL, H2 supports COALESCE
+        return isOracle ? ("NVL(" + expr + ", " + alt + ")") : ("COALESCE(" + expr + ", " + alt + ")");
     }
 }

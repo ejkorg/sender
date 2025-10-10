@@ -61,6 +61,46 @@ spring:
             enable: true
 ```
 
+## Runtime profiles and databases
+
+The backend supports a dedicated runtime profile for onsemi Oracle environments and a convenient H2-only mode for tests/CI:
+
+- onsemi-oracle profile (production runtime)
+  - Activate with:
+    - Environment: `SPRING_PROFILES_ACTIVE=onsemi-oracle`
+    - Or JVM arg: `-Dspring.profiles.active=onsemi-oracle`
+  - Configuration lives in `application-onsemi-oracle.yml` and points the app’s reference DB (staging/dispatch) at Oracle. External connection definitions are still provided via YAML/JSON.
+  - Example run:
+
+    ```bash
+    SPRING_PROFILES_ACTIVE=onsemi-oracle \
+    RELOADER_DBCONN_PATH=/etc/reloader/dbconnections.json \
+    java -jar target/reloader-backend-0.0.1-SNAPSHOT.jar
+    ```
+
+- Tests/CI with H2-only external DBs
+  - Tests never contact Oracle. We force external connections to an in-memory H2 instance via `reloader.use-h2-external=true` (or env `RELOADER_USE_H2_EXTERNAL=true`).
+  - Test profile config: `src/test/resources/application-test.yml` includes `reloader.use-h2-external: true` and H2 datasource settings for the app DB.
+  - Run tests:
+
+    ```bash
+    mvn -f backend/pom.xml test
+    ```
+
+  - Optional (explicit env):
+
+    ```bash
+    RELOADER_USE_H2_EXTERNAL=true mvn -f backend/pom.xml test
+    ```
+
+Notes:
+- External H2 schema used in tests is bootstrapped via `src/test/resources/schema.sql` to satisfy discovery queries (e.g., `ALL_METADATA_VIEW`).
+- For local dev without Oracle, you can also run the app with external H2 by setting `RELOADER_USE_H2_EXTERNAL=true`. This affects only external lookups; the app’s primary datasource remains whatever your active profile configures.
+
+## UI status surfacing
+
+The UI consumes stage/dispatch statuses exposed by the backend service. Ensure the backend is running and the frontend environment points to it. Status APIs are available behind the existing security configuration and are read-only; the frontend surfaces queue sizes and recent activity.
+
 ## Application configuration (application.yml) - datasource example
 
 Below is an example `application.yml` snippet showing the application datasource settings used for local development (H2) and notes on overriding for production.

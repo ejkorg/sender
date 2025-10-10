@@ -1,37 +1,30 @@
 server:
-  port: 8080
+  server:
+    server:
+      server:
+        server:
+          port: 8080
 
-spring:
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
+        spring:
+          autoconfigure:
+            exclude:
+              - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+              - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+              - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+              - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
 
-external-db:
-  hikari:
-    maximum-pool-size: 10
-    minimum-idle: 1
-    connection-timeout-ms: 15000
-    idle-timeout-ms: 600000
-    validation-timeout-ms: 5000
-  cache:
-    max-pools: 50
-    expire-after-access-minutes: 60
+        # Base refdb configuration. Per-environment overrides should be placed in
+        # the corresponding profile such as `application-onsemi-oracle.yml`.
+        refdb:
+          staging-table: SENDER_STAGE
+          pool:
+            max-size: 5
+            min-idle: 1
+          dispatch:
+            per-send: 100
+            interval-ms: 60000
 
-refdb:
-  # Base refdb configuration. Per-environment overrides should be placed in
-  # the corresponding profile such as `application-onsemi-oracle.yml`.
-  staging-table: SENDER_STAGE
-  pool:
-    max-size: 5
-    min-idle: 1
-  dispatch:
-    per-send: 100
-    interval-ms: 60000
-
-reloader:
-  dbconn:
-    yaml:
-      path: classpath:dbconnections.yml
+        reloader:
+          dbconn:
+            yaml:
+              path: classpath:dbconnections.yml

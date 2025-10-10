@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface LoadSessionRepository extends JpaRepository<LoadSession, Long> {
+	java.util.Optional<LoadSession> findTopByOrderByIdDesc();
 }

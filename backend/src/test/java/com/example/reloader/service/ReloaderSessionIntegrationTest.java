@@ -52,10 +52,9 @@ public class ReloaderSessionIntegrationTest {
         // act: create session via processReload (this will create the session and because listFile exists, skip remote query)
         reloaderService.processReload(params);
 
-        // fetch created session
-        List<LoadSession> sessions = loadSessionRepository.findAll();
-        assertThat(sessions).isNotEmpty();
-        LoadSession session = sessions.get(0);
+    // fetch the most recently created session to avoid collisions with other tests sharing the same DB
+    LoadSession session = loadSessionRepository.findTopByOrderByIdDesc()
+        .orElseThrow(() -> new IllegalStateException("Expected a session to be created"));
     // ReloaderService currently sets initiatedBy to 'ui'
     assertThat(session.getInitiatedBy()).isEqualTo("ui");
         assertThat(session.getSite()).isEqualTo("EXAMPLE_SITE");

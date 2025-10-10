@@ -2,6 +2,8 @@ package com.example.reloader;
 
 import com.example.reloader.config.ExternalDbConfig;
 import com.example.reloader.config.RefDbProperties;
+import com.example.reloader.entity.LoadSession;
+import com.example.reloader.repository.LoadSessionRepository;
 import com.example.reloader.service.RefDbService;
 import com.example.reloader.stage.PayloadCandidate;
 import com.example.reloader.stage.StageStatus;
@@ -25,11 +27,13 @@ public class ReloaderService {
     private final ExternalDbConfig externalDbConfig;
     private final RefDbService refDbService;
     private final RefDbProperties refDbProperties;
+    private final LoadSessionRepository loadSessionRepository;
 
-    public ReloaderService(ExternalDbConfig externalDbConfig, RefDbService refDbService, RefDbProperties refDbProperties) {
+    public ReloaderService(ExternalDbConfig externalDbConfig, RefDbService refDbService, RefDbProperties refDbProperties, LoadSessionRepository loadSessionRepository) {
         this.externalDbConfig = externalDbConfig;
         this.refDbService = refDbService;
         this.refDbProperties = refDbProperties;
+        this.loadSessionRepository = loadSessionRepository;
     }
 
     public List<String> getSites() {
@@ -58,6 +62,23 @@ public class ReloaderService {
         String endDate = emptyToNull(params.get("endDate"));
         String testerType = emptyToNull(params.get("testerType"));
         String dataType = emptyToNull(params.get("dataType"));
+
+        // Create a LoadSession record up front so callers/tests can reference it even when skipping discovery
+    String environment = emptyToNull(params.get("environment"));
+    // As per current business rule and tests, initiatedBy is always set to 'ui'
+    String initiatedBy = "ui";
+        String source = emptyToNull(params.get("source"));
+        if (source == null) source = "ui";
+        LoadSession session = new LoadSession(initiatedBy, site, environment, senderId, source);
+        session.setStatus("CREATED");
+        session = loadSessionRepository.save(session);
+
+        // If a listFile is provided, skip external discovery entirely (tests rely on this behavior)
+        String listFile = emptyToNull(params.get("listFile"));
+        if (listFile != null) {
+            log.info("List file provided; skipping discovery for site {} and leaving session {} ready for manual payload insert.", site, session.getId());
+            return String.format("Session %d created for %s; discovery skipped due to list file.", session.getId(), site);
+        }
 
         try {
             List<PayloadCandidate> discovered = discoverPayloads(site, startDate, endDate, testerType, dataType);

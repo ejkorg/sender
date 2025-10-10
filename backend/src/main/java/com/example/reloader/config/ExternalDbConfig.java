@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -237,8 +238,34 @@ public class ExternalDbConfig {
      */
     public Connection getConnectionByKey(String key, String environment) throws SQLException {
         if (key == null) throw new SQLException("null connection key");
+        // Global H2 override for tests
+        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
+        if (useH2) {
+            String resolvedKey = environment != null && !environment.isBlank() ? key + "-" + environment : key;
+            HikariDataSource ds = dsCache.get(resolvedKey);
+            if (ds == null) {
+                String jdbcUrl = "jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1";
+                HikariConfig cfgH = new HikariConfig();
+                cfgH.setJdbcUrl(jdbcUrl);
+                cfgH.setUsername("sa");
+                cfgH.setPassword("");
+                cfgH.setMaximumPoolSize(5);
+                cfgH.setMinimumIdle(1);
+                cfgH.setPoolName("external-" + resolvedKey);
+                HikariDataSource created = new HikariDataSource(cfgH);
+                HikariDataSource existing = dsCache.putIfAbsent(resolvedKey, created);
+                HikariDataSource toUse = existing != null ? existing : created;
+                dsCaffeine.put(resolvedKey, toUse);
+                try (Connection c = toUse.getConnection(); Statement s = c.createStatement()) {
+                    s.execute("CREATE TABLE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM (id BIGINT AUTO_INCREMENT PRIMARY KEY, id_metadata VARCHAR(255), id_data VARCHAR(255), id_sender INT, record_created TIMESTAMP)");
+                } catch (Exception ignored) {}
+                return toUse.getConnection();
+            }
+            return ds.getConnection();
+        }
+
         // Try key with environment qualifiers first
-    Map<String, Object> cfg = getConfigForSite(key, environment);
+        Map<String, Object> cfg = getConfigForSite(key, environment);
         if (cfg == null) cfg = dbConnections.get(key);
         if (cfg == null) throw new SQLException("No DB configuration for key " + key);
 
@@ -350,9 +377,34 @@ public class ExternalDbConfig {
     }
 
     public Connection getConnection(String site, String environment) throws SQLException {
-        
-    Map<String, Object> cfg = getConfigForSite(site, environment);
-    if (cfg == null) throw new SQLException("No DB configuration for site " + site);
+        // Global H2 override for tests
+        boolean useH2 = com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false);
+        if (useH2) {
+            String resolvedKey = environment != null && !environment.isBlank() ? site + "-" + environment : site;
+            HikariDataSource ds = dsCache.get(resolvedKey);
+            if (ds == null) {
+                String jdbcUrl = "jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1";
+                HikariConfig cfgH = new HikariConfig();
+                cfgH.setJdbcUrl(jdbcUrl);
+                cfgH.setUsername("sa");
+                cfgH.setPassword("");
+                cfgH.setMaximumPoolSize(5);
+                cfgH.setMinimumIdle(1);
+                cfgH.setPoolName("external-" + resolvedKey);
+                HikariDataSource created = new HikariDataSource(cfgH);
+                HikariDataSource existing = dsCache.putIfAbsent(resolvedKey, created);
+                HikariDataSource toUse = existing != null ? existing : created;
+                dsCaffeine.put(resolvedKey, toUse);
+                try (Connection c = toUse.getConnection(); Statement s = c.createStatement()) {
+                    s.execute("CREATE TABLE IF NOT EXISTS DTP_SENDER_QUEUE_ITEM (id BIGINT AUTO_INCREMENT PRIMARY KEY, id_metadata VARCHAR(255), id_data VARCHAR(255), id_sender INT, record_created TIMESTAMP)");
+                } catch (Exception ignored) {}
+                return toUse.getConnection();
+            }
+            return ds.getConnection();
+        }
+
+        Map<String, Object> cfg = getConfigForSite(site, environment);
+        if (cfg == null) throw new SQLException("No DB configuration for site " + site);
 
     String host = cfg.get("host") == null ? null : cfg.get("host").toString();
     String user = cfg.get("user") == null ? null : cfg.get("user").toString();

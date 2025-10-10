@@ -38,6 +38,20 @@ public class LoadSession {
         this.status = "CREATED";
     }
 
+    @PrePersist
+    void prePersistDefaults() {
+        if (this.initiatedBy == null || this.initiatedBy.isBlank()) {
+            this.initiatedBy = "ui";
+        }
+        if (this.status == null || this.status.isBlank()) {
+            this.status = "CREATED";
+        }
+        if (this.createdAt == null) {
+            this.createdAt = java.time.Instant.now();
+        }
+        this.updatedAt = java.time.Instant.now();
+    }
+
     // Getters and setters
     // ...generated getters/setters omitted for brevity in patch; they'll be present in file
     public Long getId() { return id; }
