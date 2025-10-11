@@ -50,8 +50,14 @@
     </changeSet>
 
     <changeSet id="2025-09-27-2" author="copilot">
-    <preConditions onFail="HALT">
-            <tableExists tableName="load_session_payload" />
+    <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <indexExists indexName="idx_load_session_payload_session_status" tableName="load_session_payload" />
+                </not>
+            </and>
         </preConditions>
         <createIndex tableName="load_session_payload" indexName="idx_load_session_payload_session_status">
             <column name="session_id"/>
