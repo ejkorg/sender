@@ -49,9 +49,11 @@
     </changeSet>
 
     <changeSet id="2025-10-04-3-add-unique-constraint-session-payload" author="copilot">
-    <preConditions onFail="HALT">
+    <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN">
             <and>
                 <tableExists tableName="load_session_payload" />
+                <sqlCheck expectedResult="0">SELECT COUNT(*) FROM user_constraints WHERE constraint_name = 'UK_LSP_SESS_PL' AND constraint_type IN ('U','P')</sqlCheck>
             </and>
         </preConditions>
         <!-- Constraint name shortened for Oracle identifier limits (<= 30 chars) -->
