@@ -88,7 +88,17 @@ public class ExternalDbConfig {
         String externalPath = com.example.reloader.config.ConfigUtils.getString(env, "RELOADER_DBCONN_PATH", "reloader.dbconn.path", null);
         if (externalPath != null && !externalPath.isBlank()) {
             try (InputStream is = Files.newInputStream(Paths.get(externalPath))) {
-                loadedLocal = mapper.readValue(is, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+                byte[] raw = is.readAllBytes();
+                try {
+                    loadedLocal = mapper.readValue(raw, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+                } catch (Exception jsonEx) {
+                    // Try YAML as a secondary format so operators can supply dbconnections.yml externally
+                    try {
+                        loadedLocal = yamlMapper.readValue(raw, new TypeReference<>() {});
+                    } catch (Exception yamlEx) {
+                        throw new IOException("Failed to parse external DB config at " + externalPath + " as JSON or YAML", yamlEx);
+                    }
+                }
             }
         }
 
