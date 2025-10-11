@@ -1,10 +1,9 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BackendService } from '../api/backend.service';
+import { BackendService, ExternalEnvironment, ExternalInstance, ExternalLocationSummary } from '../api/backend.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Clipboard } from '@angular/cdk/clipboard';
-import { MatExpansionModule } from '@angular/material/expansion';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,109 +13,303 @@ import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatListModule } from '@angular/material/list';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatStepperModule } from '@angular/material/stepper';
+import { MatIconModule } from '@angular/material/icon';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
 
 
 @Component({
   selector: 'app-stepper',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatExpansionModule, MatChipsModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatChipsModule, MatStepperModule, MatIconModule, MatDatepickerModule, MatNativeDateModule],
   templateUrl: './stepper.component.html',
   styleUrls: ['./stepper.component.css']
 })
-export class StepperComponent {
-  // stepper state: 1=inputs, 2=list, 3=monitor
-  step = 1;
+export class StepperComponent implements OnInit, OnDestroy {
+  stepIndex = 0;
 
-  // inputs
-  site = '';
-  environment = 'qa';
-  connectionKey = '';
-  locationId: number | null = null;
+  sites: string[] = [];
+  selectedSite = '';
+
+  environments: ExternalEnvironment[] = [];
+  selectedEnvironment = 'qa';
+
+  instances: ExternalInstance[] = [];
+  selectedInstanceKey: string | null = null;
+
+  locations: ExternalLocationSummary[] = [];
+  selectedLocationId: number | null = null;
+
   metadataLocation = '';
+  testerType = '';
+  dataType = '';
+  testPhase = '';
+  startDate: Date | null = null;
+  endDate: Date | null = null;
 
-  // results
-  discovered: Array<any> = [];
-  // available senders (from discovered results)
-  senders: Array<{idSender:number|null,name:string}> = [];
-  selectedSenderId: number | null = null;
   loading = false;
+  loadingFilters = false;
 
-  // monitoring
+  discovered: Array<any> = [];
+  selectedDiscovered: Array<any> = [];
+  senders: Array<{ idSender: number | null; name: string }> = [];
+  selectedSenderId: number | null = null;
+
   monitoringQueue: Array<any> = [];
-  constructor(private api: BackendService, private snack: MatSnackBar, private clipboard: Clipboard) {}
-  enqueueResponse: { enqueued?: number; skipped?: string[] } | null = null;
-  private monitoringTimer: any = null;
-  showFullResponse = false;
+  enqueueResponse: { enqueued?: number | null; skipped?: string[] } | null = null;
 
- 
+  private monitoringTimer: any = null;
+
+  constructor(private api: BackendService, private snack: MatSnackBar, private clipboard: Clipboard) {}
+
+  ngOnInit(): void {
+    this.loadSites();
+    this.loadEnvironments();
+  }
+
+  ngOnDestroy(): void {
+    this.stopMonitoringPoll();
+  }
+
+  private loadSites() {
+    this.api.listSites().subscribe({
+      next: (sites: string[]) => {
+        this.sites = sites || [];
+        if (!this.selectedSite && this.sites.length) {
+          this.selectedSite = this.sites[0];
+        }
+      },
+      error: (err: unknown) => console.error('Failed to load sites', err)
+    });
+  }
+
+  private loadEnvironments() {
+    this.api.listEnvironments().subscribe({
+      next: (envs: ExternalEnvironment[]) => {
+        this.environments = envs || [];
+        if (!this.environments.length) {
+          this.instances = [];
+          this.locations = [];
+          return;
+        }
+        const found = this.environments.some(e => (e.name || '').toLowerCase() === this.selectedEnvironment.toLowerCase());
+        if (!found) {
+          const qa = this.environments.find(e => (e.name || '').toLowerCase() === 'qa');
+          this.selectedEnvironment = qa?.name || this.environments[0].name || this.selectedEnvironment;
+        }
+        this.loadInstances();
+        this.loadLocations();
+      },
+      error: (err: unknown) => console.error('Failed to load environments', err)
+    });
+  }
+
+  onEnvironmentChange() {
+    this.selectedInstanceKey = null;
+    this.selectedLocationId = null;
+    this.metadataLocation = '';
+    this.loadInstances();
+    this.loadLocations();
+  }
+
+  private loadInstances() {
+    if (!this.selectedEnvironment) {
+      this.instances = [];
+      this.selectedInstanceKey = null;
+      return;
+    }
+    this.api.listInstances(this.selectedEnvironment).subscribe({
+      next: (list: ExternalInstance[]) => {
+        this.instances = list || [];
+        if (this.selectedInstanceKey && !this.instances.some(i => i.key === this.selectedInstanceKey)) {
+          this.selectedInstanceKey = null;
+        }
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load instances', err);
+        this.instances = [];
+        this.selectedInstanceKey = null;
+      }
+    });
+  }
+
+  private loadLocations() {
+    if (!this.selectedEnvironment) {
+      this.locations = [];
+      this.selectedLocationId = null;
+      return;
+    }
+    this.loadingFilters = true;
+    this.api.listLocations(this.selectedEnvironment).subscribe({
+      next: (list: ExternalLocationSummary[]) => {
+        this.locations = list || [];
+        if (this.selectedLocationId && !this.locations.some(l => l.id === this.selectedLocationId)) {
+          this.selectedLocationId = null;
+        }
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load locations', err);
+        this.locations = [];
+        this.selectedLocationId = null;
+      },
+      complete: () => { this.loadingFilters = false; }
+    });
+  }
 
   canSearch(): boolean {
-    // require either connectionKey or locationId and metadataLocation
-    return (!!this.connectionKey || !!this.locationId) && !!this.metadataLocation;
+    const hasConnection = !!this.selectedLocationId || !!this.selectedInstanceKey;
+    const locationText = this.metadataLocation || this.selectedLocationLabel();
+    return hasConnection && !!locationText;
+  }
+
+  private selectedLocationLabel(): string {
+    if (!this.selectedLocationId) return '';
+    const match = this.locations.find(l => l.id === this.selectedLocationId);
+    return match?.label || '';
   }
 
   doSearch() {
-    if (!this.canSearch()) return;
+    if (!this.canSearch()) {
+      this.snack.open('Provide a saved location or connection key and metadata location.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const metadataFilter = this.metadataLocation || this.selectedLocationLabel();
+    const params: Record<string, any> = {
+      site: this.selectedSite || 'default',
+      environment: this.selectedEnvironment || 'qa',
+      metadataLocation: metadataFilter,
+      dataType: this.dataType || undefined,
+      testerType: this.testerType || undefined,
+      testPhase: this.testPhase || undefined
+    };
+
+    if (this.selectedLocationId) {
+      params.locationId = this.selectedLocationId;
+    } else if (this.selectedInstanceKey) {
+      params.connectionKey = this.selectedInstanceKey;
+    }
+
+    if (this.startDate) params.startDate = formatDate(this.startDate, 'yyyy-MM-dd', 'en-US');
+    if (this.endDate) params.endDate = formatDate(this.endDate, 'yyyy-MM-dd', 'en-US');
+
     this.loading = true;
-    // reuse lookupSenders via BackendService: caller expects a senderId, but we'll call lookup with metadataLocation
-    this.api.lookupSenders({ connectionKey: this.connectionKey || undefined, locationId: this.locationId || undefined, metadataLocation: this.metadataLocation, environment: this.environment }).subscribe(
-      (data: any[]) => {
+    this.api.lookupSenders(params).subscribe({
+      next: (data: any[]) => {
         this.discovered = data || [];
-        // build senders list from discovered rows (unique idSender)
+        this.selectedDiscovered = [...this.discovered];
         const seen = new Set<number>();
         this.senders = [];
-        (this.discovered || []).forEach(d => {
+        this.discovered.forEach(d => {
           const id = d.idSender || null;
-          if (id != null && !seen.has(id)) { seen.add(id); this.senders.push({ idSender: id, name: d.name }); }
+          if (id != null && !seen.has(id)) {
+            seen.add(id);
+            this.senders.push({ idSender: id, name: d.name });
+          }
         });
-        this.selectedSenderId = this.senders.length ? this.senders[0].idSender : null;
-        this.loading = false;
-        this.step = 2;
+        if (this.senders.length) {
+          this.selectedSenderId = this.senders[0].idSender;
+        }
+        this.stepIndex = 1;
       },
-      (err: any) => { console.error('Search failed', err); this.loading = false; }
-    );
+      error: (err: unknown) => {
+        console.error('Search failed', err);
+        this.snack.open('Lookup failed', 'Close', { duration: 4000 });
+      },
+      complete: () => { this.loading = false; }
+    });
   }
 
-  submitSelection() {
-    // collect selected payload ids (for demo we use discovered ids if present)
-    // kept for compatibility with old callers
-    this.submitSelectionFromList((this.discovered || []).map(d => ({ value: d } as any)) as any);
+  goToStep(index: number) {
+    if (index < 0) index = 0;
+    if (index > 2) index = 2;
+    if (index < this.stepIndex) {
+      // When returning to earlier steps stop monitoring
+      if (index < 2) {
+        this.stopMonitoringPoll();
+      }
+    }
+    this.stepIndex = index;
   }
 
-  submitSelectionFromList(selected: any[]) {
-    const payloadIds = (selected || []).map(s => {
-      const d = s.value || s;
-      return String(d.idSender || d.name || d.id || d.payloadId || '');
-    }).filter((x: string) => !!x);
-    if (!payloadIds.length) { this.step = 3; this.loadMonitoring(); return; }
-    const req = { senderId: this.selectedSenderId, payloadIds: payloadIds, source: 'ui_stepper' } as any;
-    const sid = this.selectedSenderId || 0;
-    this.api.enqueue(sid, req).subscribe((resp: any) => {
-      // resp expected to be { enqueued: number, skipped: [ ... ] } (see backend dto)
-      const enq = resp && resp.enqueuedCount != null ? resp.enqueuedCount : (resp && resp.enqueued ? resp.enqueued : null);
-      const skipped = resp && resp.skippedPayloads ? resp.skippedPayloads : (resp && resp.skipped ? resp.skipped : []);
-      const enqNum = enq != null ? enq : (resp && resp.enqueued ? resp.enqueued : null);
-      const skippedArr = skipped || [];
-      this.enqueueResponse = { enqueued: enqNum, skipped: skippedArr };
-      const msg = `Enqueued ${enqNum != null ? enqNum : '?'}; skipped ${skippedArr.length}`;
-      this.snack.open(msg, 'OK', { duration: 4000 });
-      this.step = 3;
-      this.startMonitoringPoll();
-    }, (err: any) => { console.error('Enqueue failed', err); this.step = 3; this.loadMonitoring(); this.snack.open('Enqueue failed', 'Close', { duration: 5000 }); });
+  enqueueSelected() {
+    const payloadIds = (this.selectedDiscovered || []).map(item => {
+      const d = item?.value ?? item;
+      return String(d.payloadId || d.idSender || d.id || d.metadataId || '').trim();
+    }).filter(id => !!id);
+
+    if (!payloadIds.length) {
+      this.snack.open('Select at least one discovered entry to resend.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const sid = this.selectedSenderId || (this.discovered.length ? this.discovered[0].idSender : null);
+    if (!sid) {
+      this.snack.open('A sender must be selected to enqueue items.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const request = {
+      senderId: sid,
+      payloadIds,
+      source: 'ui_stepper'
+    };
+
+    this.api.enqueue(sid, request).subscribe({
+      next: (resp: unknown) => {
+        const response = (resp ?? {}) as Record<string, unknown>;
+        const enqueuedRaw = response['enqueuedCount'] ?? response['enqueued'];
+        const enqueued = typeof enqueuedRaw === 'number' ? enqueuedRaw : null;
+        const skippedRaw = response['skippedPayloads'] ?? response['skipped'];
+        const skipped = Array.isArray(skippedRaw)
+          ? skippedRaw.map(item => String(item))
+          : [];
+        this.enqueueResponse = { enqueued, skipped };
+        this.snack.open(`Enqueued ${enqueued ?? payloadIds.length} payloads`, 'OK', { duration: 3500 });
+        this.stepIndex = 2;
+        this.startMonitoringPoll(sid);
+      },
+      error: (err: unknown) => {
+        console.error('Enqueue failed', err);
+        this.snack.open('Enqueue failed', 'Close', { duration: 4000 });
+        this.stepIndex = 2;
+        this.startMonitoringPoll(sid);
+      }
+    });
   }
 
-  selectAll(sel: any) {
-    if (!sel) return;
-    sel.selectAll();
+  private startMonitoringPoll(senderId: number, intervalMs: number = 4000) {
+    this.stopMonitoringPoll();
+    this.loadMonitoring(senderId);
+    this.monitoringTimer = setInterval(() => this.loadMonitoring(senderId), intervalMs);
   }
 
-  clearSelection(sel: any) {
-    if (!sel) return;
-    sel.deselectAll();
+  private loadMonitoring(senderId: number) {
+    if (!senderId) {
+      this.monitoringQueue = [];
+      return;
+    }
+    this.api.getQueue(senderId, 'NEW', 200).subscribe({
+      next: (queue: any[] | null | undefined) => {
+        this.monitoringQueue = queue || [];
+      },
+      error: (err: unknown) => {
+        console.error('Monitoring load failed', err);
+        this.monitoringQueue = [];
+      }
+    });
+  }
+
+  stopMonitoringPoll() {
+    if (this.monitoringTimer) {
+      clearInterval(this.monitoringTimer);
+      this.monitoringTimer = null;
+    }
   }
 
   copySkippedToClipboard() {
-    if (!this.enqueueResponse || !this.enqueueResponse.skipped || !this.enqueueResponse.skipped.length) {
+    if (!this.enqueueResponse?.skipped?.length) {
       this.snack.open('No skipped IDs to copy', 'OK', { duration: 2000 });
       return;
     }
@@ -127,33 +320,20 @@ export class StepperComponent {
 
   getStatusColor(status: string | null): 'primary' | 'accent' | 'warn' | undefined {
     if (!status) return undefined;
-    const s = status.toUpperCase();
-    if (s === 'FAILED' || s === 'FAIL') return 'warn';
-    if (s === 'STAGED' || s === 'PUSHED' || s === 'PROCESSING') return 'accent';
+    const normalized = status.toUpperCase();
+    if (normalized === 'FAILED' || normalized === 'FAIL') return 'warn';
+    if (['STAGED', 'PUSHED', 'PROCESSING'].includes(normalized)) return 'accent';
     return 'primary';
   }
 
-  loadMonitoring() {
-    // For demonstration, call the queue endpoint for a selected sender (if any)
-    // We'll attempt to use a sender id from discovered list if present
-    const sid = this.discovered && this.discovered.length && this.discovered[0].idSender ? this.discovered[0].idSender : 0;
-    this.api.getQueue(sid, 'NEW', 200).subscribe((q: any[]) => { this.monitoringQueue = q || []; }, (err: any) => { console.error('Monitoring load failed', err); this.monitoringQueue = []; });
-  }
-
-  startMonitoringPoll(intervalMs: number = 3000) {
+  reset() {
     this.stopMonitoringPoll();
-    this.loadMonitoring();
-    this.monitoringTimer = setInterval(() => {
-      this.loadMonitoring();
-    }, intervalMs);
+    this.stepIndex = 0;
+    this.discovered = [];
+    this.selectedDiscovered = [];
+    this.senders = [];
+    this.selectedSenderId = null;
+    this.enqueueResponse = null;
+    this.monitoringQueue = [];
   }
-
-  stopMonitoringPoll() {
-    if (this.monitoringTimer) { clearInterval(this.monitoringTimer); this.monitoringTimer = null; }
-  }
-
-  // ensure timer cleanup when user navigates back
-  backToInputs() { this.stopMonitoringPoll(); this.step = 1; }
-
-  
 }

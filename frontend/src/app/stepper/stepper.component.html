@@ -1,100 +1,156 @@
 <mat-card class="stepper-card">
-  <div *ngIf="step === 1">
-    <h3>1. Provide connection and filter</h3>
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Connection Key (optional)</mat-label>
-      <input matInput [(ngModel)]="connectionKey" name="connectionKey" />
-    </mat-form-field>
+  <mat-horizontal-stepper linear [selectedIndex]="stepIndex" (selectionChange)="stepIndex = $event.selectedIndex">
+    <mat-step label="1. Select filters" [completed]="stepIndex > 0">
+      <div class="step-content">
+        <div class="two-col">
+          <mat-form-field appearance="fill">
+            <mat-label>Site</mat-label>
+            <mat-select [(ngModel)]="selectedSite" name="site">
+              <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
+            </mat-select>
+          </mat-form-field>
 
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Saved Location ID (optional)</mat-label>
-      <input matInput type="number" [(ngModel)]="locationId" name="locationId" />
-    </mat-form-field>
-
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Metadata location (required)</mat-label>
-      <input matInput [(ngModel)]="metadataLocation" name="metadataLocation" />
-    </mat-form-field>
-
-    <div style="display:flex; gap:8px;">
-      <button mat-raised-button color="primary" (click)="doSearch()" [disabled]="!canSearch() || loading">Search</button>
-    </div>
-  </div>
-
-  <div *ngIf="step === 2">
-    <h3>2. Discovered results</h3>
-    <div *ngIf="loading"><mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner> Searching...</div>
-    <div *ngIf="!loading && discovered && discovered.length === 0">No results</div>
-    <div *ngIf="senders && senders.length">
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Choose sender (for enqueue)</mat-label>
-        <mat-select [(ngModel)]="selectedSenderId" name="selectedSenderId">
-          <mat-option *ngFor="let s of senders" [value]="s.idSender">{{ s.idSender }} — {{ s.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-    <div *ngIf="!loading && discovered && discovered.length">
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px;">
-        <button mat-button (click)="selectAll(sel)">Select all</button>
-        <button mat-button (click)="clearSelection(sel)">Clear</button>
-      </div>
-      <mat-selection-list #sel>
-        <mat-list-option *ngFor="let d of discovered" [value]="d">
-          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-            <div>{{ d.idSender || 'unknown' }} — {{ d.name }}</div>
-            <div><small>{{ d.extra || '' }}</small></div>
-          </div>
-        </mat-list-option>
-      </mat-selection-list>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button mat-button (click)="backToInputs()">Back</button>
-        <button mat-raised-button color="primary" (click)="submitSelectionFromList(sel.selectedOptions.selected)" [disabled]="!selectedSenderId">Enqueue selected</button>
-      </div>
-    </div>
-    <div style="display:flex; gap:8px; margin-top:8px;">
-      <button mat-button (click)="backToInputs()">Back</button>
-      <button mat-button color="primary" (click)="step = 3">Go to monitoring</button>
-    </div>
-  </div>
-
-  <div *ngIf="step === 3">
-    <h3>3. Monitoring</h3>
-    <div *ngIf="monitoringQueue && monitoringQueue.length === 0">No queue items found</div>
-
-    <!-- Enqueue response details card -->
-    <div *ngIf="enqueueResponse" style="margin-bottom:12px;">
-      <mat-card>
-        <mat-card-title>Enqueue result</mat-card-title>
-        <mat-card-content>
-          <div><strong>Enqueued:</strong> {{ enqueueResponse.enqueued != null ? enqueueResponse.enqueued : 'N/A' }}</div>
-          <div *ngIf="enqueueResponse.skipped && enqueueResponse.skipped.length">
-            <p><strong>Skipped ({{ enqueueResponse.skipped.length }}):</strong></p>
-            <mat-list>
-              <mat-list-item *ngFor="let sid of enqueueResponse.skipped">{{ sid }}</mat-list-item>
-            </mat-list>
-            <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-              <button mat-button (click)="copySkippedToClipboard()">Copy Skipped IDs</button>
-              <button mat-button (click)="showFullResponse = !showFullResponse">{{ showFullResponse ? 'Hide' : 'Show' }} Full Response</button>
-            </div>
-            <mat-expansion-panel *ngIf="showFullResponse" style="margin-top:8px;">
-              <mat-expansion-panel-header>
-                <mat-panel-title>Full Enqueue Response</mat-panel-title>
-              </mat-expansion-panel-header>
-              <pre style="white-space:pre-wrap">{{ enqueueResponse | json }}</pre>
-            </mat-expansion-panel>
-          </div>
-          <div *ngIf="!enqueueResponse.skipped || enqueueResponse.skipped.length === 0"><small>No skipped payloads reported.</small></div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-    <mat-card *ngFor="let q of monitoringQueue" style="margin-bottom:8px;">
-      <mat-card-content style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; gap:12px; align-items:center;">
-          <div>{{ q.id }} — {{ q.payloadId || q.id_data || q.id_metadata }}</div>
-          <mat-chip [color]="getStatusColor(q.status)" selected>{{ q.status }}</mat-chip>
+          <mat-form-field appearance="fill">
+            <mat-label>Environment</mat-label>
+            <mat-select [(ngModel)]="selectedEnvironment" name="environment" (selectionChange)="onEnvironmentChange()">
+              <mat-option *ngFor="let env of environments" [value]="env.name">{{ env.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
         </div>
-      </mat-card-content>
-    </mat-card>
-    <div style="margin-top:8px;"><button mat-button (click)="loadMonitoring()">Refresh</button></div>
-  </div>
+
+        <div class="two-col">
+          <mat-form-field appearance="fill">
+            <mat-label>DTP Connection</mat-label>
+            <mat-select [(ngModel)]="selectedInstanceKey" name="instanceKey">
+              <mat-option [value]="null">-- Optional --</mat-option>
+              <mat-option *ngFor="let inst of instances" [value]="inst.key">{{ inst.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Saved location</mat-label>
+            <mat-select [(ngModel)]="selectedLocationId" name="locationId">
+              <mat-option [value]="null">-- Optional --</mat-option>
+              <mat-option *ngFor="let loc of locations" [value]="loc.id">{{ loc.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Metadata location</mat-label>
+          <input matInput [(ngModel)]="metadataLocation" name="metadataLocation" placeholder="Overrides saved location label" />
+        </mat-form-field>
+
+        <div class="two-col">
+          <mat-form-field appearance="fill">
+            <mat-label>Tester type</mat-label>
+            <input matInput [(ngModel)]="testerType" name="testerType" />
+          </mat-form-field>
+          <mat-form-field appearance="fill">
+            <mat-label>Data type</mat-label>
+            <input matInput [(ngModel)]="dataType" name="dataType" />
+          </mat-form-field>
+        </div>
+
+        <div class="two-col">
+          <mat-form-field appearance="fill">
+            <mat-label>Test phase</mat-label>
+            <input matInput [(ngModel)]="testPhase" name="testPhase" />
+          </mat-form-field>
+          <div class="date-range">
+            <mat-form-field appearance="fill">
+              <mat-label>Start date</mat-label>
+              <input matInput [matDatepicker]="startPicker" [(ngModel)]="startDate" name="startDate" />
+              <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+              <mat-datepicker #startPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="fill">
+              <mat-label>End date</mat-label>
+              <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate" name="endDate" />
+              <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+              <mat-datepicker #endPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <div class="step-actions">
+          <span class="helper" *ngIf="!canSearch()">Select a connection or saved location and provide a metadata location.</span>
+          <button mat-flat-button color="primary" (click)="doSearch()" [disabled]="loading || !canSearch()">
+            <mat-icon *ngIf="loading" class="spinner-icon">sync</mat-icon>
+            {{ loading ? 'Searching…' : 'Search' }}
+          </button>
+        </div>
+      </div>
+    </mat-step>
+
+    <mat-step label="2. Review and resend" [completed]="stepIndex > 1">
+      <div class="step-content">
+        <ng-container *ngIf="discovered.length; else noResults">
+          <p class="summary">{{ discovered.length }} result{{ discovered.length === 1 ? '' : 's' }} found. Uncheck anything you do not want to resend.</p>
+
+          <mat-form-field appearance="fill" class="full-width" *ngIf="senders.length">
+            <mat-label>Sender to enqueue</mat-label>
+            <mat-select [(ngModel)]="selectedSenderId" name="selectedSenderId">
+              <mat-option *ngFor="let s of senders" [value]="s.idSender">{{ s.idSender }} — {{ s.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-selection-list [(ngModel)]="selectedDiscovered" [multiple]="true">
+            <mat-list-option *ngFor="let item of discovered" [value]="item">
+              <div class="result-line">
+                <div class="title">{{ item.idSender || 'unknown' }} — {{ item.name || item.payloadId }}</div>
+                <div class="meta" *ngIf="item.metadataLocation || item.location">{{ item.metadataLocation || item.location }}</div>
+              </div>
+            </mat-list-option>
+          </mat-selection-list>
+
+          <div class="step-actions">
+            <button mat-button type="button" (click)="goToStep(0)">Back</button>
+            <button mat-raised-button color="primary" type="button" (click)="enqueueSelected()">Resend selected</button>
+          </div>
+        </ng-container>
+        <ng-template #noResults>
+          <p *ngIf="!loading">No results yet — run a search in step 1.</p>
+        </ng-template>
+      </div>
+    </mat-step>
+
+    <mat-step label="3. Monitor status">
+      <div class="step-content">
+        <div class="step-actions">
+          <button mat-button type="button" (click)="reset()">Start over</button>
+        </div>
+
+        <mat-card *ngIf="enqueueResponse" class="enqueue-card">
+          <mat-card-title>Latest enqueue</mat-card-title>
+          <mat-card-content>
+            <div><strong>Enqueued:</strong> {{ enqueueResponse.enqueued ?? '?' }}</div>
+            <div *ngIf="enqueueResponse.skipped?.length">
+              <p><strong>Skipped ({{ enqueueResponse.skipped.length }}):</strong></p>
+              <mat-list>
+                <mat-list-item *ngFor="let id of enqueueResponse.skipped">{{ id }}</mat-list-item>
+              </mat-list>
+              <button mat-button type="button" (click)="copySkippedToClipboard()">Copy skipped IDs</button>
+            </div>
+            <div *ngIf="!enqueueResponse.skipped?.length"><small>No skipped items reported.</small></div>
+          </mat-card-content>
+        </mat-card>
+
+        <div *ngIf="monitoringQueue.length; else emptyQueue">
+          <mat-card *ngFor="let entry of monitoringQueue" class="queue-entry">
+            <mat-card-content class="queue-row">
+              <div>
+                <div class="title">{{ entry.payloadId || entry.id_data || entry.id_metadata }}</div>
+                <div class="meta">{{ entry.createdAt | date:'short' }}</div>
+              </div>
+              <mat-chip [color]="getStatusColor(entry.status)" selected>{{ entry.status }}</mat-chip>
+            </mat-card-content>
+          </mat-card>
+        </div>
+        <ng-template #emptyQueue>
+          <p>No queue items found yet.</p>
+        </ng-template>
+      </div>
+    </mat-step>
+  </mat-horizontal-stepper>
 </mat-card>

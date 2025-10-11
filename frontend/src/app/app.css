@@ -3,36 +3,3 @@
   margin: 24px auto;
   padding: 16px;
 }
-
-.full-width {
-  width: 100%;
-}
-
-.actions {
-  display: flex;
-  gap: 12px;
-  margin: 12px 0;
-}
-
-.result-card {
-  margin-top: 16px;
-}
-
-
-.status-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.status-table th,
-.status-table td {
-  border-bottom: 1px solid #e0e0e0;
-  padding: 8px;
-  text-align: left;
-}
-
-.spinner {
-  display: flex;
-  justify-content: center;
-  padding: 12px 0;
-}
