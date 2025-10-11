@@ -291,11 +291,20 @@ public class ExternalDbConfig {
         if (jdbcField != null && jdbcField.toString().startsWith("jdbc:")) {
             jdbcUrl = jdbcField.toString();
         } else if (host != null && host.contains("/")) {
-            String[] parts = host.split("/");
-            String hostname = parts[0];
-            String service = parts[1];
-            String sid = service.split("\\.")[0];
-            jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s:%s", hostname, port, sid);
+            String[] parts = host.split("/", 2);
+            String hostPart = parts[0];
+            String servicePart = parts.length > 1 ? parts[1] : "";
+            String hostname = hostPart;
+            String portValue = port;
+            if (hostPart.contains(":")) {
+                String[] hostPieces = hostPart.split(":", 2);
+                hostname = hostPieces[0];
+                if (hostPieces.length > 1 && !hostPieces[1].isBlank()) {
+                    portValue = hostPieces[1];
+                }
+            }
+            String sid = servicePart.contains(".") ? servicePart.split("\\.")[0] : servicePart;
+            jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s:%s", hostname, portValue, sid);
         } else {
             if (host != null && host.startsWith("jdbc:")) jdbcUrl = host;
             else if (host != null && host.contains(":")) {
@@ -427,12 +436,21 @@ public class ExternalDbConfig {
         if (jdbcField != null && jdbcField.toString().startsWith("jdbc:")) {
             jdbcUrl = jdbcField.toString();
         } else if (host != null && host.contains("/")) {
-            String[] parts = host.split("/");
-            String hostname = parts[0];
-            String service = parts[1];
-            // If service contains dots (full domain), keep as-is for connection string
-            String sid = service.split("\\.")[0];
-            jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s:%s", hostname, port, sid);
+            String[] parts = host.split("/", 2);
+            String hostPart = parts[0];
+            String servicePart = parts.length > 1 ? parts[1] : "";
+            String hostname = hostPart;
+            String portValue = port;
+            if (hostPart.contains(":")) {
+                String[] hostPieces = hostPart.split(":", 2);
+                hostname = hostPieces[0];
+                if (hostPieces.length > 1 && !hostPieces[1].isBlank()) {
+                    portValue = hostPieces[1];
+                }
+            }
+            // If service contains dots (full domain), keep base SID segment
+            String sid = servicePart.contains(".") ? servicePart.split("\\.")[0] : servicePart;
+            jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s:%s", hostname, portValue, sid);
         } else {
             // Fallback - try as JDBC URL or generic mysql-style host
             if (host != null && host.startsWith("jdbc:")) jdbcUrl = host;

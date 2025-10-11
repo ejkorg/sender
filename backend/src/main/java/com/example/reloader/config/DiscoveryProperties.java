@@ -20,6 +20,7 @@ public class DiscoveryProperties {
     private int numberOfDataToSend = 300;
     private int countLimitTrigger = 600;
     private String cron = "0 */5 * * * *";
+    private boolean enabled = false;
     // Notification settings
     private String notifyRecipient;
     private boolean notifyAttachList = false;
@@ -50,6 +51,8 @@ public class DiscoveryProperties {
     public void setCountLimitTrigger(int countLimitTrigger) { this.countLimitTrigger = countLimitTrigger; }
     public String getCron() { return cron; }
     public void setCron(String cron) { this.cron = cron; }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getNotifyRecipient() { return notifyRecipient; }
     public void setNotifyRecipient(String notifyRecipient) { this.notifyRecipient = notifyRecipient; }
     public boolean isNotifyAttachList() { return notifyAttachList; }

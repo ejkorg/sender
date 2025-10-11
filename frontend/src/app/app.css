@@ -3,3 +3,11 @@
   margin: 24px auto;
   padding: 16px;
 }
+
+.login-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  text-align: center;
+}

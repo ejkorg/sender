@@ -1,15 +1,29 @@
 <mat-toolbar color="primary">
   <span>Dataport Reload</span>
   <span style="flex:1 1 auto"></span>
-  <span *ngIf="(auth.user$ | async) as u">
-    <span *ngIf="u.username">{{ u.username }}</span>
-    <button mat-button *ngIf="u.username" (click)="auth.logout()">Logout</button>
-    <app-login *ngIf="!u.username"></app-login>
-  </span>
+  <ng-container *ngIf="(auth.user$ | async) as u">
+    <ng-container *ngIf="u?.username; else toolbarLogin">
+      <span>{{ u.username }}</span>
+      <button mat-button (click)="auth.logout()">Logout</button>
+    </ng-container>
+  </ng-container>
 </mat-toolbar>
 
-<div class="app-container">
-  <app-stepper></app-stepper>
-</div>
+<ng-template #toolbarLogin>
+  <span>Not signed in</span>
+</ng-template>
+
+<ng-container *ngIf="(auth.user$ | async) as user; else loginReminder">
+  <div class="app-container" *ngIf="user?.username; else loginReminder">
+    <app-stepper></app-stepper>
+  </div>
+</ng-container>
+
+<ng-template #loginReminder>
+  <div class="app-container login-prompt">
+    <p>Please sign in to manage resend requests.</p>
+    <app-login></app-login>
+  </div>
+</ng-template>
 
 

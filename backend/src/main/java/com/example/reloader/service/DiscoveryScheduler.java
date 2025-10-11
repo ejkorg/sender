@@ -19,9 +19,19 @@ public class DiscoveryScheduler {
 
     @Scheduled(cron = "${app.discovery.cron:0 */5 * * * *}")
     public void scheduledDiscovery() {
+        if (!props.isEnabled()) {
+            return;
+        }
+
+        String site = props.getSite();
+        if (site == null || site.isBlank()) {
+            log.warn("Skipping scheduled discovery because no site is configured");
+            return;
+        }
+
         try {
-            log.info("Running scheduled discovery (site={}, senderId={})", props.getSite(), props.getSenderId());
-            importer.discoverAndEnqueue(props.getSite(), props.getEnvironment(), props.getSenderId(), props.getStartDate(), props.getEndDate(), props.getTesterType(), props.getDataType(), props.getTestPhase(), props.getLocation(), null, props.isWriteListFile(), props.getNumberOfDataToSend(), props.getCountLimitTrigger());
+            log.info("Running scheduled discovery (site={}, senderId={})", site, props.getSenderId());
+            importer.discoverAndEnqueue(site, props.getEnvironment(), props.getSenderId(), props.getStartDate(), props.getEndDate(), props.getTesterType(), props.getDataType(), props.getTestPhase(), props.getLocation(), null, props.isWriteListFile(), props.getNumberOfDataToSend(), props.getCountLimitTrigger());
         } catch (Exception ex) {
             log.error("Scheduled discovery failed: {}", ex.getMessage(), ex);
         }

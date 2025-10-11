@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BackendService, ExternalEnvironment, ExternalInstance, ExternalLocationSummary } from '../api/backend.service';
+import { BackendService, ReloadFilterOptions } from '../api/backend.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MatChipsModule } from '@angular/material/chips';
@@ -30,26 +30,20 @@ export class StepperComponent implements OnInit, OnDestroy {
   stepIndex = 0;
 
   sites: string[] = [];
-  selectedSite = '';
+  selectedSite: string | null = null;
 
-  environments: ExternalEnvironment[] = [];
-  selectedEnvironment = 'qa';
+  filterOptions: ReloadFilterOptions | null = null;
+  filtersLoading = false;
 
-  instances: ExternalInstance[] = [];
-  selectedInstanceKey: string | null = null;
-
-  locations: ExternalLocationSummary[] = [];
-  selectedLocationId: number | null = null;
-
-  metadataLocation = '';
-  testerType = '';
-  dataType = '';
-  testPhase = '';
+  selectedLocation = '';
+  selectedDataType = '';
+  selectedTesterType = '';
+  selectedTestPhase = '';
+  selectedFileType = '';
   startDate: Date | null = null;
   endDate: Date | null = null;
 
   loading = false;
-  loadingFilters = false;
 
   discovered: Array<any> = [];
   selectedDiscovered: Array<any> = [];
@@ -65,7 +59,6 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadSites();
-    this.loadEnvironments();
   }
 
   ngOnDestroy(): void {
@@ -76,123 +69,81 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.api.listSites().subscribe({
       next: (sites: string[]) => {
         this.sites = sites || [];
-        if (!this.selectedSite && this.sites.length) {
-          this.selectedSite = this.sites[0];
+        if (this.selectedSite && !this.sites.includes(this.selectedSite)) {
+          this.selectedSite = null;
+          this.onSiteChange();
         }
       },
       error: (err: unknown) => console.error('Failed to load sites', err)
     });
   }
 
-  private loadEnvironments() {
-    this.api.listEnvironments().subscribe({
-      next: (envs: ExternalEnvironment[]) => {
-        this.environments = envs || [];
-        if (!this.environments.length) {
-          this.instances = [];
-          this.locations = [];
-          return;
-        }
-        const found = this.environments.some(e => (e.name || '').toLowerCase() === this.selectedEnvironment.toLowerCase());
-        if (!found) {
-          const qa = this.environments.find(e => (e.name || '').toLowerCase() === 'qa');
-          this.selectedEnvironment = qa?.name || this.environments[0].name || this.selectedEnvironment;
-        }
-        this.loadInstances();
-        this.loadLocations();
-      },
-      error: (err: unknown) => console.error('Failed to load environments', err)
-    });
-  }
-
-  onEnvironmentChange() {
-    this.selectedInstanceKey = null;
-    this.selectedLocationId = null;
-    this.metadataLocation = '';
-    this.loadInstances();
-    this.loadLocations();
-  }
-
-  private loadInstances() {
-    if (!this.selectedEnvironment) {
-      this.instances = [];
-      this.selectedInstanceKey = null;
+  onSiteChange() {
+    this.filterOptions = null;
+    this.selectedLocation = '';
+    this.selectedDataType = '';
+    this.selectedTesterType = '';
+    this.selectedTestPhase = '';
+    this.selectedFileType = '';
+    this.discovered = [];
+    this.selectedDiscovered = [];
+    this.senders = [];
+    this.selectedSenderId = null;
+    this.stepIndex = 0;
+    this.filtersLoading = false;
+    if (!this.selectedSite) {
       return;
     }
-    this.api.listInstances(this.selectedEnvironment).subscribe({
-      next: (list: ExternalInstance[]) => {
-        this.instances = list || [];
-        if (this.selectedInstanceKey && !this.instances.some(i => i.key === this.selectedInstanceKey)) {
-          this.selectedInstanceKey = null;
-        }
+    this.loadFiltersForSite(this.selectedSite);
+  }
+
+  private loadFiltersForSite(site: string) {
+    this.filtersLoading = true;
+    this.api.getReloadFilters(site).subscribe({
+      next: (options: ReloadFilterOptions) => {
+        const normalized: ReloadFilterOptions = {
+          locations: options?.locations?.filter(Boolean) ?? [],
+          dataTypes: options?.dataTypes?.filter(Boolean) ?? [],
+          testerTypes: options?.testerTypes?.filter(Boolean) ?? [],
+          dataTypeExt: options?.dataTypeExt?.filter((v: string | null | undefined) => v !== undefined) ?? [],
+          fileTypes: options?.fileTypes?.filter(Boolean) ?? []
+        };
+        this.filterOptions = normalized;
+        this.filtersLoading = false;
       },
       error: (err: unknown) => {
-        console.error('Failed to load instances', err);
-        this.instances = [];
-        this.selectedInstanceKey = null;
+        console.error('Failed to load reload filters', err);
+        this.filterOptions = { locations: [], dataTypes: [], testerTypes: [], dataTypeExt: [], fileTypes: [] };
+        this.filtersLoading = false;
       }
     });
   }
 
-  private loadLocations() {
-    if (!this.selectedEnvironment) {
-      this.locations = [];
-      this.selectedLocationId = null;
-      return;
-    }
-    this.loadingFilters = true;
-    this.api.listLocations(this.selectedEnvironment).subscribe({
-      next: (list: ExternalLocationSummary[]) => {
-        this.locations = list || [];
-        if (this.selectedLocationId && !this.locations.some(l => l.id === this.selectedLocationId)) {
-          this.selectedLocationId = null;
-        }
-      },
-      error: (err: unknown) => {
-        console.error('Failed to load locations', err);
-        this.locations = [];
-        this.selectedLocationId = null;
-      },
-      complete: () => { this.loadingFilters = false; }
-    });
-  }
-
   canSearch(): boolean {
-    const hasConnection = !!this.selectedLocationId || !!this.selectedInstanceKey;
-    const locationText = this.metadataLocation || this.selectedLocationLabel();
-    return hasConnection && !!locationText;
-  }
-
-  private selectedLocationLabel(): string {
-    if (!this.selectedLocationId) return '';
-    const match = this.locations.find(l => l.id === this.selectedLocationId);
-    return match?.label || '';
+    return !!(this.selectedSite && this.selectedLocation);
   }
 
   doSearch() {
     if (!this.canSearch()) {
-      this.snack.open('Provide a saved location or connection key and metadata location.', 'Close', { duration: 3000 });
+      this.snack.open('Select a site and location before searching.', 'Close', { duration: 3000 });
       return;
     }
 
-    const metadataFilter = this.metadataLocation || this.selectedLocationLabel();
+  const site = this.selectedSite as string;
     const params: Record<string, any> = {
-      site: this.selectedSite || 'default',
-      environment: this.selectedEnvironment || 'qa',
-      metadataLocation: metadataFilter,
-      dataType: this.dataType || undefined,
-      testerType: this.testerType || undefined,
-      testPhase: this.testPhase || undefined
+      site,
+      environment: '',
+      connectionKey: site,
+      metadataLocation: this.selectedLocation,
+      location: this.selectedLocation,
+      dataType: this.selectedDataType || undefined,
+      testerType: this.selectedTesterType || undefined,
+      testPhase: this.selectedTestPhase || undefined,
+      fileType: this.selectedFileType || undefined
     };
 
-    if (this.selectedLocationId) {
-      params.locationId = this.selectedLocationId;
-    } else if (this.selectedInstanceKey) {
-      params.connectionKey = this.selectedInstanceKey;
-    }
-
-    if (this.startDate) params.startDate = formatDate(this.startDate, 'yyyy-MM-dd', 'en-US');
-    if (this.endDate) params.endDate = formatDate(this.endDate, 'yyyy-MM-dd', 'en-US');
+    if (this.startDate) params['startDate'] = formatDate(this.startDate, 'yyyy-MM-dd', 'en-US');
+    if (this.endDate) params['endDate'] = formatDate(this.endDate, 'yyyy-MM-dd', 'en-US');
 
     this.loading = true;
     this.api.lookupSenders(params).subscribe({

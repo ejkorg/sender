@@ -2,61 +2,66 @@
   <mat-horizontal-stepper linear [selectedIndex]="stepIndex" (selectionChange)="stepIndex = $event.selectedIndex">
     <mat-step label="1. Select filters" [completed]="stepIndex > 0">
       <div class="step-content">
-        <div class="two-col">
-          <mat-form-field appearance="fill">
-            <mat-label>Site</mat-label>
-            <mat-select [(ngModel)]="selectedSite" name="site">
-              <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="fill">
-            <mat-label>Environment</mat-label>
-            <mat-select [(ngModel)]="selectedEnvironment" name="environment" (selectionChange)="onEnvironmentChange()">
-              <mat-option *ngFor="let env of environments" [value]="env.name">{{ env.name }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="two-col">
-          <mat-form-field appearance="fill">
-            <mat-label>DTP Connection</mat-label>
-            <mat-select [(ngModel)]="selectedInstanceKey" name="instanceKey">
-              <mat-option [value]="null">-- Optional --</mat-option>
-              <mat-option *ngFor="let inst of instances" [value]="inst.key">{{ inst.label }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="fill">
-            <mat-label>Saved location</mat-label>
-            <mat-select [(ngModel)]="selectedLocationId" name="locationId">
-              <mat-option [value]="null">-- Optional --</mat-option>
-              <mat-option *ngFor="let loc of locations" [value]="loc.id">{{ loc.label }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
         <mat-form-field appearance="fill" class="full-width">
-          <mat-label>Metadata location</mat-label>
-          <input matInput [(ngModel)]="metadataLocation" name="metadataLocation" placeholder="Overrides saved location label" />
+          <mat-label>Site / Connection</mat-label>
+          <mat-select [(ngModel)]="selectedSite" name="site" (selectionChange)="onSiteChange()">
+            <mat-option [value]="null">-- Select site --</mat-option>
+            <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
+          </mat-select>
         </mat-form-field>
 
-        <div class="two-col">
-          <mat-form-field appearance="fill">
-            <mat-label>Tester type</mat-label>
-            <input matInput [(ngModel)]="testerType" name="testerType" />
-          </mat-form-field>
-          <mat-form-field appearance="fill">
-            <mat-label>Data type</mat-label>
-            <input matInput [(ngModel)]="dataType" name="dataType" />
-          </mat-form-field>
+        <div class="filters-loading" *ngIf="filtersLoading">
+          <mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner>
+          <span>Loading connection filters…</span>
         </div>
 
-        <div class="two-col">
-          <mat-form-field appearance="fill">
-            <mat-label>Test phase</mat-label>
-            <input matInput [(ngModel)]="testPhase" name="testPhase" />
+        <ng-container *ngIf="!filtersLoading && filterOptions as filters">
+          <div class="two-col">
+            <mat-form-field appearance="fill">
+              <mat-label>Location</mat-label>
+              <mat-select [(ngModel)]="selectedLocation" name="location">
+                <mat-option [value]="''">-- Select location --</mat-option>
+                <mat-option *ngFor="let loc of filters.locations" [value]="loc">{{ loc }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill">
+              <mat-label>Data type</mat-label>
+              <mat-select [(ngModel)]="selectedDataType" name="dataType">
+                <mat-option [value]="''">-- Any --</mat-option>
+                <mat-option *ngFor="let dt of filters.dataTypes" [value]="dt">{{ dt }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="two-col">
+            <mat-form-field appearance="fill">
+              <mat-label>Tester type</mat-label>
+              <mat-select [(ngModel)]="selectedTesterType" name="testerType">
+                <mat-option [value]="''">-- Any --</mat-option>
+                <mat-option *ngFor="let tt of filters.testerTypes" [value]="tt">{{ tt }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill">
+              <mat-label>Phase / Data type ext</mat-label>
+              <mat-select [(ngModel)]="selectedTestPhase" name="testPhase">
+                <mat-option [value]="''">-- Any --</mat-option>
+                <mat-option *ngFor="let phase of filters.dataTypeExt || []" [value]="phase">{{ phase || 'None' }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <mat-form-field appearance="fill" class="full-width" *ngIf="filters.fileTypes?.length">
+            <mat-label>File type</mat-label>
+            <mat-select [(ngModel)]="selectedFileType" name="fileType">
+              <mat-option [value]="''">-- Any --</mat-option>
+              <mat-option *ngFor="let ft of filters.fileTypes" [value]="ft">{{ ft }}</mat-option>
+            </mat-select>
           </mat-form-field>
+        </ng-container>
+
+        <div class="two-col">
           <div class="date-range">
             <mat-form-field appearance="fill">
               <mat-label>Start date</mat-label>
@@ -74,7 +79,7 @@
         </div>
 
         <div class="step-actions">
-          <span class="helper" *ngIf="!canSearch()">Select a connection or saved location and provide a metadata location.</span>
+          <span class="helper" *ngIf="!canSearch()">Select a site and location to continue.</span>
           <button mat-flat-button color="primary" (click)="doSearch()" [disabled]="loading || !canSearch()">
             <mat-icon *ngIf="loading" class="spinner-icon">sync</mat-icon>
             {{ loading ? 'Searching…' : 'Search' }}
@@ -126,7 +131,7 @@
           <mat-card-content>
             <div><strong>Enqueued:</strong> {{ enqueueResponse.enqueued ?? '?' }}</div>
             <div *ngIf="enqueueResponse.skipped?.length">
-              <p><strong>Skipped ({{ enqueueResponse.skipped.length }}):</strong></p>
+              <p><strong>Skipped ({{ enqueueResponse.skipped?.length ?? 0 }}):</strong></p>
               <mat-list>
                 <mat-list-item *ngFor="let id of enqueueResponse.skipped">{{ id }}</mat-list-item>
               </mat-list>

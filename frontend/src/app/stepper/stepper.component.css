@@ -25,6 +25,13 @@
 	gap: 16px;
 }
 
+.filters-loading {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: #6b6b6b;
+}
+
 .step-actions {
 	display: flex;
 	justify-content: flex-end;
