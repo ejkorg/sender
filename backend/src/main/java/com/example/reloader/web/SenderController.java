@@ -108,6 +108,9 @@ public class SenderController {
                 if (loc == null) throw new IllegalArgumentException("locationId not found");
                 conn = metadataImporterService.resolveConnectionForLocation(loc, environment);
             } else if (connectionKey != null && !connectionKey.isBlank()) {
+                if (metadataLocation == null || metadataLocation.isBlank()) {
+                    throw new IllegalArgumentException("metadataLocation is required when using a connection key");
+                }
                 conn = metadataImporterService.resolveConnectionForKey(connectionKey, environment);
             } else {
                 throw new IllegalArgumentException("locationId or connectionKey is required");

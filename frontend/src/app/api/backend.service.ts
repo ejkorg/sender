@@ -62,7 +62,6 @@ export interface ReloadFilterOptions {
   dataTypes: string[];
   testerTypes: string[];
   dataTypeExt?: string[];
-  fileTypes?: string[];
 }
 
 @Injectable({ providedIn: 'root' })

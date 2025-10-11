@@ -39,7 +39,6 @@ export class StepperComponent implements OnInit, OnDestroy {
   selectedDataType = '';
   selectedTesterType = '';
   selectedTestPhase = '';
-  selectedFileType = '';
   startDate: Date | null = null;
   endDate: Date | null = null;
 
@@ -84,7 +83,6 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.selectedDataType = '';
     this.selectedTesterType = '';
     this.selectedTestPhase = '';
-    this.selectedFileType = '';
     this.discovered = [];
     this.selectedDiscovered = [];
     this.senders = [];
@@ -105,15 +103,14 @@ export class StepperComponent implements OnInit, OnDestroy {
           locations: options?.locations?.filter(Boolean) ?? [],
           dataTypes: options?.dataTypes?.filter(Boolean) ?? [],
           testerTypes: options?.testerTypes?.filter(Boolean) ?? [],
-          dataTypeExt: options?.dataTypeExt?.filter((v: string | null | undefined) => v !== undefined) ?? [],
-          fileTypes: options?.fileTypes?.filter(Boolean) ?? []
+          dataTypeExt: options?.dataTypeExt?.filter((v: string | null | undefined) => v !== undefined) ?? []
         };
         this.filterOptions = normalized;
         this.filtersLoading = false;
       },
       error: (err: unknown) => {
         console.error('Failed to load reload filters', err);
-        this.filterOptions = { locations: [], dataTypes: [], testerTypes: [], dataTypeExt: [], fileTypes: [] };
+  this.filterOptions = { locations: [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
         this.filtersLoading = false;
       }
     });
@@ -132,14 +129,12 @@ export class StepperComponent implements OnInit, OnDestroy {
   const site = this.selectedSite as string;
     const params: Record<string, any> = {
       site,
-      environment: '',
       connectionKey: site,
       metadataLocation: this.selectedLocation,
       location: this.selectedLocation,
       dataType: this.selectedDataType || undefined,
       testerType: this.selectedTesterType || undefined,
-      testPhase: this.selectedTestPhase || undefined,
-      fileType: this.selectedFileType || undefined
+  testPhase: this.selectedTestPhase || undefined
     };
 
     if (this.startDate) params['startDate'] = formatDate(this.startDate, 'yyyy-MM-dd', 'en-US');

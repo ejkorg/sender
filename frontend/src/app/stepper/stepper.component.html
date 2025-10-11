@@ -44,21 +44,13 @@
             </mat-form-field>
 
             <mat-form-field appearance="fill">
-              <mat-label>Phase / Data type ext</mat-label>
+              <mat-label>Phase</mat-label>
               <mat-select [(ngModel)]="selectedTestPhase" name="testPhase">
                 <mat-option [value]="''">-- Any --</mat-option>
                 <mat-option *ngFor="let phase of filters.dataTypeExt || []" [value]="phase">{{ phase || 'None' }}</mat-option>
               </mat-select>
             </mat-form-field>
           </div>
-
-          <mat-form-field appearance="fill" class="full-width" *ngIf="filters.fileTypes?.length">
-            <mat-label>File type</mat-label>
-            <mat-select [(ngModel)]="selectedFileType" name="fileType">
-              <mat-option [value]="''">-- Any --</mat-option>
-              <mat-option *ngFor="let ft of filters.fileTypes" [value]="ft">{{ ft }}</mat-option>
-            </mat-select>
-          </mat-form-field>
         </ng-container>
 
         <div class="two-col">
