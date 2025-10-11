@@ -88,6 +88,15 @@
     </changeSet>
 
     <changeSet id="5" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="external_location" />
+                <not>
+                    <columnExists tableName="external_location" columnName="site" />
+                </not>
+            </and>
+        </preConditions>
         <addColumn tableName="external_location">
             <column name="site" type="VARCHAR(100)" />
         </addColumn>
@@ -164,8 +173,16 @@
     </changeSet>
 
     <changeSet id="7" author="copilot">
-        <preConditions onFail="HALT">
-            <tableExists tableName="load_session_payload" />
+        <!-- Only add column if it does not already exist. If it exists, mark this changeset as ran. -->
+        <!-- validCheckSum ANY prevents checksum validation failures in DBs where this changeset was already applied with the previous content. -->
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <columnExists tableName="load_session_payload" columnName="next_attempt_at" />
+                </not>
+            </and>
         </preConditions>
         <addColumn tableName="load_session_payload">
             <column name="next_attempt_at" type="TIMESTAMP" />

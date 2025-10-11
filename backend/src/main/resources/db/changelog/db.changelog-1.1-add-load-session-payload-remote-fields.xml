@@ -5,12 +5,46 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
 
     <changeSet id="2025-09-27-1" author="copilot">
-    <preConditions onFail="HALT">
-            <tableExists tableName="load_session_payload" />
+    <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <columnExists tableName="load_session_payload" columnName="external_id" />
+                </not>
+            </and>
         </preConditions>
         <addColumn tableName="load_session_payload">
             <column name="external_id" type="varchar(255)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="2025-09-27-1b" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <columnExists tableName="load_session_payload" columnName="pushed_at" />
+                </not>
+            </and>
+        </preConditions>
+        <addColumn tableName="load_session_payload">
             <column name="pushed_at" type="timestamp with time zone"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="2025-09-27-1c" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <columnExists tableName="load_session_payload" columnName="attempts" />
+                </not>
+            </and>
+        </preConditions>
+        <addColumn tableName="load_session_payload">
             <column name="attempts" type="integer" defaultValueNumeric="0"/>
         </addColumn>
     </changeSet>

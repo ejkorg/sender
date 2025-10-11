@@ -31,8 +31,14 @@
     </changeSet>
 
     <changeSet id="2025-10-04-2-add-global-payload-id" author="copilot">
-    <preConditions onFail="HALT">
-            <tableExists tableName="load_session_payload" />
+    <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <columnExists tableName="load_session_payload" columnName="global_payload_id" />
+                </not>
+            </and>
         </preConditions>
         <addColumn tableName="load_session_payload">
             <column name="global_payload_id" type="BIGINT" />
