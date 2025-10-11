@@ -190,15 +190,42 @@
     </changeSet>
 
     <!-- Oracle-specific sequences and triggers for auto-increment behavior -->
-    <changeSet id="6b-oracle-sequences-triggers-v2" author="copilot">
+    <!-- Oracle sequences and triggers split into per-object changeSets with existence checks -->
+    <changeSet id="6b-oracle-seq-load-session" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
         <preConditions onFail="MARK_RAN">
-            <dbms type="oracle" />
+            <and>
+                <dbms type="oracle" />
+                <not>
+                    <sequenceExists sequenceName="app_seq_load_session" />
+                </not>
+            </and>
         </preConditions>
-        <!-- Create sequences only on Oracle; H2 uses autoIncrement columns above -->
-    <createSequence sequenceName="app_seq_load_session" startValue="1" incrementBy="1" />
-    <createSequence sequenceName="app_seq_load_session_payload" startValue="1" incrementBy="1" />
+        <createSequence sequenceName="app_seq_load_session" startValue="1" incrementBy="1" />
+    </changeSet>
 
-        <!-- Triggers to populate IDs from sequences on Oracle. Use splitStatements=false for PL/SQL blocks. -->
+    <changeSet id="6b-oracle-seq-load-session-payload" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <dbms type="oracle" />
+                <not>
+                    <sequenceExists sequenceName="app_seq_load_session_payload" />
+                </not>
+            </and>
+        </preConditions>
+        <createSequence sequenceName="app_seq_load_session_payload" startValue="1" incrementBy="1" />
+    </changeSet>
+
+    <changeSet id="6b-oracle-trg-load-session" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <dbms type="oracle" />
+                <!-- trigger existence check via SQL against user_triggers; returns 0 when not present -->
+                <sqlCheck expectedResult="0">SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'APP_TRG_LOAD_SESSION_BI'</sqlCheck>
+            </and>
+        </preConditions>
         <sql dbms="oracle" splitStatements="false">
             CREATE OR REPLACE TRIGGER app_trg_load_session_bi
             BEFORE INSERT ON load_session
@@ -209,7 +236,16 @@
                 END IF;
             END;
         </sql>
+    </changeSet>
 
+    <changeSet id="6b-oracle-trg-load-session-payload" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <dbms type="oracle" />
+                <sqlCheck expectedResult="0">SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'APP_TRG_LSP_BI'</sqlCheck>
+            </and>
+        </preConditions>
         <sql dbms="oracle" splitStatements="false">
             CREATE OR REPLACE TRIGGER app_trg_lsp_bi
             BEFORE INSERT ON load_session_payload
