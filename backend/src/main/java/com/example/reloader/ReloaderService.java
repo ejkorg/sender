@@ -7,6 +7,7 @@ import com.example.reloader.repository.LoadSessionRepository;
 import com.example.reloader.service.RefDbService;
 import com.example.reloader.stage.PayloadCandidate;
 import com.example.reloader.stage.StageStatus;
+import com.example.reloader.web.dto.ReloadFilterOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -60,8 +61,10 @@ public class ReloaderService {
 
         String startDate = emptyToNull(params.get("startDate"));
         String endDate = emptyToNull(params.get("endDate"));
-        String testerType = emptyToNull(params.get("testerType"));
-        String dataType = emptyToNull(params.get("dataType"));
+    String testerType = emptyToNull(params.get("testerType"));
+    String dataType = emptyToNull(params.get("dataType"));
+    String location = emptyToNull(params.get("location"));
+    String testPhase = emptyToNull(params.get("testPhase"));
 
         // Create a LoadSession record up front so callers/tests can reference it even when skipping discovery
     String environment = emptyToNull(params.get("environment"));
@@ -81,7 +84,7 @@ public class ReloaderService {
         }
 
         try {
-            List<PayloadCandidate> discovered = discoverPayloads(site, startDate, endDate, testerType, dataType);
+            List<PayloadCandidate> discovered = discoverPayloads(site, startDate, endDate, testerType, dataType, location, testPhase);
             if (discovered.isEmpty()) {
                 return "No payloads discovered for " + site;
             }
@@ -103,7 +106,7 @@ public class ReloaderService {
         return refDbService.fetchStatusesFor(site, senderId);
     }
 
-    private List<PayloadCandidate> discoverPayloads(String site, String startDate, String endDate, String testerType, String dataType) throws SQLException {
+    private List<PayloadCandidate> discoverPayloads(String site, String startDate, String endDate, String testerType, String dataType, String location, String testPhase) throws SQLException {
         List<PayloadCandidate> results = new ArrayList<>();
         String sql = "SELECT id, id_data FROM all_metadata_view WHERE 1=1";
         List<Object> params = new ArrayList<>();
@@ -123,6 +126,14 @@ public class ReloaderService {
             sql += " AND data_type = ?";
             params.add(dataType);
         }
+        if (location != null) {
+            sql += " AND location = ?";
+            params.add(location);
+        }
+        if (testPhase != null) {
+            sql += " AND test_phase = ?";
+            params.add(testPhase);
+        }
 
         try (Connection connection = externalDbConfig.getConnection(site);
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -141,6 +152,52 @@ public class ReloaderService {
             }
         }
         return results;
+    }
+
+    public ReloadFilterOptions getReloadFilters(String site) {
+        ReloadFilterOptions options = new ReloadFilterOptions();
+        if (site == null || site.isBlank()) {
+            return options;
+        }
+
+        String sql = "select distinct location, data_type, tester_type, data_type_ext, file_type " +
+                "from dtp_simple_client_setting where enabled = 'Y' " +
+                "order by location, data_type, tester_type, data_type_ext, file_type";
+
+        try (Connection connection = externalDbConfig.getConnection(site);
+             PreparedStatement ps = connection.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            java.util.LinkedHashSet<String> locations = new java.util.LinkedHashSet<>();
+            java.util.LinkedHashSet<String> dataTypes = new java.util.LinkedHashSet<>();
+            java.util.LinkedHashSet<String> testerTypes = new java.util.LinkedHashSet<>();
+            java.util.LinkedHashSet<String> dataTypeExt = new java.util.LinkedHashSet<>();
+            java.util.LinkedHashSet<String> fileTypes = new java.util.LinkedHashSet<>();
+
+            while (rs.next()) {
+                String loc = emptyToNull(rs.getString("location"));
+                if (loc != null) locations.add(loc);
+                String data = emptyToNull(rs.getString("data_type"));
+                if (data != null) dataTypes.add(data);
+                String tester = emptyToNull(rs.getString("tester_type"));
+                if (tester != null) testerTypes.add(tester);
+                String dataExt = emptyToNull(rs.getString("data_type_ext"));
+                if (dataExt != null) dataTypeExt.add(dataExt);
+                String fileType = emptyToNull(rs.getString("file_type"));
+                if (fileType != null) fileTypes.add(fileType);
+            }
+
+            options.setLocations(new java.util.ArrayList<>(locations));
+            options.setDataTypes(new java.util.ArrayList<>(dataTypes));
+            options.setTesterTypes(new java.util.ArrayList<>(testerTypes));
+            options.setDataTypeExt(new java.util.ArrayList<>(dataTypeExt));
+            options.setFileTypes(new java.util.ArrayList<>(fileTypes));
+        } catch (SQLException ex) {
+            log.error("Failed loading reload filters for site {}", site, ex);
+            throw new RuntimeException("Failed loading reload filters", ex);
+        }
+
+        return options;
     }
 
     private String emptyToNull(String value) {

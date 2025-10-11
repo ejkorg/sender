@@ -25,43 +25,33 @@
           <input matInput type="number" [(ngModel)]="senderId" name="senderId" required />
         </mat-form-field>
 
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <mat-form-field appearance="fill" style="flex:1 1 240px;">
-            <mat-label>Start Date</mat-label>
-            <input matInput type="date" [(ngModel)]="startDate" name="startDate" />
-          </mat-form-field>
-          <mat-form-field appearance="fill" style="flex:1 1 240px;">
-            <mat-label>End Date</mat-label>
-            <input matInput type="date" [(ngModel)]="endDate" name="endDate" />
-          </mat-form-field>
-        </div>
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Date Range</mat-label>
+          <mat-date-range-input [rangePicker]="picker">
+            <input matStartDate [(ngModel)]="startDate" name="startDate" placeholder="Start date" />
+            <input matEndDate [(ngModel)]="endDate" name="endDate" placeholder="End date" />
+          </mat-date-range-input>
+          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-date-range-picker #picker></mat-date-range-picker>
+        </mat-form-field>
 
         <div style="display:flex; gap:12px; flex-wrap:wrap;">
           <mat-form-field appearance="fill" style="flex:1 1 240px;">
             <mat-label>Tester Type</mat-label>
-            <input matInput [(ngModel)]="testerType" name="testerType" />
+            <mat-select [(ngModel)]="testerType" name="testerType" (selectionChange)="onFilterChange()">
+              <mat-option [value]="''">-- Any --</mat-option>
+              <mat-option *ngFor="let tester of testerTypeOptions" [value]="tester">{{ tester }}</mat-option>
+            </mat-select>
           </mat-form-field>
           <mat-form-field appearance="fill" style="flex:1 1 240px;">
             <mat-label>Data Type</mat-label>
-            <input matInput [(ngModel)]="dataType" name="dataType" />
+            <mat-select [(ngModel)]="dataType" name="dataType" (selectionChange)="onFilterChange()">
+              <mat-option [value]="''">-- Any --</mat-option>
+              <mat-option *ngFor="let dt of dataTypeOptions" [value]="dt">{{ dt }}</mat-option>
+            </mat-select>
           </mat-form-field>
         </div>
 
-        <div class="actions">
-          <button mat-raised-button color="primary" type="submit" [disabled]="loading">Reload</button>
-          <button mat-stroked-button type="button" (click)="refreshStageStatus()" [disabled]="stageLoading">Refresh Status</button>
-        </div>
-        <div *ngIf="loading" class="spinner">
-          <mat-progress-spinner mode="indeterminate" diameter="36"></mat-progress-spinner>
-        </div>
-      </mat-card-content>
-    </form>
-  </mat-card>
-
-  <mat-card *ngIf="result" class="result-card">
-    <mat-card-title>Backend Response</mat-card-title>
-    <mat-card-content>
-      <pre>{{ result }}</pre>
     </mat-card-content>
   </mat-card>
 
@@ -73,6 +63,14 @@
       </div>
       <table *ngIf="!stageLoading && stageStatuses.length" class="status-table">
         <thead>
+
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Location</mat-label>
+          <mat-select [(ngModel)]="selectedLocation" name="location">
+            <mat-option [value]="''">-- Any --</mat-option>
+            <mat-option *ngFor="let loc of locationOptions" [value]="loc">{{ loc }}</mat-option>
+          </mat-select>
+        </mat-form-field>
         <tr>
           <th>Site</th>
           <th>Sender</th>

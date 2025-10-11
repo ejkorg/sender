@@ -1,6 +1,7 @@
 package com.example.reloader;
 
 import com.example.reloader.stage.StageStatus;
+import com.example.reloader.web.dto.ReloadFilterOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,5 +35,10 @@ public class ReloaderController {
     @PostMapping("/reload")
     public String reload(@RequestBody Map<String, String> params) {
         return reloaderService.processReload(params);
+    }
+
+    @GetMapping("/reload/filters")
+    public ReloadFilterOptions reloadFilters(@RequestParam String site) {
+        return reloaderService.getReloadFilters(site);
     }
 }

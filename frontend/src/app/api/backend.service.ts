@@ -19,6 +19,8 @@ export interface ReloadRequest {
   endDate?: string;
   testerType?: string;
   dataType?: string;
+  location?: string;
+  testPhase?: string;
 }
 
 export interface ExternalEnvironment {
@@ -32,6 +34,8 @@ export interface ExternalLocationSummary {
   label: string;
   site?: string;
   environmentId?: number;
+  dbConnectionName?: string;
+  details?: string;
 }
 
 export interface ExternalInstance {
@@ -53,6 +57,14 @@ export interface EnqueueResponse {
   skipped?: string[];
 }
 
+export interface ReloadFilterOptions {
+  locations: string[];
+  dataTypes: string[];
+  testerTypes: string[];
+  dataTypeExt?: string[];
+  fileTypes?: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class BackendService {
   private base = '/api';
@@ -70,6 +82,11 @@ export class BackendService {
 
   getStageStatus(): Observable<StageStatus[]> {
     return this.http.get<StageStatus[]>(`${this.base}/stage/status`);
+  }
+
+  getReloadFilters(site: string): Observable<ReloadFilterOptions> {
+    const params = new HttpParams().set('site', site);
+    return this.http.get<ReloadFilterOptions>(`${this.base}/reload/filters`, { params });
   }
 
   listEnvironments(): Observable<ExternalEnvironment[]> {
@@ -110,6 +127,10 @@ export class BackendService {
 
   getDistinctTesterTypes(params: Record<string, any>): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/senders/external/testerTypes`, { params: this.toParams(params) });
+  }
+
+  getDistinctTestPhases(params: Record<string, any>): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/senders/external/testPhases`, { params: this.toParams(params) });
   }
 
   lookupSenders(params: Record<string, any>): Observable<any[]> {
