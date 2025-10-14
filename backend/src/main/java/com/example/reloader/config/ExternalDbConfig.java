@@ -303,8 +303,12 @@ public class ExternalDbConfig {
                     portValue = hostPieces[1];
                 }
             }
-            String sid = servicePart.contains(".") ? servicePart.split("\\.")[0] : servicePart;
-            jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s:%s", hostname, portValue, sid);
+            String serviceName = servicePart != null ? servicePart.trim() : "";
+            if (serviceName.isEmpty()) {
+                jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s", hostname, portValue);
+            } else {
+                jdbcUrl = String.format("jdbc:oracle:thin:@//%s:%s/%s", hostname, portValue, serviceName);
+            }
         } else {
             if (host != null && host.startsWith("jdbc:")) jdbcUrl = host;
             else if (host != null && host.contains(":")) {
@@ -448,9 +452,12 @@ public class ExternalDbConfig {
                     portValue = hostPieces[1];
                 }
             }
-            // If service contains dots (full domain), keep base SID segment
-            String sid = servicePart.contains(".") ? servicePart.split("\\.")[0] : servicePart;
-            jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s:%s", hostname, portValue, sid);
+            String serviceName = servicePart != null ? servicePart.trim() : "";
+            if (serviceName.isEmpty()) {
+                jdbcUrl = String.format("jdbc:oracle:thin:@%s:%s", hostname, portValue);
+            } else {
+                jdbcUrl = String.format("jdbc:oracle:thin:@//%s:%s/%s", hostname, portValue, serviceName);
+            }
         } else {
             // Fallback - try as JDBC URL or generic mysql-style host
             if (host != null && host.startsWith("jdbc:")) jdbcUrl = host;

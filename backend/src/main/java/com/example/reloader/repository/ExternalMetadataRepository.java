@@ -7,6 +7,13 @@ public interface ExternalMetadataRepository {
     List<MetadataRow> findMetadata(String site, String environment, LocalDateTime start, LocalDateTime end,
                                    String dataType, String testPhase, String testerType, String location, int limit);
 
+    List<MetadataRow> findMetadataPage(String site, String environment, LocalDateTime start, LocalDateTime end,
+                                       String dataType, String testPhase, String testerType, String location,
+                                       int offset, int limit);
+
+    long countMetadata(String site, String environment, LocalDateTime start, LocalDateTime end,
+                       String dataType, String testPhase, String testerType, String location);
+
     /**
      * Stream rows; consumer should be fast. This will use JDBC ResultSet iteration.
      */
@@ -29,7 +36,9 @@ public interface ExternalMetadataRepository {
                                                               String location,
                                                               String dataType,
                                                               String testerType,
-                                                              String testPhase) ;
+                                                              String testPhase);
+
+    java.util.List<SenderCandidate> findAllSendersWithConnection(java.sql.Connection conn);
 
     // Distinct value helpers (use existing Connection lifecycle)
     java.util.List<String> findDistinctLocationsWithConnection(java.sql.Connection conn, String dataType, String testerType, String testPhase);
@@ -38,5 +47,10 @@ public interface ExternalMetadataRepository {
 
     java.util.List<String> findDistinctTesterTypesWithConnection(java.sql.Connection conn, String location, String dataType, String testPhase);
 
-    java.util.List<String> findDistinctTestPhasesWithConnection(java.sql.Connection conn, String location, String dataType, String testerType);
+    java.util.List<String> findDistinctTestPhasesWithConnection(java.sql.Connection conn,
+                                                                String location,
+                                                                String dataType,
+                                                                String testerType,
+                                                                Integer senderId,
+                                                                String senderName);
 }

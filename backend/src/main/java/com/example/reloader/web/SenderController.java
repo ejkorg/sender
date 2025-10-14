@@ -2,12 +2,21 @@ package com.example.reloader.web;
 
 import com.example.reloader.entity.SenderQueueEntry;
 import com.example.reloader.repository.SenderQueueRepository;
+import com.example.reloader.service.RefDbService;
+import com.example.reloader.service.SenderDispatchService;
 import com.example.reloader.service.SenderService;
+import com.example.reloader.stage.PayloadCandidate;
+import com.example.reloader.stage.StageResult;
+import com.example.reloader.web.dto.DiscoveryPreviewRequest;
+import com.example.reloader.web.dto.DiscoveryPreviewResponse;
+import com.example.reloader.web.dto.StagePayloadRequest;
+import com.example.reloader.web.dto.StagePayloadResponse;
 import com.example.reloader.web.dto.EnqueueRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/senders")
@@ -16,11 +25,15 @@ public class SenderController {
     private final SenderQueueRepository repo;
     private final com.example.reloader.service.MetadataImporterService metadataImporterService;
     private final com.example.reloader.service.MetricsService metricsService;
-    public SenderController(SenderService senderService, SenderQueueRepository repo, com.example.reloader.service.MetadataImporterService metadataImporterService, com.example.reloader.service.MetricsService metricsService) {
+    private final RefDbService refDbService;
+    private final SenderDispatchService senderDispatchService;
+    public SenderController(SenderService senderService, SenderQueueRepository repo, com.example.reloader.service.MetadataImporterService metadataImporterService, com.example.reloader.service.MetricsService metricsService, RefDbService refDbService, SenderDispatchService senderDispatchService) {
         this.senderService = senderService;
         this.repo = repo;
         this.metadataImporterService = metadataImporterService;
         this.metricsService = metricsService;
+        this.refDbService = refDbService;
+        this.senderDispatchService = senderDispatchService;
     }
 
     @GetMapping("/{id}/queue")
@@ -83,8 +96,55 @@ public class SenderController {
             }
         }
 
-        int added = metadataImporterService.discoverAndEnqueue(site, environment, id, startDate, endDate, testerType, dataType, testPhase, filterLocation, locationId, writeListFile, numberOfDataToSend, countLimitTrigger);
-        return ResponseEntity.ok("Discovered and enqueued " + added + " payloads");
+    int added = metadataImporterService.discoverAndEnqueue(site, environment, id, startDate, endDate, testerType, dataType, testPhase, filterLocation, locationId, writeListFile, numberOfDataToSend, countLimitTrigger);
+    return ResponseEntity.ok("Discovered and staged " + added + " payloads");
+    }
+
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('USER')")
+    @PostMapping("/{id}/discover/preview")
+    public ResponseEntity<DiscoveryPreviewResponse> preview(@PathVariable("id") Integer id,
+                                                            @RequestBody DiscoveryPreviewRequest request) {
+        DiscoveryPreviewResponse response = metadataImporterService.previewMetadata(
+                request.site(),
+                request.environment(),
+                id,
+                request.startDate(),
+                request.endDate(),
+                request.testerType(),
+                request.dataType(),
+                request.testPhase(),
+                request.location(),
+                request.page(),
+                request.size());
+        return ResponseEntity.ok(response);
+    }
+
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('USER')")
+    @PostMapping("/{id}/stage")
+    public ResponseEntity<StagePayloadResponse> stagePayloads(@PathVariable("id") Integer id,
+                                                              @RequestBody StagePayloadRequest request) {
+        String site = request.site();
+        if (site == null || site.isBlank()) {
+            throw new IllegalArgumentException("site is required");
+        }
+        Integer resolvedSender = request.senderId() != null ? request.senderId() : id;
+        if (resolvedSender == null || resolvedSender <= 0) {
+            throw new IllegalArgumentException("senderId is required");
+        }
+        List<StagePayloadRequest.Payload> payloads = request.payloads();
+        if (payloads == null || payloads.isEmpty()) {
+            return ResponseEntity.ok(new StagePayloadResponse(0, 0, List.of(), 0));
+        }
+        List<PayloadCandidate> candidates = payloads.stream()
+                .map(p -> new PayloadCandidate(p.metadataId(), p.dataId()))
+                .collect(Collectors.toList());
+        StageResult result = refDbService.stagePayloads(site, resolvedSender, candidates);
+        int dispatched = 0;
+        if (request.triggerDispatch()) {
+            dispatched = senderDispatchService.dispatchSender(site, resolvedSender);
+        }
+        StagePayloadResponse response = new StagePayloadResponse(result.stagedCount(), result.skippedPayloads().size(), List.copyOf(result.skippedPayloads()), dispatched);
+        return ResponseEntity.ok(response);
     }
 
     // Lookup senders in selected external DB based on user-provided filters. Returns list of {idSender,name}
@@ -96,6 +156,8 @@ public class SenderController {
                                                                                        @RequestParam(required = false) String dataType,
                                                                                        @RequestParam(required = false) String testerType,
                                                                                        @RequestParam(required = false) String testPhase,
+                                                                                       @RequestParam(required = false, name = "senderId") Integer senderId,
+                                                                                       @RequestParam(required = false, name = "senderName") String senderName,
                                                                                        // saved ExternalLocation id used to select which DB connection to use
                                                                                        @RequestParam(required = false, name = "locationId") Long locationId,
                                                                                        // alternatively, allow callers to provide the connection key directly
@@ -123,6 +185,15 @@ public class SenderController {
                 java.util.List<com.example.reloader.repository.SenderCandidate> res = metadataImporterService.findSendersWithConnection(c, metadataLocation, dataType, testerType, testPhase);
                     java.util.List<java.util.Map<String,Object>> out = new java.util.ArrayList<>();
                     for (com.example.reloader.repository.SenderCandidate s : res) {
+                        if (senderId != null && s.getIdSender() != null && !java.util.Objects.equals(senderId, s.getIdSender())) {
+                            continue;
+                        }
+                        if (senderName != null && !senderName.isBlank()) {
+                            String candidateName = s.getName() == null ? "" : s.getName();
+                            if (!candidateName.equalsIgnoreCase(senderName.trim())) {
+                                continue;
+                            }
+                        }
                         java.util.Map<String,Object> m = new java.util.HashMap<>();
                         m.put("idSender", s.getIdSender());
                         m.put("name", s.getName());
@@ -230,6 +301,8 @@ public class SenderController {
                                                                              @RequestParam(required = false) String location,
                                                                              @RequestParam(required = false) String dataType,
                                                                              @RequestParam(required = false) String testerType,
+                                                                             @RequestParam(required = false, name = "senderId") Integer senderId,
+                                                                             @RequestParam(required = false, name = "senderName") String senderName,
                                                                              @RequestParam(defaultValue = "qa") String environment) {
         try {
             java.sql.Connection conn = null;
@@ -242,9 +315,46 @@ public class SenderController {
             } else {
                 throw new IllegalArgumentException("locationId or connectionKey is required");
             }
+            if (location == null || location.isBlank() || dataType == null || dataType.isBlank() || testerType == null || testerType.isBlank()) {
+                return ResponseEntity.ok(java.util.List.of());
+            }
             try (java.sql.Connection c = conn) {
                 try { metricsService.increment("external.testPhases", locationId != null ? "locationId=" + locationId : connectionKey); } catch (Exception ignore) {}
-                java.util.List<String> out = metadataImporterService.findDistinctTestPhasesWithConnection(c, location, dataType, testerType);
+                java.util.List<String> out = metadataImporterService.findDistinctTestPhasesWithConnection(c, location, dataType, testerType, senderId, senderName);
+                return ResponseEntity.ok(out);
+            }
+        } catch (Exception ex) {
+            return ResponseEntity.status(500).body(java.util.List.of());
+        }
+    }
+
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @GetMapping("/external/senders")
+    public ResponseEntity<java.util.List<java.util.Map<String,Object>>> externalSenders(@RequestParam(required = false, name = "locationId") Long locationId,
+                                                                                         @RequestParam(required = false, name = "connectionKey") String connectionKey,
+                                                                                         @RequestParam(defaultValue = "qa") String environment) {
+        try {
+            java.sql.Connection conn = null;
+            if (locationId != null) {
+                com.example.reloader.entity.ExternalLocation loc = metadataImporterService.findLocationById(locationId);
+                if (loc == null) throw new IllegalArgumentException("locationId not found");
+                conn = metadataImporterService.resolveConnectionForLocation(loc, environment);
+            } else if (connectionKey != null && !connectionKey.isBlank()) {
+                conn = metadataImporterService.resolveConnectionForKey(connectionKey, environment);
+            } else {
+                throw new IllegalArgumentException("locationId or connectionKey is required");
+            }
+            try (java.sql.Connection c = conn) {
+                try { metricsService.increment("external.senders", locationId != null ? "locationId=" + locationId : connectionKey); } catch (Exception ignore) {}
+                java.util.List<com.example.reloader.repository.SenderCandidate> senders = metadataImporterService.findAllSendersWithConnection(c);
+                java.util.List<java.util.Map<String,Object>> out = new java.util.ArrayList<>();
+                for (com.example.reloader.repository.SenderCandidate s : senders) {
+                    java.util.Map<String,Object> m = new java.util.HashMap<>();
+                    m.put("idSender", s.getIdSender());
+                    m.put("name", s.getName());
+                    m.put("id", s.getIdSender());
+                    out.add(m);
+                }
                 return ResponseEntity.ok(out);
             }
         } catch (Exception ex) {

@@ -5,6 +5,7 @@ public record StageStatus(
         int senderId,
         long total,
         long ready,
-        long sent,
-        long failed
+        long enqueued,
+        long failed,
+        long completed
 ) {}

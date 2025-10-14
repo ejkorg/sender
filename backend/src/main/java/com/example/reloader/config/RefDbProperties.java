@@ -122,6 +122,8 @@ public class RefDbProperties {
     public static class Dispatch {
         private int perSend = 100;
         private long intervalMs = 60000L;
+        private int maxQueueSize = 1000;
+        private long monitorIntervalMs = 120000L;
 
         public int getPerSend() {
             return perSend;
@@ -137,6 +139,22 @@ public class RefDbProperties {
 
         public void setIntervalMs(long intervalMs) {
             this.intervalMs = intervalMs;
+        }
+
+        public int getMaxQueueSize() {
+            return maxQueueSize;
+        }
+
+        public void setMaxQueueSize(int maxQueueSize) {
+            this.maxQueueSize = maxQueueSize;
+        }
+
+        public long getMonitorIntervalMs() {
+            return monitorIntervalMs;
+        }
+
+        public void setMonitorIntervalMs(long monitorIntervalMs) {
+            this.monitorIntervalMs = monitorIntervalMs;
         }
     }
 }

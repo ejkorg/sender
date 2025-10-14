@@ -6,6 +6,7 @@ import com.example.reloader.entity.LoadSession;
 import com.example.reloader.repository.LoadSessionRepository;
 import com.example.reloader.service.RefDbService;
 import com.example.reloader.stage.PayloadCandidate;
+import com.example.reloader.stage.StageResult;
 import com.example.reloader.stage.StageStatus;
 import com.example.reloader.web.dto.ReloadFilterOptions;
 import org.slf4j.Logger;
@@ -88,10 +89,13 @@ public class ReloaderService {
             if (discovered.isEmpty()) {
                 return "No payloads discovered for " + site;
             }
-            refDbService.stagePayloads(site, senderId, discovered);
-            log.info("Staged {} payloads for site {} sender {}", discovered.size(), site, senderId);
-            return String.format("Staged %d payloads for %s. Dispatch threshold is %d per run.",
-                    discovered.size(), site, refDbProperties.getDispatch().getPerSend());
+        StageResult result = refDbService.stagePayloads(site, senderId, discovered);
+        log.info("Staged {} payloads for site {} sender {} ({} duplicates)", result.stagedCount(), site, senderId, result.skippedPayloads().size());
+        if (!result.skippedPayloads().isEmpty()) {
+        log.debug("Skipped payloads during staging: {}", result.skippedPayloads());
+        }
+        return String.format("Staged %d payloads for %s. Dispatch threshold is %d per run.",
+            result.stagedCount(), site, refDbProperties.getDispatch().getPerSend());
         } catch (SQLException ex) {
             log.error("Failed discovering payloads for site {}", site, ex);
             return "Error during discovery: " + ex.getMessage();

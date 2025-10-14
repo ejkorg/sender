@@ -12,7 +12,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 @Repository
 public class JdbcExternalMetadataRepository implements ExternalMetadataRepository {
@@ -33,25 +32,47 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
-    public void streamMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, int limit, java.util.function.Consumer<MetadataRow> consumer) {
-        StringBuilder sb = new StringBuilder("select lot, id, id_data, end_time from all_metadata_view where end_time BETWEEN ? AND ?");
-        List<Object> params = new ArrayList<>();
-        params.add(Timestamp.valueOf(start));
-        params.add(Timestamp.valueOf(end));
-        if (dataType != null && !dataType.isBlank()) { sb.append(" and data_type = ?"); params.add(dataType); }
-        if (testPhase != null) {
-            // Treat empty string as a request to match NULL test_phase (caller wants entries with no test phase)
-            if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
-                sb.append(" and test_phase IS NULL");
-            } else {
-                sb.append(" and test_phase = ?"); params.add(testPhase);
-            }
+    public List<MetadataRow> findMetadataPage(String site, String environment, LocalDateTime start, LocalDateTime end,
+                                              String dataType, String testPhase, String testerType, String location,
+                                              int offset, int limit) {
+        SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
+                start, end, dataType, testPhase, testerType, location);
+        sql.append(" order by end_time desc");
+        if (limit > 0) {
+            sql.append(" offset ? rows fetch next ? rows only");
+            sql.params.add(Math.max(offset, 0));
+            sql.params.add(limit);
         }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and tester_type = ?"); params.add(testerType); }
-        if (location != null && !location.isBlank()) { sb.append(" and location = ?"); params.add(location); }
-        if (limit > 0) sb.append(" fetch first ").append(limit).append(" rows only");
+        try (Connection c = externalDbConfig.getConnection(site, environment);
+             PreparedStatement ps = prepareStatement(c, sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<MetadataRow> rows = new ArrayList<>();
+            while (rs.next()) {
+                rows.add(mapMetadataRow(rs));
+            }
+            return rows;
+        } catch (Exception ex) {
+            log.error("Failed fetching metadata page for site {} env {}: {}", site, environment, ex.getMessage(), ex);
+            throw new RuntimeException("External metadata read failed", ex);
+        }
+    }
 
-        String sql = sb.toString();
+    @Override
+    public long countMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location) {
+        SqlWithParams sql = buildMetadataQuery("select count(1) from all_metadata_view",
+                start, end, dataType, testPhase, testerType, location);
+        try (Connection c = externalDbConfig.getConnection(site, environment);
+             PreparedStatement ps = prepareStatement(c, sql);
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? rs.getLong(1) : 0L;
+        } catch (Exception ex) {
+            log.error("Failed counting metadata for site {} env {}: {}", site, environment, ex.getMessage(), ex);
+            throw new RuntimeException("External metadata count failed", ex);
+        }
+    }
+
+    @Override
+    public void streamMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, int limit, java.util.function.Consumer<MetadataRow> consumer) {
         try (Connection c = externalDbConfig.getConnection(site, environment)) {
             streamMetadataWithConnection(c, start, end, dataType, testPhase, testerType, location, limit, consumer);
         } catch (Exception ex) {
@@ -62,40 +83,18 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
 
     @Override
     public void streamMetadataWithConnection(Connection c, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, int limit, java.util.function.Consumer<MetadataRow> consumer) {
-        StringBuilder sb = new StringBuilder("select lot, id, id_data, end_time from all_metadata_view where end_time BETWEEN ? AND ?");
-        List<Object> params = new ArrayList<>();
-        params.add(Timestamp.valueOf(start));
-        params.add(Timestamp.valueOf(end));
-        if (dataType != null && !dataType.isBlank()) { sb.append(" and data_type = ?"); params.add(dataType); }
-        if (testPhase != null) {
-            if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
-                sb.append(" and test_phase IS NULL");
-            } else {
-                sb.append(" and test_phase = ?"); params.add(testPhase);
-            }
-        }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and tester_type = ?"); params.add(testerType); }
-        if (location != null && !location.isBlank()) { sb.append(" and location = ?"); params.add(location); }
-        if (limit > 0) sb.append(" fetch first ").append(limit).append(" rows only");
-
-        String sql = sb.toString();
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
-            ps = c.prepareStatement(sql);
-            int idx = 1;
-            for (Object p : params) {
-                if (p instanceof Timestamp) ps.setTimestamp(idx++, (Timestamp) p);
-                else ps.setString(idx++, p == null ? null : p.toString());
+            SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
+                    start, end, dataType, testPhase, testerType, location);
+            if (limit > 0) {
+                sql.append(" fetch first ").append(limit).append(" rows only");
             }
+            ps = prepareStatement(c, sql);
             rs = ps.executeQuery();
             while (rs.next()) {
-                String lot = rs.getString("lot");
-                String id = rs.getString("id");
-                String idData = rs.getString("id_data");
-                Timestamp ts = rs.getTimestamp("end_time");
-                LocalDateTime endTime = ts == null ? null : ts.toLocalDateTime();
-                consumer.accept(new MetadataRow(lot, id, idData, endTime));
+                consumer.accept(mapMetadataRow(rs));
             }
         } catch (Exception ex) {
             log.error("Failed streaming metadata using provided connection: {}", ex.getMessage(), ex);
@@ -153,6 +152,34 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         } catch (Exception ex) {
             log.error("Failed running sender lookup: {}", ex.getMessage(), ex);
             throw new RuntimeException("Sender lookup failed", ex);
+        } finally {
+            try { if (rs != null) rs.close(); } catch (Exception ignore) {}
+            try { if (ps != null) ps.close(); } catch (Exception ignore) {}
+        }
+    }
+
+    @Override
+    public java.util.List<SenderCandidate> findAllSendersWithConnection(Connection c) {
+        String sql = "select id, name from dtp_sender order by name";
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            ps = c.prepareStatement(sql);
+            rs = ps.executeQuery();
+            List<SenderCandidate> out = new ArrayList<>();
+            while (rs.next()) {
+                Integer id = null;
+                try { id = rs.getInt("id"); if (rs.wasNull()) id = null; } catch (Exception ignore) {}
+                String name = null;
+                try { name = rs.getString("name"); } catch (Exception ignore) {}
+                if (id != null || (name != null && !name.isBlank())) {
+                    out.add(new SenderCandidate(id, name));
+                }
+            }
+            return out;
+        } catch (Exception ex) {
+            log.error("Failed fetching sender list: {}", ex.getMessage(), ex);
+            throw new RuntimeException("Sender list query failed", ex);
         } finally {
             try { if (rs != null) rs.close(); } catch (Exception ignore) {}
             try { if (ps != null) ps.close(); } catch (Exception ignore) {}
@@ -240,21 +267,122 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
-    public java.util.List<String> findDistinctTestPhasesWithConnection(Connection c, String location, String dataType, String testerType) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("select distinct de.data_type_ext from dtp_dist_conf dc ");
-        sb.append("left join dtp_data_type_ext de on dc.id_data_type_ext = de.id ");
-        sb.append("left join dtp_location dl on dc.id_location = dl.id ");
-        sb.append("left join dtp_data_type dd on dc.id_data_type = dd.id ");
-        sb.append("left join dtp_tester_type dt on dc.id_tester_type = dt.id ");
-        sb.append(" where 1=1 ");
-        List<Object> params = new ArrayList<>();
-        if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); params.add(location); }
-        if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); params.add(dataType); }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and dt.type = ?"); params.add(testerType); }
-        sb.append(" order by de.data_type_ext");
+    public java.util.List<String> findDistinctTestPhasesWithConnection(Connection c,
+                                                                       String location,
+                                                                       String dataType,
+                                                                       String testerType,
+                                                                       Integer senderId,
+                                                                       String senderName) {
+        java.util.LinkedHashSet<String> phases = new java.util.LinkedHashSet<>();
+        if (location == null || location.isBlank() || dataType == null || dataType.isBlank() || testerType == null || testerType.isBlank()) {
+            return new ArrayList<>();
+        }
 
-        PreparedStatement ps = null; ResultSet rs = null;
-        try { ps = c.prepareStatement(sb.toString()); int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString()); rs = ps.executeQuery(); List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null) out.add(v); } return out; } catch (Exception ex) { log.error("Failed fetching distinct test phases: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct test phases query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
+        StringBuilder sb = new StringBuilder();
+        sb.append("select distinct upper(trim(test_phase)) as test_phase_norm from all_metadata_view where test_phase is not null");
+        List<Object> params = new ArrayList<>();
+        sb.append(" and location = ?"); params.add(location);
+        sb.append(" and data_type = ?"); params.add(dataType);
+        sb.append(" and tester_type = ?"); params.add(testerType);
+        if (senderId != null) {
+            sb.append(" and id_sender = ?");
+            params.add(senderId);
+        }
+        sb.append(" order by 1");
+
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            ps = c.prepareStatement(sb.toString());
+            int idx = 1;
+            for (Object p : params) {
+                if (p instanceof Integer) {
+                    ps.setInt(idx++, (Integer) p);
+                } else {
+                    ps.setString(idx++, p == null ? null : p.toString());
+                }
+            }
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                String phase = null;
+                try { phase = rs.getString("test_phase_norm"); } catch (Exception ignore) {}
+                phases.add(phase == null ? "" : phase);
+            }
+            return new ArrayList<>(phases);
+        } catch (Exception ex) {
+            log.error("Failed fetching distinct test phases: {}", ex.getMessage(), ex);
+            throw new RuntimeException("Distinct test phases query failed", ex);
+        } finally {
+            try { if (rs != null) rs.close(); } catch (Exception ignore) {}
+            try { if (ps != null) ps.close(); } catch (Exception ignore) {}
+        }
+    }
+
+    private SqlWithParams buildMetadataQuery(String select, LocalDateTime start, LocalDateTime end,
+                                             String dataType, String testPhase, String testerType, String location) {
+        SqlWithParams result = new SqlWithParams(select + " where end_time BETWEEN ? AND ?");
+        result.params.add(Timestamp.valueOf(start));
+        result.params.add(Timestamp.valueOf(end));
+        if (dataType != null && !dataType.isBlank()) {
+            result.append(" and data_type = ?");
+            result.params.add(dataType);
+        }
+        if (testPhase != null) {
+            if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
+                result.append(" and test_phase IS NULL");
+            } else {
+                result.append(" and test_phase = ?");
+                result.params.add(testPhase);
+            }
+        }
+        if (testerType != null && !testerType.isBlank()) {
+            result.append(" and tester_type = ?");
+            result.params.add(testerType);
+        }
+        if (location != null && !location.isBlank()) {
+            result.append(" and location = ?");
+            result.params.add(location);
+        }
+        return result;
+    }
+
+    private PreparedStatement prepareStatement(Connection connection, SqlWithParams sql) throws Exception {
+        PreparedStatement ps = connection.prepareStatement(sql.sql.toString());
+        int idx = 1;
+        for (Object param : sql.params) {
+            if (param instanceof Timestamp ts) {
+                ps.setTimestamp(idx++, ts);
+            } else if (param instanceof Integer i) {
+                ps.setInt(idx++, i);
+            } else if (param instanceof Long l) {
+                ps.setLong(idx++, l);
+            } else {
+                ps.setString(idx++, param == null ? null : param.toString());
+            }
+        }
+        return ps;
+    }
+
+    private MetadataRow mapMetadataRow(ResultSet rs) throws Exception {
+        String lot = rs.getString("lot");
+        String id = rs.getString("id");
+        String idData = rs.getString("id_data");
+        Timestamp ts = rs.getTimestamp("end_time");
+        LocalDateTime endTime = ts == null ? null : ts.toLocalDateTime();
+        return new MetadataRow(lot, id, idData, endTime);
+    }
+
+    private static class SqlWithParams {
+        final StringBuilder sql;
+        final List<Object> params = new ArrayList<>();
+
+        SqlWithParams(String base) {
+            this.sql = new StringBuilder(base);
+        }
+
+        SqlWithParams append(String fragment) {
+            this.sql.append(fragment);
+            return this;
+        }
     }
 }

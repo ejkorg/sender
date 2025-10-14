@@ -1,0 +1,59 @@
+flowchart TD
+  %% End-to-end flow covering discovery, staging, and dispatch into the external queue
+
+  subgraph Client[Client]
+    User["User"]
+    SPA["Angular SPA (Stepper)"]
+    User --> SPA
+  end
+
+  subgraph Backend[Spring Boot Backend]
+    SenderController["SenderController\nPOST /api/senders/{id}/discover"]
+    StageApi["Stage Status API\nGET /api/reloader/stage"]
+    DiscoveryScheduler["DiscoveryScheduler (cron)"]
+    MetadataImporter["MetadataImporterService"]
+    ExternalResolver["ExternalDbResolverService / ExternalDbConfig"]
+    RefDbSvc["RefDbService"]
+    SenderDispatch["SenderDispatchService (scheduled)"]
+    MailSvc["MailService"]
+  end
+
+  subgraph ExternalSystems[External Systems]
+    ExternalDb["External Metadata DB\n(site / environment)"]
+    RefDb[("RefDB Oracle\nREFDB_STAGING table")]
+    DtpQueue[("DTP_SENDER_QUEUE_ITEM\nExternal sender queue")]
+    Notification["Email Recipients"]
+    DtpProcessors["DTP Sender Processors"]
+  end
+
+  SPA -->|"POST discover request"| SenderController
+  SPA -->|"GET stage metrics"| StageApi
+  StageApi -->|"JSON status"| SPA
+
+  SenderController --> MetadataImporter
+  DiscoveryScheduler --> MetadataImporter
+
+  MetadataImporter -->|"resolve connection"| ExternalResolver
+  ExternalResolver --> ExternalDb
+
+  MetadataImporter -->|"stream metadata"| ExternalDb
+  MetadataImporter -->|"batch PayloadCandidate"| RefDbSvc
+  RefDbSvc -->|"INSERT status=NEW"| RefDb
+
+  MetadataImporter --> MailSvc --> Notification
+
+  StageApi -->|"summaries"| RefDbSvc
+  RefDbSvc -->|"NEW / ENQUEUED / DONE counts"| StageApi
+
+  SenderDispatch -->|"fetch NEW payloads"| RefDbSvc
+  SenderDispatch -->|"mark ENQUEUED/DONE"| RefDbSvc
+  SenderDispatch -->|"sequence + insert"| DtpQueue
+  DtpQueue -->|"processed"| DtpProcessors
+
+  classDef backend fill:#f2f8ff,stroke:#0366d6;
+  classDef external fill:#f3f4f6,stroke:#4b5563;
+  classDef client fill:#fff4e6,stroke:#d97706;
+
+  class SenderController,StageApi,DiscoveryScheduler,MetadataImporter,ExternalResolver,RefDbSvc,SenderDispatch,MailSvc backend;
+  class ExternalDb,RefDb,DtpQueue,Notification,DtpProcessors external;
+  class User,SPA client;

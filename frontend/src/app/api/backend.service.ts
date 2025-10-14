@@ -8,8 +8,70 @@ export interface StageStatus {
   senderId: number;
   total: number;
   ready: number;
-  sent: number;
+  enqueued: number;
   failed: number;
+  completed: number;
+}
+
+export interface DiscoveryPreviewRequest {
+  site: string;
+  environment?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  testerType?: string | null;
+  dataType?: string | null;
+  testPhase?: string | null;
+  location?: string | null;
+  page: number;
+  size: number;
+}
+
+export interface DiscoveryPreviewRow {
+  metadataId: string | null;
+  dataId: string | null;
+  lot: string | null;
+  endTime: string | null;
+}
+
+export interface DiscoveryPreviewResponse {
+  items: DiscoveryPreviewRow[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface StagePayloadRequestBody {
+  site: string;
+  environment?: string | null;
+  senderId?: number | null;
+  payloads: Array<{ metadataId: string; dataId: string }>;
+  triggerDispatch: boolean;
+}
+
+export interface StagePayloadResponseBody {
+  staged: number;
+  duplicates: number;
+  duplicatePayloads: string[];
+  dispatched: number;
+}
+
+export interface StageRecordView {
+  id: number;
+  site: string;
+  senderId: number;
+  metadataId: string | null;
+  dataId: string | null;
+  status: string;
+  errorMessage: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface StageRecordPage {
+  items: StageRecordView[];
+  total: number;
+  page: number;
+  size: number;
 }
 
 export interface ReloadRequest {
@@ -64,6 +126,12 @@ export interface ReloadFilterOptions {
   dataTypeExt?: string[];
 }
 
+export interface SenderOption {
+  idSender: number | null;
+  name: string;
+  id?: number | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class BackendService {
   private base = '/api';
@@ -81,6 +149,14 @@ export class BackendService {
 
   getStageStatus(): Observable<StageStatus[]> {
     return this.http.get<StageStatus[]>(`${this.base}/stage/status`);
+  }
+
+  getStageStatusFor(site: string, senderId?: number | null): Observable<StageStatus[]> {
+    let params = new HttpParams().set('site', site);
+    if (senderId != null) {
+      params = params.set('senderId', String(senderId));
+    }
+    return this.http.get<StageStatus[]>(`${this.base}/stage/status/by`, { params });
   }
 
   getReloadFilters(site: string): Observable<ReloadFilterOptions> {
@@ -132,8 +208,22 @@ export class BackendService {
     return this.http.get<string[]>(`${this.base}/senders/external/testPhases`, { params: this.toParams(params) });
   }
 
+  getExternalSenders(params: Record<string, any>): Observable<SenderOption[]> {
+    return this.http.get<SenderOption[]>(`${this.base}/senders/external/senders`, { params: this.toParams(params) });
+  }
+
   lookupSenders(params: Record<string, any>): Observable<any[]> {
     return this.http.get<any[]>(`${this.base}/senders/lookup`, { params: this.toParams(params) });
+  }
+
+  previewDiscovery(senderId: number, req: DiscoveryPreviewRequest): Observable<DiscoveryPreviewResponse> {
+    const headers = this.auth.getAuthHeaders();
+    return this.http.post<DiscoveryPreviewResponse>(`${this.base}/senders/${senderId}/discover/preview`, req, { headers: headers || undefined });
+  }
+
+  stagePayloads(senderId: number, body: StagePayloadRequestBody): Observable<StagePayloadResponseBody> {
+    const headers = this.auth.getAuthHeaders();
+    return this.http.post<StagePayloadResponseBody>(`${this.base}/senders/${senderId}/stage`, body, { headers: headers || undefined });
   }
 
   enqueue(senderId: number, req: EnqueueRequest): Observable<EnqueueResponse> {
@@ -144,6 +234,17 @@ export class BackendService {
   getQueue(senderId: number, status: string, limit: number): Observable<any[]> {
     let params = new HttpParams().set('status', status).set('limit', String(limit));
     return this.http.get<any[]>(`${this.base}/senders/${senderId}/queue`, { params });
+  }
+
+  listStageRecords(site: string, senderId: number, status: string, page: number, size: number): Observable<StageRecordPage> {
+    let params = new HttpParams().set('site', site).set('page', String(page)).set('size', String(size));
+    if (senderId) {
+      params = params.set('senderId', String(senderId));
+    }
+    if (status) {
+      params = params.set('status', status);
+    }
+    return this.http.get<StageRecordPage>(`${this.base}/stage/records`, { params });
   }
 
   private toParams(input: Record<string, any>): HttpParams {

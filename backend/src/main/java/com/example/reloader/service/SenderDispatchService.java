@@ -11,7 +11,10 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,24 +71,50 @@ public class SenderDispatchService {
     }
 
     private void pushGroup(String site, int senderId, List<StageRecord> records) {
-        String insertSql = "INSERT INTO dtp_sender_queue (senderid, id_metadata, id_data, record_created) VALUES (?, ?, ?, SYSTIMESTAMP)";
+        if (records.isEmpty()) {
+            return;
+        }
+        int maxQueueSize = properties.getDispatch().getMaxQueueSize();
         List<Long> success = new ArrayList<>();
-        try (Connection connection = externalDbConfig.getConnection(site);
-             PreparedStatement ps = connection.prepareStatement(insertSql)) {
-            for (StageRecord record : records) {
-                try {
-                    ps.setInt(1, senderId);
-                    ps.setString(2, record.metadataId());
-                    ps.setString(3, record.dataId());
-                    ps.executeUpdate();
-                    success.add(record.id());
-                } catch (SQLException ex) {
-                    if (isDuplicate(ex)) {
-                        log.info("Duplicate detected for {} – marking as sent", record);
+        try (Connection connection = externalDbConfig.getConnection(site)) {
+            List<StageRecord> toDispatch = records;
+            if (maxQueueSize > 0) {
+                int existing = safeCountQueue(connection, senderId);
+                int available = maxQueueSize - existing;
+                if (available <= 0) {
+                    log.info("Queue for site {} sender {} already at capacity {} ({} existing)", site, senderId, maxQueueSize, existing);
+                    return;
+                }
+                if (records.size() > available) {
+                    log.info("Dispatch for site {} sender {} limited to {} of {} staged records due to queue threshold {}", site, senderId, available, records.size(), maxQueueSize);
+                    toDispatch = new ArrayList<>(records.subList(0, available));
+                }
+            }
+
+            if (toDispatch.isEmpty()) {
+                return;
+            }
+
+            String insertSql = "INSERT INTO DTP_SENDER_QUEUE_ITEM (id, id_metadata, id_data, id_sender, record_created) VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement insert = connection.prepareStatement(insertSql)) {
+                for (StageRecord record : toDispatch) {
+                    try {
+                        long queueId = nextQueueId(connection);
+                        insert.setLong(1, queueId);
+                        insert.setString(2, record.metadataId());
+                        insert.setString(3, record.dataId());
+                        insert.setInt(4, senderId);
+                        insert.setTimestamp(5, Timestamp.from(Instant.now()));
+                        insert.executeUpdate();
                         success.add(record.id());
-                    } else {
-                        log.error("Failed pushing record {}", record, ex);
-                        refDbService.markFailed(record.id(), ex.getMessage());
+                    } catch (SQLException ex) {
+                        if (isDuplicate(ex)) {
+                            log.info("Duplicate detected for {} – marking as enqueued", record);
+                            success.add(record.id());
+                        } else {
+                            log.error("Failed pushing record {}", record, ex);
+                            refDbService.markFailed(record.id(), ex.getMessage());
+                        }
                     }
                 }
             }
@@ -97,11 +126,57 @@ public class SenderDispatchService {
             return;
         }
         if (!success.isEmpty()) {
-            refDbService.markSent(success);
+            refDbService.markEnqueued(success);
         }
     }
 
     private boolean isDuplicate(SQLException ex) {
         return ex.getErrorCode() == 1 || (ex.getMessage() != null && ex.getMessage().toUpperCase().contains("UNIQUE"));
+    }
+
+    private int safeCountQueue(Connection connection, int senderId) {
+        String sql = "SELECT COUNT(1) FROM DTP_SENDER_QUEUE_ITEM WHERE id_sender = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, senderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException ex) {
+            log.warn("Failed counting queue for sender {}: {}", senderId, ex.getMessage());
+        }
+        return 0;
+    }
+
+    private long nextQueueId(Connection connection) throws SQLException {
+        String productName = connection.getMetaData().getDatabaseProductName();
+        boolean oracle = productName != null && productName.toLowerCase(java.util.Locale.ROOT).contains("oracle");
+        String sql = oracle ? "SELECT DTP_SENDER_QUEUE_ITEM_SEQ.NEXTVAL FROM dual" : "SELECT NEXT VALUE FOR DTP_SENDER_QUEUE_ITEM_SEQ";
+        try (PreparedStatement ps = connection.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getLong(1);
+            }
+        }
+        throw new SQLException("Unable to fetch next value from DTP_SENDER_QUEUE_ITEM_SEQ");
+    }
+
+    public int dispatchSender(String site, int senderId) {
+        int perSend = properties.getDispatch().getPerSend();
+        int batchSize = perSend > 0 ? perSend : 200;
+        int processed = 0;
+        while (true) {
+            List<StageRecord> batch = refDbService.fetchNextBatchForSender(site, senderId, batchSize);
+            if (batch.isEmpty()) {
+                break;
+            }
+            pushGroup(site, senderId, batch);
+            processed += batch.size();
+            if (batch.size() < batchSize) {
+                break;
+            }
+        }
+        return processed;
     }
 }
