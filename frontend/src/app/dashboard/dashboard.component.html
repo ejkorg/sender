@@ -1,0 +1,135 @@
+<div class="dashboard-container">
+  <header class="dashboard-header">
+    <div class="title-block">
+      <h1>Onsemi Reload Dashboard</h1>
+      <p class="subtitle">High-level health of Dataport resend activity.</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button color="primary" (click)="refresh()" [disabled]="loading">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <span class="timestamp" [matTooltip]="lastUpdated ? lastUpdated | date:'medium' : 'No data yet'">
+        Updated: {{ formatUpdated() }}
+      </span>
+    </div>
+  </header>
+
+  <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+  <section *ngIf="errorMessage" class="error-state">
+    <mat-card appearance="outlined" class="error-card">
+      <mat-card-title>Dashboard unavailable</mat-card-title>
+      <mat-card-content>
+        <p>{{ errorMessage }}</p>
+        <p>Retry once connectivity is restored.</p>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <section *ngIf="!errorMessage && !hasData" class="empty-state">
+    <mat-card appearance="outlined" class="empty-card">
+      <mat-card-title>No staged payloads detected</mat-card-title>
+      <mat-card-content>
+        <p>Once resend activity begins the dashboard will summarize progress here.</p>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <section *ngIf="globalSummary" class="global-section">
+    <mat-card appearance="outlined" class="global-card">
+      <mat-card-title>System snapshot</mat-card-title>
+      <mat-card-content>
+        <div class="global-grid">
+          <div class="global-metric">
+            <span class="metric-value">{{ globalSummary.activeSenders }}</span>
+            <span class="metric-label">Active Senders</span>
+          </div>
+          <div class="global-metric">
+            <span class="metric-value highlight">{{ globalSummary.ready }}</span>
+            <span class="metric-label">Ready to Dispatch</span>
+          </div>
+          <div class="global-metric">
+            <span class="metric-value">{{ globalSummary.enqueued }}</span>
+            <span class="metric-label">Enqueued</span>
+          </div>
+          <div class="global-metric">
+            <span class="metric-value warn" [class.attention]="globalSummary.failed > 0">{{ globalSummary.failed }}</span>
+            <span class="metric-label">Failed</span>
+          </div>
+          <div class="global-metric">
+            <span class="metric-value">{{ globalSummary.completed }}</span>
+            <span class="metric-label">Completed</span>
+          </div>
+          <div class="global-metric">
+            <span class="metric-value">{{ globalSummary.backlog }}</span>
+            <span class="metric-label">Backlog</span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <section *ngIf="siteSummaries.length" class="site-section">
+    <h2>Site health</h2>
+    <div class="site-grid">
+      <mat-card appearance="outlined" class="site-card" *ngFor="let site of siteSummaries" [class.has-alert]="site.alerts">
+        <mat-card-header>
+          <mat-card-title>{{ site.site }}</mat-card-title>
+          <mat-card-subtitle>{{ site.activeSenders }} sender{{ site.activeSenders === 1 ? '' : 's' }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="metric-grid">
+            <div class="metric-item">
+              <mat-icon class="metric-icon" aria-hidden="true">schedule_send</mat-icon>
+              <div>
+                <span class="metric-label">Ready</span>
+                <span class="metric-number highlight" [class.attention]="site.ready > 0">{{ site.ready }}</span>
+              </div>
+            </div>
+            <div class="metric-item">
+              <mat-icon class="metric-icon" aria-hidden="true">outbox</mat-icon>
+              <div>
+                <span class="metric-label">Enqueued</span>
+                <span class="metric-number">{{ site.enqueued }}</span>
+              </div>
+            </div>
+            <div class="metric-item">
+              <mat-icon class="metric-icon" aria-hidden="true">check_circle</mat-icon>
+              <div>
+                <span class="metric-label">Completed</span>
+                <span class="metric-number">{{ site.completed }}</span>
+              </div>
+            </div>
+            <div class="metric-item">
+              <mat-icon class="metric-icon" aria-hidden="true">error</mat-icon>
+              <div>
+                <span class="metric-label">Failed</span>
+                <span class="metric-number warn" [class.attention]="site.failed > 0">{{ site.failed }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sender-section">
+            <h3>Sender focus</h3>
+            <div class="sender-row" *ngFor="let sender of site.senders">
+              <div class="sender-id">
+                <mat-icon aria-hidden="true" class="sender-icon" [class.alert]="sender.alert">router</mat-icon>
+                <span>Sender {{ sender.senderId || 'N/A' }}</span>
+              </div>
+              <div class="sender-metrics">
+                <span class="badge" [class.highlight]="sender.ready > 0" matTooltip="Ready">R {{ sender.ready }}</span>
+                <span class="badge" matTooltip="Enqueued">E {{ sender.enqueued }}</span>
+                <span class="badge warn" [class.attention]="sender.failed > 0" matTooltip="Failed">F {{ sender.failed }}</span>
+                <span class="badge muted" matTooltip="Completed">C {{ sender.completed }}</span>
+              </div>
+              <div class="sender-backlog" [class.attention]="sender.backlog > 0">
+                Backlog {{ sender.backlog }}
+              </div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </section>
+</div>

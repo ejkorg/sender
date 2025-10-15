@@ -437,6 +437,7 @@ public class RefDbService {
         if (!tableExists(connection, table)) {
             createTable(connection, table);
         }
+        ensureProcessedAtColumn(connection, table);
         if (!sequenceExists(connection, table + "_SEQ")) {
             createSequence(connection, table + "_SEQ");
         }
@@ -580,6 +581,39 @@ public class RefDbService {
 
     private void addStatusIndex(Connection connection, String table, String index) throws SQLException {
         String ddl = "CREATE INDEX " + index + " ON " + table + " (status, site)";
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(ddl);
+        }
+    }
+
+    private void ensureProcessedAtColumn(Connection connection, String table) throws SQLException {
+        if (!columnExists(connection, table, "PROCESSED_AT")) {
+            addProcessedAtColumn(connection, table);
+        }
+    }
+
+    private boolean columnExists(Connection connection, String table, String column) throws SQLException {
+        if (isOracle) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_tab_cols WHERE table_name = ? AND column_name = ?")) {
+                ps.setString(1, table.toUpperCase());
+                ps.setString(2, column.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
+            }
+        } else {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?")) {
+                ps.setString(1, table.toUpperCase());
+                ps.setString(2, column.toUpperCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() && rs.getInt(1) > 0;
+                }
+            }
+        }
+    }
+
+    private void addProcessedAtColumn(Connection connection, String table) throws SQLException {
+        String ddl = "ALTER TABLE " + table + " ADD (processed_at TIMESTAMP)";
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(ddl);
         }
