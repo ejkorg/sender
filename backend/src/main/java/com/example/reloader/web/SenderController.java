@@ -1,4 +1,3 @@
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SenderController.class);
 package com.example.reloader.web;
 
 import com.example.reloader.entity.SenderQueueEntry;
@@ -13,6 +12,8 @@ import com.example.reloader.web.dto.DiscoveryPreviewResponse;
 import com.example.reloader.web.dto.StagePayloadRequest;
 import com.example.reloader.web.dto.StagePayloadResponse;
 import com.example.reloader.web.dto.EnqueueRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/senders")
 public class SenderController {
+    private static final Logger log = LoggerFactory.getLogger(SenderController.class);
     private final SenderService senderService;
     private final SenderQueueRepository repo;
     private final com.example.reloader.service.MetadataImporterService metadataImporterService;
