@@ -15,13 +15,13 @@ reloader:
 
 # RefDB Oracle staging connection
 refdb:
-  host: ${REFDB_HOST:oracle-refdb-host}
-  port: ${REFDB_PORT:1521}
+  host: ${REFDB_HOST:exndev-db.onsemi.com}
+  port: ${REFDB_PORT:1739}
   # Provide either SID or service; service is preferred for modern setups
-  service: ${REFDB_SERVICE:ORCLPDB1}
+  service: ${REFDB_SERVICE:EXNDEV.onsemi.com}
   # sid: ${REFDB_SID:ORCL}
-  user: ${REFDB_USER:RELOADER}
-  password: ${REFDB_PASSWORD:RELOADER_PASSWORD}
+  user: ${REFDB_USER:refdb}
+  password: ${REFDB_PASSWORD:XBfjCq#$1542FFz}
   staging-table: ${REFDB_STAGING_TABLE:SENDER_STAGE}
   pool:
     max-size: ${REFDB_POOL_MAX:10}

@@ -1,13 +1,20 @@
-EXTERNAL_QA:
-  host: gyqsq-db.onsemi.com:1545/GYQSQ
-  port: 1545
+default-qa:
+  host: gyqsq-db.onsemi.com:1545/GYQSQ.onsemi.com
   user: DATAPORT_USER
-  password: "dpusr^401"
+  password: dpusr^401
   dbType: oracle
+  hikari:
+    maximumPoolSize: 10
+    minimumIdle: 1
+    connectionTimeoutMs: 20000
 
-EXTERNAL_PROD:
-  host: gyqsq-db.onsemi.com:1545/GYQSQ
-  port: 1545
+EXTERNAL-qa:
+  host: gyqsq-db.onsemi.com:1545/GYQSQ.onsemi.com 
   user: DATAPORT_USER
-  password: "dpusr^401"
+  password: dpusr^401
   dbType: oracle
+  hikari:
+    maximumPoolSize: 10
+    minimumIdle: 1
+    connectionTimeoutMs: 20000
+
