@@ -89,7 +89,7 @@
 
     <changeSet id="5" author="copilot">
         <validCheckSum>ANY</validCheckSum>
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <and>
                 <tableExists tableName="external_location" />
                 <not>
@@ -109,7 +109,7 @@
     </changeSet>
     <!-- Create load_session table -->
     <changeSet id="6a-create-load-session" author="copilot">
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <not>
                 <tableExists tableName="load_session" />
             </not>
@@ -136,7 +136,7 @@
 
     <!-- Create load_session_payload table -->
     <changeSet id="6a-create-load-session-payload" author="copilot">
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <not>
                 <tableExists tableName="load_session_payload" />
             </not>
@@ -163,7 +163,7 @@
 
     <!-- Add foreign key after both tables exist -->
     <changeSet id="6a-add-fk-load-session-payload" author="copilot">
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <and>
                 <tableExists tableName="load_session_payload" />
                 <tableExists tableName="load_session" />
@@ -176,7 +176,7 @@
         <!-- Only add column if it does not already exist. If it exists, mark this changeset as ran. -->
         <!-- validCheckSum ANY prevents checksum validation failures in DBs where this changeset was already applied with the previous content. -->
         <validCheckSum>ANY</validCheckSum>
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <and>
                 <tableExists tableName="load_session_payload" />
                 <not>
@@ -193,7 +193,7 @@
     <!-- Oracle sequences and triggers split into per-object changeSets with existence checks -->
     <changeSet id="6b-oracle-seq-load-session" author="copilot">
         <validCheckSum>ANY</validCheckSum>
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <and>
                 <dbms type="oracle" />
                 <not>
@@ -206,7 +206,7 @@
 
     <changeSet id="6b-oracle-seq-load-session-payload" author="copilot">
         <validCheckSum>ANY</validCheckSum>
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <and>
                 <dbms type="oracle" />
                 <not>
@@ -219,7 +219,7 @@
 
     <changeSet id="6b-oracle-trg-load-session" author="copilot">
         <validCheckSum>ANY</validCheckSum>
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <and>
                 <dbms type="oracle" />
                 <!-- trigger existence check via SQL against user_triggers; returns 0 when not present -->
@@ -240,7 +240,7 @@
 
     <changeSet id="6b-oracle-trg-load-session-payload" author="copilot">
         <validCheckSum>ANY</validCheckSum>
-        <preConditions onFail="MARK_RAN">
+    <preConditions onFail="MARK_RAN" onError="HALT">
             <and>
                 <dbms type="oracle" />
                 <sqlCheck expectedResult="0">SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'APP_TRG_LSP_BI'</sqlCheck>
