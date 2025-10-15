@@ -5,8 +5,7 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
 
     <changeSet id="2025-10-04-1-dedupe-load-session-payload" author="copilot">
-       <!-- The onFail behavior is parameterized so devs can relax it with -Dliquibase.precondition.onFail=MARK_RAN
-           without editing changelog files. Default is HALT (safe for production). -->
+        <!-- Fail fast if the staging table is missing; use the dev helper script if you need to relax this locally. -->
     <preConditions onFail="HALT">
             <tableExists tableName="load_session_payload" />
         </preConditions>

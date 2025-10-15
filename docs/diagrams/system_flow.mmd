@@ -1,40 +1,56 @@
 flowchart LR
-  subgraph User_Devices
+  %% User entry point
+  subgraph User
     Browser["Browser / Angular SPA"]
   end
 
   subgraph Frontend
-  Browser -->|"HTTP REST (POST /api/senders/{id}/enqueue, GET /api/senders/{id}/queue)"| FrontendApp["Angular SPA"]
+    StepperUI["Angular Stepper Component"]
   end
 
+  Browser --> StepperUI
+
+  %% REST surface
+  StepperUI -->|"Preview payloads\nGET /api/senders/{id}/discover/preview"| SenderController
+  StepperUI -->|"Stage payloads\nPOST /api/senders/{id}/stage"| SenderController
+  StepperUI -->|"Stage metrics & records\nGET /api/stage/**"| StageController
+
+  %% Backend application
   subgraph Backend
-    BackendLabel["Spring Boot"]
-    API["REST API - SenderController, ExternalLocationController"]
-    Services["Services - SenderService, MetadataImporterService, ExternalLocationService, MailService"]
-    Repos["Repositories - SenderQueueRepository, ExternalMetadataRepository, ExternalLocationRepository, ExternalEnvironmentRepository"]
-    Scheduler["Scheduler - DiscoveryScheduler"]
+    SenderController["SenderController"]
+    StageController["StageController"]
+    MetadataImporterService["MetadataImporterService"]
+    RefDbService["RefDbService"]
+    SenderDispatchService["SenderDispatchService"]
+    ExternalMetadataRepo["ExternalMetadataRepository"]
+    SenderQueueRepo["SenderQueueRepository"]
   end
 
-  BackendLabel --> API
-  API --> Services
-  Services --> Repos
-  Repos --> Scheduler
+  SenderController --> MetadataImporterService
+  SenderController --> RefDbService
+  StageController --> RefDbService
+  RefDbService --> SenderDispatchService
+  MetadataImporterService --> ExternalMetadataRepo
+  SenderDispatchService --> SenderQueueRepo
 
+  %% Data stores and integrations
   subgraph Datastores
-    AppDB[("Application DB - contains sender_queue, metadata, locations")]
-    ExternalDBs[("External Data Sources - configured via dbconnections.json")]
+    ExternalDBs[("External source DBs\n(dbconnections.json)")]
+    RefDB[("RefDB Oracle Staging")]
+    AppDB[("Application DB\nsender_queue & metadata")]
   end
 
-  SMTP["Mail / SMTP"]
-  CI["CI/CD / Build -> Maven"]
+  MetadataImporterService -->|"Fetch discovery preview"| ExternalDBs
+  RefDbService -->|"Stage payload metadata"| RefDB
+  StageController -->|"List staged payloads"| RefDB
+  SenderDispatchService -->|"Enqueue staged payloads"| AppDB
 
-  FrontendApp -->|"REST JSON"| API
-  Services -->|"connect to"| ExternalDBs
-  Services -->|"send email"| SMTP
-  CI -->|"build & deploy"| BackendLabel
+  %% Optional dispatch trigger
+  StepperUI -. "Dispatch toggle" .-> SenderDispatchService
 
+  %% Visual styles
   classDef infra fill:#f9f,stroke:#333,stroke-width:1px;
-  class ExternalDBs,AppDB,SMTP,CI infra
+  class ExternalDBs,RefDB,AppDB infra
 
   style Backend fill:#f2f8ff,stroke:#0366d6
   style Frontend fill:#fff4e6,stroke:#d97706
