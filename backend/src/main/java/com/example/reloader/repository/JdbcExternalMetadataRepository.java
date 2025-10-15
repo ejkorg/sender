@@ -89,7 +89,7 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
             SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
                     start, end, dataType, testPhase, testerType, location);
             if (limit > 0) {
-                sql.append(" fetch first ").append(limit).append(" rows only");
+                sql.append(" fetch first ").append(String.valueOf(limit)).append(" rows only");
             }
             ps = prepareStatement(c, sql);
             rs = ps.executeQuery();
