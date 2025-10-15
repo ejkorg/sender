@@ -1,30 +1,26 @@
 server:
-  server:
-    server:
-      server:
-        server:
-          port: 8080
+  port: 8080
 
-        spring:
-          autoconfigure:
-            exclude:
-              - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-              - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-              - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-              - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
 
-        # Base refdb configuration. Per-environment overrides should be placed in
-        # the corresponding profile such as `application-onsemi-oracle.yml`.
-        refdb:
-          staging-table: SENDER_STAGE
-          pool:
-            max-size: 5
-            min-idle: 1
-          dispatch:
-            per-send: 100
-            interval-ms: 60000
+# Base refdb configuration. Per-environment overrides should be placed in
+# the corresponding profile such as `application-oracle.yml`.
+refdb:
+  staging-table: SENDER_STAGE
+  pool:
+    max-size: 5
+    min-idle: 1
+  dispatch:
+    per-send: 100
+    interval-ms: 60000
 
-        reloader:
-          dbconn:
-            yaml:
-              path: classpath:dbconnections.yml
+reloader:
+  dbconn:
+    yaml:
+      path: classpath:dbconnections.yml
