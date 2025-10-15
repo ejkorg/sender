@@ -1,10 +1,11 @@
 package com.example.reloader.stage;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public record StageResult(int stagedCount, List<String> skippedPayloads) {
+public record StageResult(int stagedCount, List<DuplicatePayload> duplicates) {
     public StageResult {
-        skippedPayloads = skippedPayloads == null ? List.of() : List.copyOf(skippedPayloads);
+        duplicates = duplicates == null ? List.of() : List.copyOf(duplicates);
     }
 
     public static StageResult empty() {
@@ -15,8 +16,8 @@ public record StageResult(int stagedCount, List<String> skippedPayloads) {
         if (other == null) {
             return this;
         }
-        List<String> combined = new java.util.ArrayList<>(this.skippedPayloads);
-        combined.addAll(other.skippedPayloads);
+        List<DuplicatePayload> combined = new ArrayList<>(this.duplicates);
+        combined.addAll(other.duplicates);
         return new StageResult(this.stagedCount + other.stagedCount, combined);
     }
 }

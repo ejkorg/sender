@@ -151,6 +151,12 @@
 	margin-top: 8px;
 }
 
+.duplicate-meta {
+	margin-left: 8px;
+	color: #555;
+	font-size: 0.85rem;
+}
+
 .status-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

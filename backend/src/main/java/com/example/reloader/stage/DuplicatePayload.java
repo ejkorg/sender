@@ -1,0 +1,15 @@
+package com.example.reloader.stage;
+
+import java.time.Instant;
+
+/**
+ * Represents a payload that was skipped during staging because it already exists.
+ * Captures the previous status and completion metadata so callers can surface it to users.
+ */
+public record DuplicatePayload(
+        String metadataId,
+        String dataId,
+        String previousStatus,
+        Instant previousProcessedAt
+) {
+}

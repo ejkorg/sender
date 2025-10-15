@@ -481,7 +481,18 @@ export class StepperComponent implements OnInit, OnDestroy {
       this.snack.open('No duplicate payloads to copy.', 'OK', { duration: 2500 });
       return;
     }
-    const text = this.stageResponse.duplicatePayloads.join(',');
+    const text = this.stageResponse.duplicatePayloads
+      .map(dup => {
+        let line = `${dup.metadataId},${dup.dataId}`;
+        if (dup.processedAt) {
+          line += ` processedAt=${dup.processedAt}`;
+        }
+        if (dup.previousStatus) {
+          line += ` status=${dup.previousStatus}`;
+        }
+        return line;
+      })
+      .join('\n');
     this.clipboard.copy(text);
     this.snack.open('Duplicate payload IDs copied.', 'OK', { duration: 2500 });
   }

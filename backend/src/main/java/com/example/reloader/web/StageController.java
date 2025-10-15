@@ -52,7 +52,8 @@ public class StageController {
                 record.status(),
                 record.errorMessage(),
                 toIso(record.createdAt()),
-                toIso(record.updatedAt())
+                toIso(record.updatedAt()),
+                toIso(record.processedAt())
         );
     }
 

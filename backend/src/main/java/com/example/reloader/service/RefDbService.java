@@ -1,6 +1,7 @@
 package com.example.reloader.service;
 
 import com.example.reloader.config.RefDbProperties;
+import com.example.reloader.stage.DuplicatePayload;
 import com.example.reloader.stage.PayloadCandidate;
 import com.example.reloader.stage.StageRecord;
 import com.example.reloader.stage.StageResult;
@@ -18,6 +19,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -79,7 +81,7 @@ public class RefDbService {
     String sql = "INSERT INTO " + table + " (id, site, sender_id, metadata_id, data_id, status, error_message, created_at, updated_at) " +
         "VALUES (" + idExpr + ", ?, ?, ?, ?, 'NEW', NULL, " + timestampExpr() + ", " + timestampExpr() + ")";
         int inserted = 0;
-        List<String> duplicates = new ArrayList<>();
+        List<DuplicatePayload> duplicates = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
             for (PayloadCandidate candidate : payloads) {
@@ -92,8 +94,9 @@ public class RefDbService {
                     inserted++;
                 } catch (SQLException ex) {
                     if (isDuplicate(ex)) {
+                        DuplicatePayload existing = findExistingPayload(connection, site, senderId, candidate);
+                        duplicates.add(existing);
                         markRetry(connection, site, senderId, candidate);
-                        duplicates.add(candidate.metadataId() + "," + candidate.dataId());
                     } else {
                         throw ex;
                     }
@@ -107,7 +110,7 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatch(int limit) {
         String table = properties.getStagingTable();
-    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at " +
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
         "FROM " + table + " WHERE status = 'NEW' ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -133,7 +136,29 @@ public class RefDbService {
     }
 
     public void markCompleted(List<Long> ids) {
-        updateStatus(ids, "DONE", null);
+        markCompleted(ids, Instant.now());
+    }
+
+    public void markCompleted(List<Long> ids, Instant processedAt) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        Instant effective = processedAt != null ? processedAt : Instant.now();
+        Timestamp processedTs = Timestamp.from(effective);
+        String table = properties.getStagingTable();
+        String sql = "UPDATE " + table + " SET status = ?, error_message = NULL, processed_at = ?, updated_at = " + timestampExpr() + " WHERE id = ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            for (Long id : ids) {
+                ps.setString(1, "DONE");
+                ps.setTimestamp(2, processedTs);
+                ps.setLong(3, id);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed marking records complete", ex);
+        }
     }
 
     public List<StageStatus> fetchStatuses() {
@@ -217,7 +242,7 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatchForSite(String site, int limit) {
         String table = properties.getStagingTable();
-    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at " +
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
         "FROM " + table + " WHERE status = 'NEW' AND site = ? ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -237,7 +262,7 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatchForSender(String site, int senderId, int limit) {
         String table = properties.getStagingTable();
-    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at " +
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
         "FROM " + table + " WHERE status = 'NEW' AND site = ? AND sender_id = ? ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -256,15 +281,37 @@ public class RefDbService {
         return records;
     }
 
+    public List<StageRecord> findEnqueuedWithoutProcessed(int limit) {
+        if (limit <= 0) {
+            limit = 200;
+        }
+        String table = properties.getStagingTable();
+        String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
+                "FROM " + table + " WHERE status = 'ENQUEUED' AND processed_at IS NULL ORDER BY updated_at FETCH FIRST ? ROWS ONLY";
+        List<StageRecord> records = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    records.add(mapRecord(rs));
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed loading enqueued records", ex);
+        }
+        return records;
+    }
+
     public List<StageRecord> listRecords(String site, Integer senderId, String status, int limit) {
         return listRecords(site, senderId, status, 0, limit);
     }
 
     public List<StageRecord> listRecords(String site, Integer senderId, String status, int offset, int limit) {
         String table = properties.getStagingTable();
-        StringBuilder sb = new StringBuilder("SELECT id, site, sender_id, metadata_id, data_id, status, ")
-                .append(coalesce("error_message", "''"))
-                .append(" AS error_message, created_at, updated_at FROM ")
+    StringBuilder sb = new StringBuilder("SELECT id, site, sender_id, metadata_id, data_id, status, ")
+        .append(coalesce("error_message", "''"))
+        .append(" AS error_message, created_at, updated_at, processed_at FROM ")
                 .append(table)
                 .append(" WHERE 1=1");
         List<Object> params = new ArrayList<>();
@@ -379,8 +426,9 @@ public class RefDbService {
                 rs.getString("data_id"),
                 rs.getString("status"),
                 rs.getString("error_message"),
-                toInstant(rs.getTimestamp("created_at")),
-                toInstant(rs.getTimestamp("updated_at"))
+        toInstant(rs.getTimestamp("created_at")),
+        toInstant(rs.getTimestamp("updated_at")),
+        toInstant(rs.getTimestamp("processed_at"))
         );
     }
 
@@ -481,17 +529,18 @@ public class RefDbService {
     private void createTable(Connection connection, String table) throws SQLException {
         String ddl;
         if (isOracle) {
-            ddl = "CREATE TABLE " + table + " (" +
-                    "id NUMBER PRIMARY KEY, " +
-                    "site VARCHAR2(64) NOT NULL, " +
-                    "sender_id NUMBER NOT NULL, " +
-                    "metadata_id VARCHAR2(128) NOT NULL, " +
-                    "data_id VARCHAR2(128) NOT NULL, " +
-                    "status VARCHAR2(16) DEFAULT 'NEW' NOT NULL, " +
-                    "error_message VARCHAR2(4000), " +
-                    "created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " +
-                    "updated_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL" +
-                    ")";
+        ddl = "CREATE TABLE " + table + " (" +
+            "id NUMBER PRIMARY KEY, " +
+            "site VARCHAR2(64) NOT NULL, " +
+            "sender_id NUMBER NOT NULL, " +
+            "metadata_id VARCHAR2(128) NOT NULL, " +
+            "data_id VARCHAR2(128) NOT NULL, " +
+            "status VARCHAR2(16) DEFAULT 'NEW' NOT NULL, " +
+            "error_message VARCHAR2(4000), " +
+            "created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " +
+            "updated_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " +
+            "processed_at TIMESTAMP" +
+            ")";
         } else {
             ddl = "CREATE TABLE " + table + " (" +
                     "id BIGINT PRIMARY KEY, " +
@@ -502,7 +551,8 @@ public class RefDbService {
                     "status VARCHAR(16) DEFAULT 'NEW' NOT NULL, " +
                     "error_message VARCHAR(4000), " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, " +
-                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL" +
+            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, " +
+            "processed_at TIMESTAMP" +
                     ")";
         }
         try (Statement statement = connection.createStatement()) {
@@ -536,8 +586,8 @@ public class RefDbService {
     }
 
     private void markRetry(Connection connection, String site, int senderId, PayloadCandidate candidate) {
-    String table = properties.getStagingTable();
-    String sql = "UPDATE " + table + " SET status = 'NEW', error_message = NULL, updated_at = " + timestampExpr() + " " +
+        String table = properties.getStagingTable();
+        String sql = "UPDATE " + table + " SET status = 'NEW', error_message = NULL, processed_at = NULL, updated_at = " + timestampExpr() + " " +
                 "WHERE site = ? AND sender_id = ? AND metadata_id = ? AND data_id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, site);
@@ -548,6 +598,27 @@ public class RefDbService {
         } catch (SQLException ex) {
             log.warn("Failed updating duplicate payload for retry: {}", candidate, ex);
         }
+    }
+
+    private DuplicatePayload findExistingPayload(Connection connection, String site, int senderId, PayloadCandidate candidate) {
+        String table = properties.getStagingTable();
+        String sql = "SELECT status, processed_at FROM " + table + " WHERE site = ? AND sender_id = ? AND metadata_id = ? AND data_id = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, site);
+            ps.setInt(2, senderId);
+            ps.setString(3, candidate.metadataId());
+            ps.setString(4, candidate.dataId());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String status = rs.getString("status");
+                    Instant processedAt = toInstant(rs.getTimestamp("processed_at"));
+                    return new DuplicatePayload(candidate.metadataId(), candidate.dataId(), status, processedAt);
+                }
+            }
+        } catch (SQLException ex) {
+            log.warn("Failed loading existing payload for duplicate {}: {}", candidate, ex.getMessage());
+        }
+        return new DuplicatePayload(candidate.metadataId(), candidate.dataId(), null, null);
     }
 
     private boolean isDuplicate(SQLException ex) {

@@ -5,12 +5,14 @@ import com.example.reloader.repository.SenderQueueRepository;
 import com.example.reloader.service.RefDbService;
 import com.example.reloader.service.SenderDispatchService;
 import com.example.reloader.service.SenderService;
+import com.example.reloader.stage.DuplicatePayload;
 import com.example.reloader.stage.PayloadCandidate;
 import com.example.reloader.stage.StageResult;
 import com.example.reloader.web.dto.DiscoveryPreviewRequest;
 import com.example.reloader.web.dto.DiscoveryPreviewResponse;
 import com.example.reloader.web.dto.StagePayloadRequest;
 import com.example.reloader.web.dto.StagePayloadResponse;
+import com.example.reloader.web.dto.DuplicatePayloadView;
 import com.example.reloader.web.dto.EnqueueRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.time.Instant;
 import java.util.stream.Collectors;
 
 @RestController
@@ -143,7 +146,7 @@ public class SenderController {
         }
         List<StagePayloadRequest.Payload> payloads = request.payloads();
         if (payloads == null || payloads.isEmpty()) {
-            return ResponseEntity.ok(new StagePayloadResponse(0, 0, List.of(), 0));
+            return ResponseEntity.ok(new StagePayloadResponse(0, 0, List.<DuplicatePayloadView>of(), 0));
         }
         List<PayloadCandidate> candidates = payloads.stream()
                 .map(p -> new PayloadCandidate(p.metadataId(), p.dataId()))
@@ -153,8 +156,22 @@ public class SenderController {
         if (request.triggerDispatch()) {
             dispatched = senderDispatchService.dispatchSender(site, resolvedSender);
         }
-        StagePayloadResponse response = new StagePayloadResponse(result.stagedCount(), result.skippedPayloads().size(), List.copyOf(result.skippedPayloads()), dispatched);
+        List<DuplicatePayloadView> duplicateViews = result.duplicates().stream().map(this::toDuplicateView).toList();
+        StagePayloadResponse response = new StagePayloadResponse(result.stagedCount(), duplicateViews.size(), duplicateViews, dispatched);
         return ResponseEntity.ok(response);
+    }
+
+    private DuplicatePayloadView toDuplicateView(DuplicatePayload payload) {
+        return new DuplicatePayloadView(
+                payload.metadataId(),
+                payload.dataId(),
+                payload.previousStatus(),
+                toIso(payload.previousProcessedAt())
+        );
+    }
+
+    private String toIso(Instant instant) {
+        return instant == null ? null : instant.toString();
     }
 
     // Lookup senders in selected external DB based on user-provided filters. Returns list of {idSender,name}

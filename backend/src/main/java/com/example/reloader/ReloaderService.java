@@ -90,9 +90,9 @@ public class ReloaderService {
                 return "No payloads discovered for " + site;
             }
         StageResult result = refDbService.stagePayloads(site, senderId, discovered);
-        log.info("Staged {} payloads for site {} sender {} ({} duplicates)", result.stagedCount(), site, senderId, result.skippedPayloads().size());
-        if (!result.skippedPayloads().isEmpty()) {
-        log.debug("Skipped payloads during staging: {}", result.skippedPayloads());
+        log.info("Staged {} payloads for site {} sender {} ({} duplicates)", result.stagedCount(), site, senderId, result.duplicates().size());
+        if (!result.duplicates().isEmpty()) {
+            log.debug("Skipped payloads during staging: {}", result.duplicates());
         }
         return String.format("Staged %d payloads for %s. Dispatch threshold is %d per run.",
             result.stagedCount(), site, refDbProperties.getDispatch().getPerSend());

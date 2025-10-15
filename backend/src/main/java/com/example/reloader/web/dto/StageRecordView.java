@@ -9,5 +9,6 @@ public record StageRecordView(
         String status,
         String errorMessage,
         String createdAt,
-        String updatedAt
+        String updatedAt,
+        String processedAt
 ) {}

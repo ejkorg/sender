@@ -52,8 +52,15 @@ export interface StagePayloadRequestBody {
 export interface StagePayloadResponseBody {
   staged: number;
   duplicates: number;
-  duplicatePayloads: string[];
+  duplicatePayloads: DuplicatePayloadInfo[];
   dispatched: number;
+}
+
+export interface DuplicatePayloadInfo {
+  metadataId: string;
+  dataId: string;
+  previousStatus: string | null;
+  processedAt: string | null;
 }
 
 export interface StageRecordView {

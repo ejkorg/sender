@@ -198,7 +198,14 @@
             <div *ngIf="stageResponse.duplicatePayloads?.length">
               <p><strong>Duplicate payloads ({{ stageResponse.duplicatePayloads.length }}):</strong></p>
               <mat-list dense>
-                <mat-list-item *ngFor="let id of stageResponse.duplicatePayloads | slice:0:10">{{ id }}</mat-list-item>
+                <mat-list-item *ngFor="let dup of stageResponse.duplicatePayloads | slice:0:10">
+                  {{ dup.metadataId }}, {{ dup.dataId }}
+                  <span class="duplicate-meta">
+                    —
+                    {{ dup.processedAt ? ('last processed ' + (dup.processedAt | date: 'medium')) : 'not processed yet' }}
+                    <span *ngIf="dup.previousStatus"> (previous status: {{ dup.previousStatus }})</span>
+                  </span>
+                </mat-list-item>
               </mat-list>
               <button mat-button type="button" (click)="copyDuplicatesToClipboard()">Copy duplicates</button>
             </div>

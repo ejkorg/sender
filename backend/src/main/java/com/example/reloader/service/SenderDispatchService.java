@@ -77,6 +77,7 @@ public class SenderDispatchService {
         int maxQueueSize = properties.getDispatch().getMaxQueueSize();
         List<Long> success = new ArrayList<>();
         try (Connection connection = externalDbConfig.getConnection(site)) {
+            boolean useSequence = requiresSequence(connection);
             List<StageRecord> toDispatch = records;
             if (maxQueueSize > 0) {
                 int existing = safeCountQueue(connection, senderId);
@@ -95,16 +96,29 @@ public class SenderDispatchService {
                 return;
             }
 
-            String insertSql = "INSERT INTO DTP_SENDER_QUEUE_ITEM (id, id_metadata, id_data, id_sender, record_created) VALUES (?, ?, ?, ?, ?)";
+            String insertSql;
+            if (useSequence) {
+                insertSql = "INSERT INTO DTP_SENDER_QUEUE_ITEM (id, id_metadata, id_data, id_sender, record_created) VALUES (?, ?, ?, ?, ?)";
+            } else {
+                insertSql = "INSERT INTO DTP_SENDER_QUEUE_ITEM (id_metadata, id_data, id_sender, record_created) VALUES (?, ?, ?, ?)";
+            }
             try (PreparedStatement insert = connection.prepareStatement(insertSql)) {
                 for (StageRecord record : toDispatch) {
                     try {
-                        long queueId = nextQueueId(connection);
-                        insert.setLong(1, queueId);
-                        insert.setString(2, record.metadataId());
-                        insert.setString(3, record.dataId());
-                        insert.setInt(4, senderId);
-                        insert.setTimestamp(5, Timestamp.from(Instant.now()));
+                        Timestamp now = Timestamp.from(Instant.now());
+                        if (useSequence) {
+                            long queueId = nextQueueId(connection);
+                            insert.setLong(1, queueId);
+                            insert.setString(2, record.metadataId());
+                            insert.setString(3, record.dataId());
+                            insert.setInt(4, senderId);
+                            insert.setTimestamp(5, now);
+                        } else {
+                            insert.setString(1, record.metadataId());
+                            insert.setString(2, record.dataId());
+                            insert.setInt(3, senderId);
+                            insert.setTimestamp(4, now);
+                        }
                         insert.executeUpdate();
                         success.add(record.id());
                     } catch (SQLException ex) {
@@ -160,6 +174,19 @@ public class SenderDispatchService {
             }
         }
         throw new SQLException("Unable to fetch next value from DTP_SENDER_QUEUE_ITEM_SEQ");
+    }
+
+    private boolean requiresSequence(Connection connection) {
+        try {
+            String productName = connection.getMetaData().getDatabaseProductName();
+            if (productName == null) {
+                return false;
+            }
+            return productName.toLowerCase(java.util.Locale.ROOT).contains("oracle");
+        } catch (SQLException ex) {
+            log.warn("Failed resolving database product name; assuming identity inserts are supported: {}", ex.getMessage());
+            return false;
+        }
     }
 
     public int dispatchSender(String site, int senderId) {

@@ -5,12 +5,11 @@ import com.example.reloader.entity.ExternalLocation;
 import com.example.reloader.repository.ExternalLocationRepository;
 import com.example.reloader.repository.ExternalMetadataRepository;
 import com.example.reloader.repository.MetadataRow;
+import com.example.reloader.stage.DuplicatePayload;
 import com.example.reloader.stage.PayloadCandidate;
 import com.example.reloader.stage.StageResult;
 import com.example.reloader.web.dto.DiscoveryPreviewResponse;
 import com.example.reloader.web.dto.DiscoveryPreviewRow;
-import com.example.reloader.stage.PayloadCandidate;
-import com.example.reloader.stage.StageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,7 +21,6 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -37,6 +35,7 @@ public class MetadataImporterService {
     private static final LocalDateTime END_FALLBACK = LocalDateTime.of(2099, 12, 31, 23, 59, 59);
     private final ExternalDbConfig externalDbConfig;
     private final RefDbService refDbService;
+    private final SenderService senderService;
     private final MailService mailService;
     private final com.example.reloader.config.DiscoveryProperties discoveryProps;
     private final ExternalMetadataRepository externalMetadataRepository;
@@ -44,9 +43,18 @@ public class MetadataImporterService {
     private final ExternalDbResolverService externalDbResolverService;
     private final org.springframework.core.env.Environment env;
 
-    public MetadataImporterService(ExternalDbConfig externalDbConfig, RefDbService refDbService, MailService mailService, com.example.reloader.config.DiscoveryProperties discoveryProps, ExternalMetadataRepository externalMetadataRepository, ExternalLocationRepository externalLocationRepository, ExternalDbResolverService externalDbResolverService, org.springframework.core.env.Environment env) {
+    public MetadataImporterService(ExternalDbConfig externalDbConfig,
+                                   RefDbService refDbService,
+                                   SenderService senderService,
+                                   MailService mailService,
+                                   com.example.reloader.config.DiscoveryProperties discoveryProps,
+                                   ExternalMetadataRepository externalMetadataRepository,
+                                   ExternalLocationRepository externalLocationRepository,
+                                   ExternalDbResolverService externalDbResolverService,
+                                   org.springframework.core.env.Environment env) {
         this.externalDbConfig = externalDbConfig;
         this.refDbService = refDbService;
+        this.senderService = senderService;
         this.mailService = mailService;
         this.discoveryProps = discoveryProps;
         this.externalMetadataRepository = externalMetadataRepository;
@@ -164,7 +172,8 @@ public class MetadataImporterService {
         final BufferedWriter[] bwRef = new BufferedWriter[1];
         final int[] discoveredCount = {0};
         final int[] stagedCount = {0};
-        final java.util.List<String> skippedOverall = new java.util.ArrayList<>();
+        final java.util.List<DuplicatePayload> duplicatesOverall = new java.util.ArrayList<>();
+        final java.util.List<String> enqueuePayloadIds = new java.util.ArrayList<>();
 
         try {
             if (writeListFile) {
@@ -230,11 +239,14 @@ public class MetadataImporterService {
                 if (metadataIdValue == null || metadataIdValue.isBlank() || dataIdValue == null || dataIdValue.isBlank()) {
                     return;
                 }
+                enqueuePayloadIds.add(payload);
                 batch.add(new PayloadCandidate(metadataIdValue, dataIdValue));
                 if (batch.size() >= batchSize) {
                     StageResult result = stageCurrentBatch(site, resolvedSenderId, batch);
                     stagedCount[0] += result.stagedCount();
-                    if (!result.skippedPayloads().isEmpty()) skippedOverall.addAll(result.skippedPayloads());
+                    if (!result.duplicates().isEmpty()) {
+                        duplicatesOverall.addAll(result.duplicates());
+                    }
                 }
             };
 
@@ -254,7 +266,9 @@ public class MetadataImporterService {
 
             StageResult tail = stageCurrentBatch(site, resolvedSenderId, batch);
             stagedCount[0] += tail.stagedCount();
-            if (!tail.skippedPayloads().isEmpty()) skippedOverall.addAll(tail.skippedPayloads());
+            if (!tail.duplicates().isEmpty()) {
+                duplicatesOverall.addAll(tail.duplicates());
+            }
 
         } catch (Exception ex) {
             log.error("Failed to discover metadata from site {}: {}", site, ex.getMessage(), ex);
@@ -268,7 +282,15 @@ public class MetadataImporterService {
             return 0;
         }
 
-        log.info("Discovered {} rows and staged {} payloads for sender {}. Skipped {} duplicates.", discoveredCount[0], stagedCount[0], resolvedSenderId, skippedOverall.size());
+        if (!enqueuePayloadIds.isEmpty()) {
+            try {
+                senderService.enqueuePayloadsWithResult(resolvedSenderId, enqueuePayloadIds, "metadata_discover");
+            } catch (Exception ex) {
+                log.warn("Failed enqueueing {} payloads for sender {} after discovery: {}", enqueuePayloadIds.size(), resolvedSenderId, ex.getMessage());
+            }
+        }
+
+    log.info("Discovered {} rows and staged {} payloads for sender {}. Skipped {} duplicates.", discoveredCount[0], stagedCount[0], resolvedSenderId, duplicatesOverall.size());
 
         // Notification: prefer discovery properties, then fallback to env var
         String recipient = discoveryProps.getNotifyRecipient();
@@ -279,12 +301,12 @@ public class MetadataImporterService {
             String subj = String.format("Reloader: discovery complete for sender %s", resolvedSenderId);
             StringBuilder body = new StringBuilder();
             body.append(String.format("Discovered %d rows and staged %d payloads for sender %s", discoveredCount[0], stagedCount[0], resolvedSenderId));
-            if (!skippedOverall.isEmpty()) {
-                body.append(". Skipped ").append(skippedOverall.size()).append(" duplicate items:\n");
+            if (!duplicatesOverall.isEmpty()) {
+                body.append(". Skipped ").append(duplicatesOverall.size()).append(" duplicate items:\n");
                 int c = 0;
-                for (String s : skippedOverall) {
+                for (DuplicatePayload duplicate : duplicatesOverall) {
                     if (c++ >= 50) { body.append("... (truncated)\n"); break; }
-                    body.append(s).append("\n");
+                    body.append(formatDuplicateForNotification(duplicate)).append("\n");
                 }
             }
             boolean attach = discoveryProps.isNotifyAttachList();
@@ -334,6 +356,18 @@ public class MetadataImporterService {
 
     private String toIsoString(LocalDateTime value) {
         return value == null ? null : value.toString();
+    }
+
+    private String formatDuplicateForNotification(DuplicatePayload duplicate) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(duplicate.metadataId()).append(",").append(duplicate.dataId());
+        if (duplicate.previousStatus() != null && !duplicate.previousStatus().isBlank()) {
+            sb.append(" status=").append(duplicate.previousStatus());
+        }
+        if (duplicate.previousProcessedAt() != null) {
+            sb.append(" processedAt=").append(duplicate.previousProcessedAt());
+        }
+        return sb.toString();
     }
 
     private String nullSafe(String value) {
