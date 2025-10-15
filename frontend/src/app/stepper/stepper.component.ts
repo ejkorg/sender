@@ -75,6 +75,7 @@ export class StepperComponent implements OnInit, OnDestroy {
   selectAllPage = true;
   previewLoaded = false;
   selectedCount = 0;
+  previewDebugSql: string | null = null;
 
   triggerDispatch = false;
   staging = false;
@@ -308,11 +309,13 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.api.previewDiscovery(senderId, request).subscribe({
       next: (response: DiscoveryPreviewResponse) => {
         this.previewLoaded = true;
-  this.previewRows = response?.items ?? [];
-  this.previewTotal = response?.total ?? 0;
-  this.previewPage = response?.page ?? page;
-  this.previewSize = response?.size ?? this.previewSize;
-  this.cachePreviewRows(this.previewRows);
+        this.previewRows = response?.items ?? [];
+        this.previewTotal = response?.total ?? 0;
+        this.previewPage = response?.page ?? page;
+        this.previewSize = response?.size ?? this.previewSize;
+        const rawSql = response?.debugSql ?? null;
+        this.previewDebugSql = rawSql && rawSql.trim().length ? rawSql.trim() : null;
+        this.cachePreviewRows(this.previewRows);
         this.updateSelectAllState();
         this.recalculateSelectedCount();
         this.stepIndex = Math.max(this.stepIndex, 1);
@@ -483,6 +486,15 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.snack.open('Duplicate payload IDs copied.', 'OK', { duration: 2500 });
   }
 
+  copyPreviewSql() {
+    if (!this.previewDebugSql) {
+      this.snack.open('No SQL to copy.', 'OK', { duration: 2500 });
+      return;
+    }
+    this.clipboard.copy(this.previewDebugSql);
+    this.snack.open('Preview SQL copied.', 'OK', { duration: 2500 });
+  }
+
   private resetPreview() {
     this.previewRows = [];
     this.previewRowCache.clear();
@@ -493,6 +505,7 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.selectedCount = 0;
     this.selectAllPage = true;
     this.previewLoading = false;
+    this.previewDebugSql = null;
   }
 
   private cachePreviewRows(rows: DiscoveryPreviewRow[]) {

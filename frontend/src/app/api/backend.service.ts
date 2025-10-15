@@ -38,6 +38,7 @@ export interface DiscoveryPreviewResponse {
   total: number;
   page: number;
   size: number;
+  debugSql?: string;
 }
 
 export interface StagePayloadRequestBody {

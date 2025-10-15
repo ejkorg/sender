@@ -14,6 +14,17 @@ public interface ExternalMetadataRepository {
     long countMetadata(String site, String environment, LocalDateTime start, LocalDateTime end,
                        String dataType, String testPhase, String testerType, String location);
 
+    default String describePreviewQuery(LocalDateTime start,
+                                        LocalDateTime end,
+                                        String dataType,
+                                        String testPhase,
+                                        String testerType,
+                                        String location,
+                                        int offset,
+                                        int limit) {
+        return null;
+    }
+
     /**
      * Stream rows; consumer should be fast. This will use JDBC ResultSet iteration.
      */

@@ -58,6 +58,26 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
+    public String describePreviewQuery(LocalDateTime start,
+                                       LocalDateTime end,
+                                       String dataType,
+                                       String testPhase,
+                                       String testerType,
+                                       String location,
+                                       int offset,
+                                       int limit) {
+        SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
+                start, end, dataType, testPhase, testerType, location);
+        sql.append(" order by end_time desc");
+        if (limit > 0) {
+            sql.append(" offset ? rows fetch next ? rows only");
+            sql.params.add(Math.max(offset, 0));
+            sql.params.add(limit);
+        }
+        return sql.format();
+    }
+
+    @Override
     public long countMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location) {
         SqlWithParams sql = buildMetadataQuery("select count(1) from all_metadata_view",
                 start, end, dataType, testPhase, testerType, location);
@@ -284,10 +304,6 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         sb.append(" and location = ?"); params.add(location);
         sb.append(" and data_type = ?"); params.add(dataType);
         sb.append(" and tester_type = ?"); params.add(testerType);
-        if (senderId != null) {
-            sb.append(" and id_sender = ?");
-            params.add(senderId);
-        }
         sb.append(" order by 1");
 
         PreparedStatement ps = null;
@@ -296,11 +312,7 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
             ps = c.prepareStatement(sb.toString());
             int idx = 1;
             for (Object p : params) {
-                if (p instanceof Integer) {
-                    ps.setInt(idx++, (Integer) p);
-                } else {
-                    ps.setString(idx++, p == null ? null : p.toString());
-                }
+                ps.setString(idx++, p == null ? null : p.toString());
             }
             rs = ps.executeQuery();
             while (rs.next()) {
@@ -343,6 +355,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
             result.append(" and location = ?");
             result.params.add(location);
         }
+        if (log.isDebugEnabled()) {
+            log.debug("Metadata query: {} params={} ", result.sql, result.params);
+        }
         return result;
     }
 
@@ -383,6 +398,13 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         SqlWithParams append(String fragment) {
             this.sql.append(fragment);
             return this;
+        }
+
+        String format() {
+            if (params.isEmpty()) {
+                return sql.toString();
+            }
+            return sql + " /* params=" + params + " */";
         }
     }
 }

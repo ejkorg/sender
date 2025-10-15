@@ -11,12 +11,12 @@ import { AuthService } from './auth.service';
     <div style="display:flex; gap:8px; align-items:center;">
       <ng-container *ngIf="(auth.user$ | async) as u; else loginForm">
         <span>{{ u.username }}</span>
-        <button (click)="logout()">Logout</button>
+        <button type="button" (click)="logout()">Logout</button>
       </ng-container>
       <ng-template #loginForm>
-        <input [(ngModel)]="username" placeholder="username" />
-        <input [(ngModel)]="password" type="password" placeholder="password" />
-        <button (click)="login()">Login</button>
+        <input [(ngModel)]="username" placeholder="username" (keydown.enter)="login($event)" />
+        <input [(ngModel)]="password" type="password" placeholder="password" (keydown.enter)="login($event)" />
+        <button type="button" (click)="login($event)">Login</button>
       </ng-template>
     </div>
   `
@@ -27,7 +27,9 @@ export class LoginComponent {
 
   constructor(public auth: AuthService) {}
 
-  login() {
+  login(event?: Event) {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (!this.username || !this.password) return;
     this.auth.login(this.username, this.password).subscribe(
       _ => {},

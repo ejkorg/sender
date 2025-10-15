@@ -135,14 +135,15 @@ public class MetadataImporterService {
         LocalDateTime lstart = resolveStart(startDate);
         LocalDateTime lend = resolveEnd(endDate);
 
-        long total = externalMetadataRepository.countMetadata(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location);
-        List<MetadataRow> rows = externalMetadataRepository.findMetadataPage(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location, offset, resolvedSize);
+    long total = externalMetadataRepository.countMetadata(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location);
+    List<MetadataRow> rows = externalMetadataRepository.findMetadataPage(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location, offset, resolvedSize);
+    String debugSql = externalMetadataRepository.describePreviewQuery(lstart, lend, dataType, testPhase, testerType, location, offset, resolvedSize);
 
         List<DiscoveryPreviewRow> items = rows.stream()
                 .map(row -> new DiscoveryPreviewRow(nullSafe(row.getId()), nullSafe(row.getIdData()), nullSafe(row.getLot()), toIsoString(row.getEndTime())))
                 .toList();
 
-        return new DiscoveryPreviewResponse(items, total, resolvedPage, resolvedSize);
+    return new DiscoveryPreviewResponse(items, total, resolvedPage, resolvedSize, debugSql);
     }
 
     public int discoverAndEnqueue(String site, String environment, Integer senderId, String startDate, String endDate,

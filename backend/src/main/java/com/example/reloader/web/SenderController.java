@@ -1,3 +1,4 @@
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SenderController.class);
 package com.example.reloader.web;
 
 import com.example.reloader.entity.SenderQueueEntry;
@@ -104,6 +105,10 @@ public class SenderController {
     @PostMapping("/{id}/discover/preview")
     public ResponseEntity<DiscoveryPreviewResponse> preview(@PathVariable("id") Integer id,
                                                             @RequestBody DiscoveryPreviewRequest request) {
+    if (log.isInfoEnabled()) {
+        log.info("Preview request for sender={} site={} location={} dataType={} testerType={} testPhase={} start={} end={} page={} size={}"
+            , id, request.site(), request.location(), request.dataType(), request.testerType(), request.testPhase(), request.startDate(), request.endDate(), request.page(), request.size());
+    }
         DiscoveryPreviewResponse response = metadataImporterService.previewMetadata(
                 request.site(),
                 request.environment(),
