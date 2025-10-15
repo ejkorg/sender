@@ -552,7 +552,7 @@ export class StepperComponent implements OnInit, OnDestroy {
     });
   }
 
-  private loadStageRecords(page: number) {
+  loadStageRecords(page: number) {
     if (!this.selectedSite || !this.selectedSenderId) {
       this.stageRecords = [];
       this.stageRecordsTotal = 0;
