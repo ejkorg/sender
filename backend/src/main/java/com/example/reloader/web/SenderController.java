@@ -123,6 +123,9 @@ public class SenderController {
                 request.location(),
                 request.page(),
                 request.size());
+        if (log.isInfoEnabled()) {
+            log.info("Preview response rows={} total={}", response.items().size(), response.total());
+        }
         return ResponseEntity.ok(response);
     }
 

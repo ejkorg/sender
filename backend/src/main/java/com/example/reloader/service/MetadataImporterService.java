@@ -143,7 +143,10 @@ public class MetadataImporterService {
                 .map(row -> new DiscoveryPreviewRow(nullSafe(row.getId()), nullSafe(row.getIdData()), nullSafe(row.getLot()), toIsoString(row.getEndTime())))
                 .toList();
 
-    return new DiscoveryPreviewResponse(items, total, resolvedPage, resolvedSize, debugSql);
+        if (log.isDebugEnabled()) {
+            log.debug("Preview result total={} page={} size={} returned={}", total, resolvedPage, resolvedSize, items.size());
+        }
+        return new DiscoveryPreviewResponse(items, total, resolvedPage, resolvedSize, debugSql);
     }
 
     public int discoverAndEnqueue(String site, String environment, Integer senderId, String startDate, String endDate,

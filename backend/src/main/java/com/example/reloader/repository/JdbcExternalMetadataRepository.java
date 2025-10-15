@@ -12,6 +12,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Repository
 public class JdbcExternalMetadataRepository implements ExternalMetadataRepository {
@@ -343,8 +344,8 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
             if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
                 result.append(" and test_phase IS NULL");
             } else {
-                result.append(" and test_phase = ?");
-                result.params.add(testPhase);
+                result.append(" and UPPER(test_phase) = ?");
+                result.params.add(testPhase.trim().toUpperCase(Locale.ROOT));
             }
         }
         if (testerType != null && !testerType.isBlank()) {
