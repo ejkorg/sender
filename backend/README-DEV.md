@@ -199,6 +199,55 @@ RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true mvn -f backend/pom.x
 
 Set these with care in shared CI runners. Prefer scoped CI job steps using dedicated test databases or ephemeral runners so actual production systems are never affected.
 
+---
+
+Run against Oracle RefDB (staging) and Oracle DTP
+--------------------------------------------------
+
+Use the `oracle` Spring profile and provide RefDB credentials via environment variables. Supply your DTP connection entries via an external YAML and point the app to it.
+
+1) RefDB environment variables:
+
+```bash
+export REFDB_HOST=your-refdb-host
+export REFDB_PORT=1521
+export REFDB_SERVICE=ORCLPDB1   # or set REFDB_SID instead
+export REFDB_USER=RELOADER
+export REFDB_PASSWORD=******
+```
+
+2) External DTP entries (YAML file), e.g. `/etc/reloader/dbconnections.yml`:
+
+```yaml
+EXTERNAL_QA:
+  host: dtp-host.example.com:1521/DTPSVC
+  user: DTP_APP
+  password: secret
+  dbType: oracle
+EXTERNAL_PROD:
+  host: dtp-prod.example.com:1521/PRODSVC
+  user: DTP_APP
+  password: secret
+  dbType: oracle
+```
+
+Point the app to that file:
+
+```bash
+export RELOADER_DBCONN_YAML_PATH=file:/etc/reloader/dbconnections.yml
+```
+
+3) Start the backend with the Oracle profile:
+
+```bash
+mvn -f backend/pom.xml -DskipTests spring-boot:run -Dspring-boot.run.profiles=oracle
+```
+
+Tuning and notes:
+- Pool sizing for RefDB: `REFDB_POOL_MAX`, `REFDB_POOL_MIN_IDLE`, etc. For DTP pools: `DTP_POOL_MAX`, `DTP_CONN_TIMEOUT_MS`, etc. See `application-oracle.yml`.
+- Ensure the Oracle JDBC driver is available to Maven. If using a private repository, configure settings.xml appropriately.
+- Keep `RELOADER_USE_H2_EXTERNAL` unset or false so the app uses real Oracle for DTP.
+
 CI workflow for external-write tests
 ------------------------------------
 
