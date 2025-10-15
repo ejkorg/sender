@@ -74,9 +74,10 @@ public class RefDbService {
         if (payloads == null || payloads.isEmpty()) {
             return StageResult.empty();
         }
-        String table = properties.getStagingTable();
+    String table = properties.getStagingTable();
+    String idExpr = nextIdExpr(table);
     String sql = "INSERT INTO " + table + " (id, site, sender_id, metadata_id, data_id, status, error_message, created_at, updated_at) " +
-        "VALUES (" + table + "_SEQ.NEXTVAL, ?, ?, ?, ?, 'NEW', NULL, " + timestampExpr() + ", " + timestampExpr() + ")";
+        "VALUES (" + idExpr + ", ?, ?, ?, ?, 'NEW', NULL, " + timestampExpr() + ", " + timestampExpr() + ")";
         int inserted = 0;
         List<String> duplicates = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -535,8 +536,8 @@ public class RefDbService {
     }
 
     private void markRetry(Connection connection, String site, int senderId, PayloadCandidate candidate) {
-        String table = properties.getStagingTable();
-        String sql = "UPDATE " + table + " SET status = 'NEW', error_message = NULL, updated_at = SYSTIMESTAMP " +
+    String table = properties.getStagingTable();
+    String sql = "UPDATE " + table + " SET status = 'NEW', error_message = NULL, updated_at = " + timestampExpr() + " " +
                 "WHERE site = ? AND sender_id = ? AND metadata_id = ? AND data_id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, site);
@@ -569,6 +570,11 @@ public class RefDbService {
     }
 
     // H2 vs Oracle SQL fragments
+    private String nextIdExpr(String table) {
+        String sequence = table + "_SEQ";
+        return isOracle ? sequence + ".NEXTVAL" : "NEXT VALUE FOR " + sequence;
+    }
+
     private String timestampExpr() {
         return isOracle ? "SYSTIMESTAMP" : "CURRENT_TIMESTAMP";
     }
