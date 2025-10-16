@@ -9,7 +9,7 @@
         <mat-icon>refresh</mat-icon>
         Refresh
       </button>
-      <span class="timestamp" [matTooltip]="lastUpdated ? lastUpdated | date:'medium' : 'No data yet'">
+  <span class="timestamp" [matTooltip]="lastUpdated ? (lastUpdated | date:'medium') : 'No data yet'">
         Updated: {{ formatUpdated() }}
       </span>
     </div>
