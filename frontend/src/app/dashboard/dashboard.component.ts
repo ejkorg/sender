@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subscription, timer } from 'rxjs';
-import { BackendService, StageStatus } from '../api/backend.service';
+import { BackendService, StageStatus, StageUserStatus } from '../api/backend.service';
 
 interface DashboardAggregate {
   total: number;
@@ -27,12 +27,21 @@ interface DashboardSenderSummary {
   completed: number;
   backlog: number;
   alert: boolean;
+  users: StageUserStatus[];
 }
 
 interface DashboardSiteSummary extends DashboardAggregate {
   site: string;
   senders: DashboardSenderSummary[];
   alerts: boolean;
+}
+
+interface BacklogSeries {
+  label: string;
+  ready: number;
+  enqueued: number;
+  failed: number;
+  total: number;
 }
 
 @Component({
@@ -80,8 +89,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
           ready: status?.ready ?? 0,
           enqueued: status?.enqueued ?? 0,
           failed: status?.failed ?? 0,
-          completed: status?.completed ?? 0
-        }));
+          completed: status?.completed ?? 0,
+          users: (status?.users ?? []).map(user => this.normalizeUserStatus(user))
+        } as StageStatus));
         this.lastUpdated = new Date();
         this.loading = false;
       },
@@ -137,7 +147,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         failed: status.failed,
         completed: status.completed,
         backlog: status.ready + status.enqueued + status.failed,
-        alert: status.ready > 0 || status.failed > 0
+        alert: status.ready > 0 || status.failed > 0,
+        users: status.users ?? []
       };
 
       summary.senders.push(senderSummary);
@@ -181,6 +192,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
+  get backlogSeries(): BacklogSeries[] {
+    if (!this.statuses.length) {
+      return [];
+    }
+    const series: BacklogSeries[] = this.statuses
+      .map(status => {
+        const ready = status.ready ?? 0;
+        const enqueued = status.enqueued ?? 0;
+        const failed = status.failed ?? 0;
+        return {
+          label: `${status.site || 'Unknown'} · ${status.senderId || 'N/A'}`,
+          ready,
+          enqueued,
+          failed,
+          total: ready + enqueued + failed
+        };
+      })
+      .filter(item => item.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+    return series;
+  }
+
+  barWidth(value: number, total: number): string {
+    if (!total || total <= 0) {
+      return '0%';
+    }
+    const pct = Math.max(0, Math.min(100, (value / total) * 100));
+    return pct.toFixed(1) + '%';
+  }
+
   private aggregate(statuses: StageStatus[]): DashboardAggregate {
     return statuses.reduce<DashboardAggregate>((acc, status) => {
       acc.total += status.total;
@@ -192,5 +234,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
       acc.activeSenders += 1;
       return acc;
     }, { total: 0, ready: 0, enqueued: 0, failed: 0, completed: 0, backlog: 0, activeSenders: 0 });
+  }
+
+  private normalizeUserStatus(user: StageUserStatus | undefined): StageUserStatus {
+    return {
+      username: user?.username ?? 'unknown',
+      total: user?.total ?? 0,
+      ready: user?.ready ?? 0,
+      enqueued: user?.enqueued ?? 0,
+      failed: user?.failed ?? 0,
+      completed: user?.completed ?? 0,
+      lastRequestedAt: user?.lastRequestedAt ?? null
+    };
   }
 }

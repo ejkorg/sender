@@ -12,5 +12,8 @@ public record StageRecord(
         String errorMessage,
         Instant createdAt,
         Instant updatedAt,
-        Instant processedAt
+        Instant processedAt,
+        String stagedBy,
+        String lastRequestedBy,
+        Instant lastRequestedAt
 ) {}

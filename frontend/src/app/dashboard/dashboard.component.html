@@ -70,6 +70,31 @@
     </mat-card>
   </section>
 
+  <section *ngIf="backlogSeries.length" class="graph-section">
+    <mat-card appearance="outlined" class="graph-card">
+      <mat-card-title>Backlog composition</mat-card-title>
+      <mat-card-subtitle>Top senders by ready + enqueued + failed payloads</mat-card-subtitle>
+      <mat-card-content>
+        <div class="graph-legend">
+          <span class="legend-item ready">Ready</span>
+          <span class="legend-item enqueued">Enqueued</span>
+          <span class="legend-item failed">Failed</span>
+        </div>
+        <div class="graph-list">
+          <div class="graph-row" *ngFor="let series of backlogSeries">
+            <div class="graph-label" [matTooltip]="series.label">{{ series.label }}</div>
+            <div class="graph-bar">
+              <div class="bar-segment ready" *ngIf="series.ready" [style.width]="barWidth(series.ready, series.total)"></div>
+              <div class="bar-segment enqueued" *ngIf="series.enqueued" [style.width]="barWidth(series.enqueued, series.total)"></div>
+              <div class="bar-segment failed" *ngIf="series.failed" [style.width]="barWidth(series.failed, series.total)"></div>
+            </div>
+            <div class="graph-total">{{ series.total }}</div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
   <section *ngIf="siteSummaries.length" class="site-section">
     <h2>Site health</h2>
     <div class="site-grid">

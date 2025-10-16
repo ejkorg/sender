@@ -53,11 +53,22 @@ public class StageController {
                 record.errorMessage(),
                 toIso(record.createdAt()),
                 toIso(record.updatedAt()),
-                toIso(record.processedAt())
+                toIso(record.processedAt()),
+                displayUser(record.stagedBy()),
+                displayUser(record.lastRequestedBy()),
+                toIso(record.lastRequestedAt())
         );
     }
 
     private String toIso(Instant instant) {
         return instant == null ? null : instant.toString();
+    }
+
+    private String displayUser(String value) {
+        if (value == null) {
+            return "unknown";
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? "unknown" : trimmed;
     }
 }

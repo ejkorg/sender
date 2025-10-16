@@ -7,7 +7,8 @@ public record StagePayloadRequest(
         String environment,
         Integer senderId,
         List<Payload> payloads,
-        boolean triggerDispatch
+    boolean triggerDispatch,
+    boolean forceDuplicates
 ) {
     public record Payload(String metadataId, String dataId) {}
 }

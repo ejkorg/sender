@@ -10,6 +10,11 @@ public record DuplicatePayload(
         String metadataId,
         String dataId,
         String previousStatus,
-        Instant previousProcessedAt
+        Instant previousProcessedAt,
+        String stagedBy,
+        Instant stagedAt,
+        String lastRequestedBy,
+        Instant lastRequestedAt,
+        boolean requiresConfirmation
 ) {
 }

@@ -11,6 +11,17 @@ export interface StageStatus {
   enqueued: number;
   failed: number;
   completed: number;
+  users: StageUserStatus[];
+}
+
+export interface StageUserStatus {
+  username: string | null;
+  total: number;
+  ready: number;
+  enqueued: number;
+  failed: number;
+  completed: number;
+  lastRequestedAt: string | null;
 }
 
 export interface DiscoveryPreviewRequest {
@@ -47,6 +58,7 @@ export interface StagePayloadRequestBody {
   senderId?: number | null;
   payloads: Array<{ metadataId: string; dataId: string }>;
   triggerDispatch: boolean;
+  forceDuplicates?: boolean;
 }
 
 export interface StagePayloadResponseBody {
@@ -54,6 +66,7 @@ export interface StagePayloadResponseBody {
   duplicates: number;
   duplicatePayloads: DuplicatePayloadInfo[];
   dispatched: number;
+  requiresConfirmation?: boolean;
 }
 
 export interface DuplicatePayloadInfo {
@@ -61,6 +74,11 @@ export interface DuplicatePayloadInfo {
   dataId: string;
   previousStatus: string | null;
   processedAt: string | null;
+  stagedBy: string | null;
+  stagedAt: string | null;
+  lastRequestedBy: string | null;
+  lastRequestedAt: string | null;
+  requiresConfirmation?: boolean;
 }
 
 export interface StageRecordView {
@@ -73,6 +91,10 @@ export interface StageRecordView {
   errorMessage: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  processedAt?: string | null;
+  stagedBy?: string | null;
+  lastRequestedBy?: string | null;
+  lastRequestedAt?: string | null;
 }
 
 export interface StageRecordPage {
@@ -86,6 +108,9 @@ export interface ReloadRequest {
   site: string;
   senderId: string;
   startDate?: string;
+  stagedBy: string | null;
+  lastRequestedBy: string | null;
+  lastRequestedAt: string | null;
   endDate?: string;
   testerType?: string;
   dataType?: string;

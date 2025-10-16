@@ -6,6 +6,7 @@ import com.example.reloader.stage.PayloadCandidate;
 import com.example.reloader.stage.StageRecord;
 import com.example.reloader.stage.StageResult;
 import com.example.reloader.stage.StageStatus;
+import com.example.reloader.stage.StageUserStatus;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.annotation.PostConstruct;
@@ -22,13 +23,18 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
 public class RefDbService {
     private static final Logger log = LoggerFactory.getLogger(RefDbService.class);
+    private static final String DEFAULT_USER = "system";
+    private static final String UNKNOWN_USER = "unknown";
+    private static final int USER_MAX_LENGTH = 120;
 
     private final RefDbProperties properties;
     private final HikariDataSource dataSource;
@@ -73,13 +79,22 @@ public class RefDbService {
     }
 
     public StageResult stagePayloads(String site, int senderId, List<PayloadCandidate> payloads) {
+        return stagePayloads(site, senderId, DEFAULT_USER, payloads, true);
+    }
+
+    public StageResult stagePayloads(String site,
+                                     int senderId,
+                                     String requestedBy,
+                                     List<PayloadCandidate> payloads,
+                                     boolean forceDuplicates) {
         if (payloads == null || payloads.isEmpty()) {
             return StageResult.empty();
         }
-    String table = properties.getStagingTable();
-    String idExpr = nextIdExpr(table);
-    String sql = "INSERT INTO " + table + " (id, site, sender_id, metadata_id, data_id, status, error_message, created_at, updated_at) " +
-        "VALUES (" + idExpr + ", ?, ?, ?, ?, 'NEW', NULL, " + timestampExpr() + ", " + timestampExpr() + ")";
+        String normalizedUser = normalizeUser(requestedBy);
+        String table = properties.getStagingTable();
+        String idExpr = nextIdExpr(table);
+        String sql = "INSERT INTO " + table + " (id, site, sender_id, metadata_id, data_id, status, error_message, created_at, updated_at, processed_at, staged_by, last_requested_by, last_requested_at) " +
+                "VALUES (" + idExpr + ", ?, ?, ?, ?, 'NEW', NULL, " + timestampExpr() + ", " + timestampExpr() + ", NULL, ?, ?, " + timestampExpr() + ")";
         int inserted = 0;
         List<DuplicatePayload> duplicates = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -89,14 +104,27 @@ public class RefDbService {
                 ps.setInt(2, senderId);
                 ps.setString(3, candidate.metadataId());
                 ps.setString(4, candidate.dataId());
+                ps.setString(5, normalizedUser);
+                ps.setString(6, normalizedUser);
                 try {
                     ps.executeUpdate();
                     inserted++;
                 } catch (SQLException ex) {
                     if (isDuplicate(ex)) {
-                        DuplicatePayload existing = findExistingPayload(connection, site, senderId, candidate);
-                        duplicates.add(existing);
-                        markRetry(connection, site, senderId, candidate);
+                        ExistingPayload existing = loadExistingPayload(connection, table, site, senderId, candidate);
+                        boolean sameUser = false;
+                        if (existing != null) {
+                            String effectiveUser = normalizeUser(existing.lastRequestedBy() != null ? existing.lastRequestedBy() : existing.stagedBy());
+                            sameUser = effectiveUser.equalsIgnoreCase(normalizedUser);
+                        }
+                        boolean allowResubmit = forceDuplicates || sameUser;
+                        if (existing == null) {
+                            allowResubmit = true; // fallback to original behavior if metadata missing
+                        }
+                        if (allowResubmit && existing != null) {
+                            markRetry(connection, table, site, senderId, candidate, normalizedUser);
+                        }
+                        duplicates.add(toDuplicatePayload(candidate, existing, !allowResubmit));
                     } else {
                         throw ex;
                     }
@@ -110,7 +138,7 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatch(int limit) {
         String table = properties.getStagingTable();
-    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at, staged_by, last_requested_by, last_requested_at " +
         "FROM " + table + " WHERE status = 'NEW' ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -163,26 +191,32 @@ public class RefDbService {
 
     public List<StageStatus> fetchStatuses() {
         String table = properties.getStagingTable();
-    String sql = "SELECT site, sender_id, COUNT(*), " +
-        "SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), " +
-        "SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END), " +
-        "SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END), " +
-        "SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) " +
-        "FROM " + table + " GROUP BY site, sender_id";
         List<StageStatus> statuses = new ArrayList<>();
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                statuses.add(new StageStatus(
-                        rs.getString(1),
-                        rs.getInt(2),
-                        rs.getLong(3),
-                        rs.getLong(4),
-            rs.getLong(5),
-            rs.getLong(6),
-            rs.getLong(7)
-                ));
+        String sql = "SELECT site, sender_id, COUNT(*), " +
+                "SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) " +
+                "FROM " + table + " GROUP BY site, sender_id";
+        try (Connection connection = dataSource.getConnection()) {
+            Map<StageStatusKey, List<StageUserStatus>> userBreakdown = fetchUserBreakdown(connection, table, null, null);
+            try (PreparedStatement ps = connection.prepareStatement(sql);
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String site = rs.getString(1);
+                    int senderId = rs.getInt(2);
+                    StageStatusKey key = new StageStatusKey(site, senderId);
+                    statuses.add(new StageStatus(
+                            site,
+                            senderId,
+                            rs.getLong(3),
+                            rs.getLong(4),
+                            rs.getLong(5),
+                            rs.getLong(6),
+                            rs.getLong(7),
+                            userBreakdown.getOrDefault(key, List.of())
+                    ));
+                }
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed loading stage status", ex);
@@ -193,29 +227,35 @@ public class RefDbService {
     public List<StageStatus> fetchStatusesFor(String site, Integer senderId) {
         String table = properties.getStagingTable();
         String where = " WHERE 1=1" + (site != null ? " AND site = ?" : "") + (senderId != null ? " AND sender_id = ?" : "");
-    String sql = "SELECT site, sender_id, COUNT(*), " +
-        "SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), " +
-        "SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END), " +
-        "SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END), " +
-        "SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) " +
-        "FROM " + table + where + " GROUP BY site, sender_id";
+        String sql = "SELECT site, sender_id, COUNT(*), " +
+                "SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END), " +
+                "SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) " +
+                "FROM " + table + where + " GROUP BY site, sender_id";
         List<StageStatus> statuses = new ArrayList<>();
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
-            int i = 1;
-            if (site != null) ps.setString(i++, site);
-            if (senderId != null) ps.setInt(i++, senderId);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    statuses.add(new StageStatus(
-                            rs.getString(1),
-                            rs.getInt(2),
-                            rs.getLong(3),
-                            rs.getLong(4),
-                rs.getLong(5),
-                rs.getLong(6),
-                rs.getLong(7)
-                    ));
+        try (Connection connection = dataSource.getConnection()) {
+            Map<StageStatusKey, List<StageUserStatus>> userBreakdown = fetchUserBreakdown(connection, table, site, senderId);
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                int i = 1;
+                if (site != null) ps.setString(i++, site);
+                if (senderId != null) ps.setInt(i++, senderId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String rowSite = rs.getString(1);
+                        int rowSender = rs.getInt(2);
+                        StageStatusKey key = new StageStatusKey(rowSite, rowSender);
+                        statuses.add(new StageStatus(
+                                rowSite,
+                                rowSender,
+                                rs.getLong(3),
+                                rs.getLong(4),
+                                rs.getLong(5),
+                                rs.getLong(6),
+                                rs.getLong(7),
+                                userBreakdown.getOrDefault(key, List.of())
+                        ));
+                    }
                 }
             }
         } catch (SQLException ex) {
@@ -242,7 +282,7 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatchForSite(String site, int limit) {
         String table = properties.getStagingTable();
-    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at, staged_by, last_requested_by, last_requested_at " +
         "FROM " + table + " WHERE status = 'NEW' AND site = ? ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -262,7 +302,7 @@ public class RefDbService {
 
     public List<StageRecord> fetchNextBatchForSender(String site, int senderId, int limit) {
         String table = properties.getStagingTable();
-    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at, staged_by, last_requested_by, last_requested_at " +
         "FROM " + table + " WHERE status = 'NEW' AND site = ? AND sender_id = ? ORDER BY created_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -286,8 +326,8 @@ public class RefDbService {
             limit = 200;
         }
         String table = properties.getStagingTable();
-        String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at " +
-                "FROM " + table + " WHERE status = 'ENQUEUED' AND processed_at IS NULL ORDER BY updated_at FETCH FIRST ? ROWS ONLY";
+    String sql = "SELECT id, site, sender_id, metadata_id, data_id, status, " + coalesce("error_message", "''") + " AS error_message, created_at, updated_at, processed_at, staged_by, last_requested_by, last_requested_at " +
+        "FROM " + table + " WHERE status = 'ENQUEUED' AND processed_at IS NULL ORDER BY updated_at FETCH FIRST ? ROWS ONLY";
         List<StageRecord> records = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -311,7 +351,7 @@ public class RefDbService {
         String table = properties.getStagingTable();
     StringBuilder sb = new StringBuilder("SELECT id, site, sender_id, metadata_id, data_id, status, ")
         .append(coalesce("error_message", "''"))
-        .append(" AS error_message, created_at, updated_at, processed_at FROM ")
+        .append(" AS error_message, created_at, updated_at, processed_at, staged_by, last_requested_by, last_requested_at FROM ")
                 .append(table)
                 .append(" WHERE 1=1");
         List<Object> params = new ArrayList<>();
@@ -428,7 +468,10 @@ public class RefDbService {
                 rs.getString("error_message"),
         toInstant(rs.getTimestamp("created_at")),
         toInstant(rs.getTimestamp("updated_at")),
-        toInstant(rs.getTimestamp("processed_at"))
+    toInstant(rs.getTimestamp("processed_at")),
+    rs.getString("staged_by"),
+    rs.getString("last_requested_by"),
+    toInstant(rs.getTimestamp("last_requested_at"))
         );
     }
 
@@ -438,6 +481,7 @@ public class RefDbService {
             createTable(connection, table);
         }
         ensureProcessedAtColumn(connection, table);
+        ensureUserColumns(connection, table);
         if (!sequenceExists(connection, table + "_SEQ")) {
             createSequence(connection, table + "_SEQ");
         }
@@ -540,7 +584,10 @@ public class RefDbService {
             "error_message VARCHAR2(4000), " +
             "created_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " +
             "updated_at TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL, " +
-            "processed_at TIMESTAMP" +
+            "processed_at TIMESTAMP, " +
+            "staged_by VARCHAR2(128), " +
+            "last_requested_by VARCHAR2(128), " +
+            "last_requested_at TIMESTAMP" +
             ")";
         } else {
             ddl = "CREATE TABLE " + table + " (" +
@@ -553,7 +600,10 @@ public class RefDbService {
                     "error_message VARCHAR(4000), " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, " +
             "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, " +
-            "processed_at TIMESTAMP" +
+            "processed_at TIMESTAMP, " +
+            "staged_by VARCHAR(128), " +
+            "last_requested_by VARCHAR(128), " +
+            "last_requested_at TIMESTAMP" +
                     ")";
         }
         try (Statement statement = connection.createStatement()) {
@@ -592,6 +642,42 @@ public class RefDbService {
         }
     }
 
+    private void ensureUserColumns(Connection connection, String table) throws SQLException {
+        boolean stagedByAdded = ensureColumn(connection, table, "STAGED_BY", isOracle
+                ? "ALTER TABLE " + table + " ADD (staged_by VARCHAR2(128))"
+                : "ALTER TABLE " + table + " ADD (staged_by VARCHAR(128))");
+        boolean lastRequestedByAdded = ensureColumn(connection, table, "LAST_REQUESTED_BY", isOracle
+                ? "ALTER TABLE " + table + " ADD (last_requested_by VARCHAR2(128))"
+                : "ALTER TABLE " + table + " ADD (last_requested_by VARCHAR(128))");
+        boolean lastRequestedAtAdded = ensureColumn(connection, table, "LAST_REQUESTED_AT", "ALTER TABLE " + table + " ADD (last_requested_at TIMESTAMP)");
+
+        if (stagedByAdded || lastRequestedByAdded || lastRequestedAtAdded) {
+            log.info("User metadata columns ensured for {}", table);
+        }
+
+        backfillUserColumns(connection, table);
+    }
+
+    private boolean ensureColumn(Connection connection, String table, String column, String ddl) throws SQLException {
+        if (columnExists(connection, table, column)) {
+            return false;
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate(ddl);
+        }
+        return true;
+    }
+
+    private void backfillUserColumns(Connection connection, String table) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("UPDATE " + table + " SET staged_by = '" + UNKNOWN_USER + "' WHERE staged_by IS NULL");
+            statement.executeUpdate("UPDATE " + table + " SET last_requested_by = COALESCE(last_requested_by, staged_by) WHERE last_requested_by IS NULL");
+            String timestampFallback = isOracle ? "COALESCE(last_requested_at, updated_at, created_at, SYSTIMESTAMP)"
+                    : "COALESCE(last_requested_at, updated_at, created_at, CURRENT_TIMESTAMP)";
+            statement.executeUpdate("UPDATE " + table + " SET last_requested_at = " + timestampFallback + " WHERE last_requested_at IS NULL");
+        }
+    }
+
     private boolean columnExists(Connection connection, String table, String column) throws SQLException {
         if (isOracle) {
             try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_tab_cols WHERE table_name = ? AND column_name = ?")) {
@@ -619,24 +705,103 @@ public class RefDbService {
         }
     }
 
-    private void markRetry(Connection connection, String site, int senderId, PayloadCandidate candidate) {
-        String table = properties.getStagingTable();
-        String sql = "UPDATE " + table + " SET status = 'NEW', error_message = NULL, processed_at = NULL, updated_at = " + timestampExpr() + " " +
-                "WHERE site = ? AND sender_id = ? AND metadata_id = ? AND data_id = ?";
+    private Map<StageStatusKey, List<StageUserStatus>> fetchUserBreakdown(Connection connection,
+                                                                          String table,
+                                                                          String site,
+                                                                          Integer senderId) throws SQLException {
+        StringBuilder sb = new StringBuilder("SELECT site, sender_id, COALESCE(last_requested_by, staged_by) AS user_key, COUNT(*), ")
+                .append("SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), ")
+                .append("SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END), ")
+                .append("SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END), ")
+                .append("SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END), ")
+                .append("MAX(last_requested_at) FROM ")
+                .append(table)
+                .append(" WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        if (site != null) {
+            sb.append(" AND site = ?");
+            params.add(site);
+        }
+        if (senderId != null) {
+            sb.append(" AND sender_id = ?");
+            params.add(senderId);
+        }
+        sb.append(" GROUP BY site, sender_id, COALESCE(last_requested_by, staged_by)");
+
+        Map<StageStatusKey, List<StageUserStatus>> result = new HashMap<>();
+        try (PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+            int idx = 1;
+            for (Object param : params) {
+                if (param instanceof Integer i) {
+                    ps.setInt(idx++, i);
+                } else {
+                    ps.setString(idx++, param == null ? null : param.toString());
+                }
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String rowSite = rs.getString(1);
+                    int rowSender = rs.getInt(2);
+                    String rawUser = rs.getString(3);
+                    long total = rs.getLong(4);
+                    long ready = rs.getLong(5);
+                    long enqueued = rs.getLong(6);
+                    long failed = rs.getLong(7);
+                    long completed = rs.getLong(8);
+                    Instant lastRequestedAt = toInstant(rs.getTimestamp(9));
+                    StageUserStatus userStatus = new StageUserStatus(displayUser(rawUser), total, ready, enqueued, failed, completed, lastRequestedAt);
+                    StageStatusKey key = new StageStatusKey(rowSite, rowSender);
+                    result.computeIfAbsent(key, k -> new ArrayList<>()).add(userStatus);
+                }
+            }
+        }
+
+        for (List<StageUserStatus> list : result.values()) {
+            list.sort((a, b) -> {
+                long backlogA = a.ready() + a.enqueued() + a.failed();
+                long backlogB = b.ready() + b.enqueued() + b.failed();
+                if (backlogA != backlogB) {
+                    return Long.compare(backlogB, backlogA);
+                }
+                if (a.total() != b.total()) {
+                    return Long.compare(b.total(), a.total());
+                }
+                String ua = a.username() == null ? "" : a.username();
+                String ub = b.username() == null ? "" : b.username();
+                return ua.compareToIgnoreCase(ub);
+            });
+        }
+
+        return result;
+    }
+
+    private void markRetry(Connection connection,
+                           String table,
+                           String site,
+                           int senderId,
+                           PayloadCandidate candidate,
+                           String requestedBy) {
+        String sql = "UPDATE " + table + " SET status = 'NEW', error_message = NULL, processed_at = NULL, updated_at = " + timestampExpr() + ", " +
+                "last_requested_by = ?, last_requested_at = " + timestampExpr() + " WHERE site = ? AND sender_id = ? AND metadata_id = ? AND data_id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, site);
-            ps.setInt(2, senderId);
-            ps.setString(3, candidate.metadataId());
-            ps.setString(4, candidate.dataId());
+            ps.setString(1, requestedBy);
+            ps.setString(2, site);
+            ps.setInt(3, senderId);
+            ps.setString(4, candidate.metadataId());
+            ps.setString(5, candidate.dataId());
             ps.executeUpdate();
         } catch (SQLException ex) {
             log.warn("Failed updating duplicate payload for retry: {}", candidate, ex);
         }
     }
 
-    private DuplicatePayload findExistingPayload(Connection connection, String site, int senderId, PayloadCandidate candidate) {
-        String table = properties.getStagingTable();
-        String sql = "SELECT status, processed_at FROM " + table + " WHERE site = ? AND sender_id = ? AND metadata_id = ? AND data_id = ?";
+    private ExistingPayload loadExistingPayload(Connection connection,
+                                                String table,
+                                                String site,
+                                                int senderId,
+                                                PayloadCandidate candidate) {
+        String sql = "SELECT status, processed_at, created_at, staged_by, last_requested_by, last_requested_at FROM " + table +
+                " WHERE site = ? AND sender_id = ? AND metadata_id = ? AND data_id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, site);
             ps.setInt(2, senderId);
@@ -644,16 +809,81 @@ public class RefDbService {
             ps.setString(4, candidate.dataId());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    String status = rs.getString("status");
-                    Instant processedAt = toInstant(rs.getTimestamp("processed_at"));
-                    return new DuplicatePayload(candidate.metadataId(), candidate.dataId(), status, processedAt);
+                    return new ExistingPayload(
+                            rs.getString("status"),
+                            toInstant(rs.getTimestamp("processed_at")),
+                            toInstant(rs.getTimestamp("created_at")),
+                            rs.getString("staged_by"),
+                            rs.getString("last_requested_by"),
+                            toInstant(rs.getTimestamp("last_requested_at"))
+                    );
                 }
             }
         } catch (SQLException ex) {
             log.warn("Failed loading existing payload for duplicate {}: {}", candidate, ex.getMessage());
         }
-        return new DuplicatePayload(candidate.metadataId(), candidate.dataId(), null, null);
+        return null;
     }
+
+    private DuplicatePayload toDuplicatePayload(PayloadCandidate candidate, ExistingPayload existing, boolean requiresConfirmation) {
+        if (existing == null) {
+            return new DuplicatePayload(
+                    candidate.metadataId(),
+                    candidate.dataId(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    requiresConfirmation
+            );
+        }
+        String stagedBy = displayUser(existing.stagedBy());
+        String lastRequestedBy = displayUser(existing.lastRequestedBy() != null ? existing.lastRequestedBy() : existing.stagedBy());
+        return new DuplicatePayload(
+                candidate.metadataId(),
+                candidate.dataId(),
+                existing.status(),
+                existing.processedAt(),
+                stagedBy,
+                existing.createdAt(),
+                lastRequestedBy,
+                existing.lastRequestedAt(),
+                requiresConfirmation
+        );
+    }
+
+    private String normalizeUser(String value) {
+        if (value == null) {
+            return DEFAULT_USER;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return DEFAULT_USER;
+        }
+        if (trimmed.length() > USER_MAX_LENGTH) {
+            return trimmed.substring(0, USER_MAX_LENGTH);
+        }
+        return trimmed;
+    }
+
+    private String displayUser(String value) {
+        if (value == null) {
+            return UNKNOWN_USER;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? UNKNOWN_USER : trimmed;
+    }
+
+    private record ExistingPayload(String status,
+                                   Instant processedAt,
+                                   Instant createdAt,
+                                   String stagedBy,
+                                   String lastRequestedBy,
+                                   Instant lastRequestedAt) {}
+
+    private record StageStatusKey(String site, int senderId) {}
 
     private boolean isDuplicate(SQLException ex) {
         return ex.getErrorCode() == 1 ||

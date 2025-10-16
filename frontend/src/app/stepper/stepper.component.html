@@ -195,16 +195,24 @@
             <div><strong>Staged:</strong> {{ stageResponse.staged }}</div>
             <div><strong>Duplicates:</strong> {{ stageResponse.duplicates }}</div>
             <div><strong>Dispatched:</strong> {{ stageResponse.dispatched }}</div>
+            <div *ngIf="stageResponse.requiresConfirmation" class="warning-note">
+              <mat-icon aria-hidden="true">warning</mat-icon>
+              <span>Dispatch pending confirmation. Re-run staging to proceed.</span>
+            </div>
             <div *ngIf="stageResponse.duplicatePayloads?.length">
               <p><strong>Duplicate payloads ({{ stageResponse.duplicatePayloads.length }}):</strong></p>
               <mat-list dense>
                 <mat-list-item *ngFor="let dup of stageResponse.duplicatePayloads | slice:0:10">
-                  {{ dup.metadataId }}, {{ dup.dataId }}
-                  <span class="duplicate-meta">
-                    —
-                    {{ dup.processedAt ? ('last processed ' + (dup.processedAt | date: 'medium')) : 'not processed yet' }}
-                    <span *ngIf="dup.previousStatus"> (previous status: {{ dup.previousStatus }})</span>
-                  </span>
+                  <div class="duplicate-row">
+                    <div class="duplicate-ids">{{ dup.metadataId }}, {{ dup.dataId }}</div>
+                    <div class="duplicate-meta">
+                      <mat-icon aria-hidden="true">person</mat-icon>
+                      <span>{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</span>
+                      <span class="duplicate-time" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ (dup.lastRequestedAt || dup.stagedAt) | date:'medium' }}</span>
+                      <span *ngIf="dup.previousStatus" class="duplicate-status">status {{ dup.previousStatus }}</span>
+                      <span *ngIf="dup.requiresConfirmation" class="duplicate-attention">needs confirmation</span>
+                    </div>
+                  </div>
                 </mat-list-item>
               </mat-list>
               <button mat-button type="button" (click)="copyDuplicatesToClipboard()">Copy duplicates</button>
@@ -222,6 +230,19 @@
               <div class="status-line"><span>Enqueued</span><strong>{{ status.enqueued }}</strong></div>
               <div class="status-line"><span>Completed</span><strong>{{ status.completed }}</strong></div>
               <div class="status-line"><span>Failed</span><strong>{{ status.failed }}</strong></div>
+              <div class="status-users" *ngIf="status.users?.length">
+                <h4>User breakdown</h4>
+                <div class="status-user-row" *ngFor="let user of status.users">
+                  <div class="user-name">{{ user.username || 'unknown' }}</div>
+                  <div class="user-metrics">
+                    <span class="badge" matTooltip="Ready">R {{ user.ready }}</span>
+                    <span class="badge" matTooltip="Enqueued">E {{ user.enqueued }}</span>
+                    <span class="badge warn" matTooltip="Failed">F {{ user.failed }}</span>
+                    <span class="badge muted" matTooltip="Completed">C {{ user.completed }}</span>
+                  </div>
+                  <div class="user-timestamp" *ngIf="user.lastRequestedAt">{{ user.lastRequestedAt | date:'short' }}</div>
+                </div>
+              </div>
             </mat-card-content>
           </mat-card>
         </div>
@@ -256,6 +277,8 @@
                 <th>Metadata ID</th>
                 <th>Data ID</th>
                 <th>Status</th>
+                <th>Staged By</th>
+                <th>Last Requested</th>
                 <th>Updated</th>
                 <th>Error</th>
               </tr>
@@ -265,6 +288,8 @@
                 <td>{{ record.metadataId || '—' }}</td>
                 <td>{{ record.dataId || '—' }}</td>
                 <td>{{ record.status }}</td>
+                <td>{{ record.lastRequestedBy || record.stagedBy || 'unknown' }}</td>
+                <td>{{ record.lastRequestedAt ? (record.lastRequestedAt | date:'short') : '—' }}</td>
                 <td>{{ record.updatedAt | date:'short' }}</td>
                 <td>{{ record.errorMessage || '—' }}</td>
               </tr>

@@ -1,0 +1,36 @@
+<h2 mat-dialog-title>Confirm Resubmission</h2>
+
+<mat-dialog-content class="dialog-content">
+  <p class="lead" *ngIf="otherUserCount > 0; else sameUser">
+    {{ otherUserCount }} payload{{ otherUserCount === 1 ? '' : 's' }} were most recently reloaded by another teammate.
+  </p>
+  <ng-template #sameUser>
+    <p class="lead">These payloads have already been staged. Review the details below before continuing.</p>
+  </ng-template>
+
+  <mat-list dense class="duplicate-list">
+    <mat-list-item *ngFor="let dup of duplicatesToShow">
+      <div class="payload">
+        <div class="payload-ids">
+          <span class="payload-id" matTooltip="Metadata ID">{{ dup.metadataId }}</span>
+          <span class="payload-id" matTooltip="Data ID">{{ dup.dataId }}</span>
+        </div>
+        <div class="payload-meta">
+          <mat-icon aria-hidden="true">person</mat-icon>
+          <span>{{ displayUser(dup.lastRequestedBy || dup.stagedBy) }}</span>
+          <span class="timestamp" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ formatDate(dup.lastRequestedAt || dup.stagedAt) }}</span>
+          <span class="status" *ngIf="dup.previousStatus">status {{ dup.previousStatus }}</span>
+        </div>
+      </div>
+    </mat-list-item>
+  </mat-list>
+  <p class="truncation" *ngIf="data.duplicates.length > duplicatesToShow.length">
+    Showing first {{ duplicatesToShow.length }} duplicates of {{ data.duplicates.length }}.
+  </p>
+  <p class="note">Continuing will requeue these payloads under your account.</p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="continue()">Continue</button>
+</mat-dialog-actions>

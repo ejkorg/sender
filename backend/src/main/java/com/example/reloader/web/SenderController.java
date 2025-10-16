@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
 import java.time.Instant;
@@ -146,18 +148,26 @@ public class SenderController {
         }
         List<StagePayloadRequest.Payload> payloads = request.payloads();
         if (payloads == null || payloads.isEmpty()) {
-            return ResponseEntity.ok(new StagePayloadResponse(0, 0, List.<DuplicatePayloadView>of(), 0));
+            return ResponseEntity.ok(new StagePayloadResponse(0, 0, List.<DuplicatePayloadView>of(), 0, false));
         }
         List<PayloadCandidate> candidates = payloads.stream()
                 .map(p -> new PayloadCandidate(p.metadataId(), p.dataId()))
                 .collect(Collectors.toList());
-        StageResult result = refDbService.stagePayloads(site, resolvedSender, candidates);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String requestedBy = authentication != null && authentication.getName() != null ? authentication.getName().trim() : "ui";
+        if (requestedBy.isEmpty()) {
+            requestedBy = "ui";
+        }
+        StageResult result = refDbService.stagePayloads(site, resolvedSender, requestedBy, candidates, request.forceDuplicates());
+        boolean requiresConfirmation = result.duplicates().stream().anyMatch(DuplicatePayload::requiresConfirmation);
         int dispatched = 0;
-        if (request.triggerDispatch()) {
+        if (request.triggerDispatch() && !requiresConfirmation) {
             dispatched = senderDispatchService.dispatchSender(site, resolvedSender);
+        } else if (request.triggerDispatch() && requiresConfirmation) {
+            log.info("Dispatch deferred for site {} sender {} pending duplicate confirmation", site, resolvedSender);
         }
         List<DuplicatePayloadView> duplicateViews = result.duplicates().stream().map(this::toDuplicateView).toList();
-        StagePayloadResponse response = new StagePayloadResponse(result.stagedCount(), duplicateViews.size(), duplicateViews, dispatched);
+        StagePayloadResponse response = new StagePayloadResponse(result.stagedCount(), duplicateViews.size(), duplicateViews, dispatched, requiresConfirmation);
         return ResponseEntity.ok(response);
     }
 
@@ -166,12 +176,25 @@ public class SenderController {
                 payload.metadataId(),
                 payload.dataId(),
                 payload.previousStatus(),
-                toIso(payload.previousProcessedAt())
+                toIso(payload.previousProcessedAt()),
+                displayUser(payload.stagedBy()),
+                toIso(payload.stagedAt()),
+                displayUser(payload.lastRequestedBy()),
+                toIso(payload.lastRequestedAt()),
+                payload.requiresConfirmation()
         );
     }
 
     private String toIso(Instant instant) {
         return instant == null ? null : instant.toString();
+    }
+
+    private String displayUser(String value) {
+        if (value == null) {
+            return "unknown";
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? "unknown" : trimmed;
     }
 
     // Lookup senders in selected external DB based on user-provided filters. Returns list of {idSender,name}

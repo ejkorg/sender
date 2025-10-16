@@ -325,7 +325,7 @@ public class MetadataImporterService {
             return StageResult.empty();
         }
         try {
-            return refDbService.stagePayloads(site, senderId, new ArrayList<>(batch));
+            return refDbService.stagePayloads(site, senderId, "metadata", new ArrayList<>(batch), true);
         } finally {
             batch.clear();
         }

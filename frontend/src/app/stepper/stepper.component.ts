@@ -30,12 +30,16 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatListModule } from '@angular/material/list';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { Subscription } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
+import { DuplicateWarningDialogComponent } from './duplicate-warning-dialog.component';
 
 
 @Component({
   selector: 'app-stepper',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatStepperModule, MatIconModule, MatDatepickerModule, MatNativeDateModule, MatCheckboxModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatStepperModule, MatIconModule, MatDatepickerModule, MatNativeDateModule, MatCheckboxModule, MatDialogModule],
   templateUrl: './stepper.component.html',
   styleUrls: ['./stepper.component.css']
 })
@@ -91,15 +95,24 @@ export class StepperComponent implements OnInit, OnDestroy {
   stageRecordsSize = 25;
   stageRecordsSizes = [25, 50, 100];
   stageRecordsStatus: string = 'ALL';
+  currentUser: string | null = null;
+  private userSub?: Subscription;
 
-  constructor(private api: BackendService, private snack: MatSnackBar, private clipboard: Clipboard) {}
+  constructor(private api: BackendService,
+              private snack: MatSnackBar,
+              private clipboard: Clipboard,
+              private dialog: MatDialog,
+              private auth: AuthService) {}
 
   ngOnInit(): void {
     this.loadSites();
+    this.userSub = this.auth.user$.subscribe(user => {
+      this.currentUser = user?.username ?? null;
+    });
   }
 
   ngOnDestroy(): void {
-    // no recurring timers currently
+    this.userSub?.unsubscribe();
   }
 
   private loadSites() {
@@ -400,7 +413,7 @@ export class StepperComponent implements OnInit, OnDestroy {
     return key ? this.previewSelectedKeys.has(key) : false;
   }
 
-  stageSelected() {
+  stageSelected(force: boolean = false) {
     if (!this.selectedSite || !this.selectedSenderId) {
       this.snack.open('Site and sender must be selected.', 'Close', { duration: 3000 });
       return;
@@ -416,16 +429,19 @@ export class StepperComponent implements OnInit, OnDestroy {
       environment: this.selectedEnvironment || undefined,
       senderId: this.selectedSenderId,
       payloads,
-      triggerDispatch: this.triggerDispatch
+      triggerDispatch: this.triggerDispatch,
+      forceDuplicates: force
     };
 
     this.staging = true;
     this.api.stagePayloads(this.selectedSenderId, body).subscribe({
       next: (response: StagePayloadResponseBody) => {
-        this.stageResponse = response;
-        this.snack.open(`Staged ${response?.staged ?? payloads.length} payloads`, 'OK', { duration: 3500 });
-        this.stepIndex = 2;
-        this.refreshMonitoring();
+        if (response?.requiresConfirmation && !force) {
+          this.staging = false;
+          this.promptDuplicateConfirmation(response);
+          return;
+        }
+        this.finalizeStage(response, payloads.length);
       },
       error: (err: unknown) => {
         console.error('Staging failed', err);
@@ -434,6 +450,34 @@ export class StepperComponent implements OnInit, OnDestroy {
       },
       complete: () => {
         this.staging = false;
+      }
+    });
+  }
+
+  private finalizeStage(response: StagePayloadResponseBody, fallbackCount: number) {
+    this.stageResponse = response;
+    const stagedCount = response?.staged ?? fallbackCount;
+    const duplicateCount = response?.duplicates ?? 0;
+    const duplicateNote = duplicateCount > 0 ? ` (${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'})` : '';
+    this.snack.open(`Staged ${stagedCount} payload${stagedCount === 1 ? '' : 's'}${duplicateNote}`, 'OK', { duration: 3500 });
+    this.stepIndex = 2;
+    this.refreshMonitoring();
+  }
+
+  private promptDuplicateConfirmation(response: StagePayloadResponseBody) {
+    const dialogRef = this.dialog.open(DuplicateWarningDialogComponent, {
+      width: '560px',
+      data: {
+        currentUser: this.currentUser,
+        duplicates: response?.duplicatePayloads ?? []
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result === true) {
+        this.stageSelected(true);
+      } else {
+        this.snack.open('Staging cancelled. No changes applied.', 'Close', { duration: 3500 });
       }
     });
   }
@@ -483,14 +527,20 @@ export class StepperComponent implements OnInit, OnDestroy {
     }
     const text = this.stageResponse.duplicatePayloads
       .map(dup => {
-        let line = `${dup.metadataId},${dup.dataId}`;
-        if (dup.processedAt) {
-          line += ` processedAt=${dup.processedAt}`;
+        const segments: string[] = [`${dup.metadataId},${dup.dataId}`];
+        if (dup.lastRequestedBy) {
+          segments.push(`lastBy=${dup.lastRequestedBy}`);
+        }
+        if (dup.lastRequestedAt) {
+          segments.push(`lastAt=${dup.lastRequestedAt}`);
         }
         if (dup.previousStatus) {
-          line += ` status=${dup.previousStatus}`;
+          segments.push(`status=${dup.previousStatus}`);
         }
-        return line;
+        if (dup.processedAt) {
+          segments.push(`processedAt=${dup.processedAt}`);
+        }
+        return segments.join(' ');
       })
       .join('\n');
     this.clipboard.copy(text);

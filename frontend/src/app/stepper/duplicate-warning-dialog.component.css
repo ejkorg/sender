@@ -1,0 +1,82 @@
+.dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+}
+
+.lead {
+  margin: 0;
+  color: #003a70;
+  font-weight: 600;
+}
+
+.duplicate-list {
+  max-height: 260px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 58, 112, 0.18);
+}
+
+.payload {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.payload-ids {
+  display: flex;
+  gap: 12px;
+  font-weight: 600;
+  color: #003a70;
+}
+
+.payload-id {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(0, 163, 224, 0.12);
+}
+
+.payload-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(0, 0, 0, 0.7);
+  font-size: 0.85rem;
+}
+
+.payload-meta mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #00a3e0;
+}
+
+.timestamp {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.status {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 130, 0, 0.15);
+  color: #ff8200;
+  font-weight: 600;
+}
+
+.truncation,
+.note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+mat-dialog-actions {
+  padding: 12px 0 0;
+}
+
+button[mat-flat-button] {
+  background: linear-gradient(135deg, #003a70 0%, #00a3e0 100%);
+  color: #fff;
+}
