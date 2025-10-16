@@ -13,3 +13,6 @@ backend/*.log
 backend/nohup*
 scripts/artifacts/
 tmp/
+
+# ignore frontend build artifacts
+frontend/dist/
