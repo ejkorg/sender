@@ -157,7 +157,7 @@ If you're on Windows with Docker Desktop (WSL2 backend) follow the same `docker 
 Tomcat / WAR deployment
 ------------------------
 
-If you plan to deploy the backend as a WAR in Tomcat, see `backend/README-DEV.md` → "Tomcat WAR deployment" for build commands, a `setenv.sh` template, and runtime notes. A ready example `setenv.sh` is available at `backend/examples/setenv.sh`.
+If you plan to deploy the backend as a WAR in Tomcat, see `backend/README-DEV.md` → "Tomcat WAR deployment" for build commands, a `setenv.sh` template, and runtime notes.
 
 Quick Windows examples
 ----------------------

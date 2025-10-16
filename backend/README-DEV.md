@@ -268,16 +268,16 @@ Exact property names & where they're read (code references)
 For precision in the README, here are the exact property names and the places in the code that read them:
 
 - reloader.use-h2-external / RELOADER_USE_H2_EXTERNAL
-  - Read via: com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false)
+  - Read via: com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false)
   - Example code locations:
-    - `com.example.reloader.boot.DevExternalDbInitRunner` — the dev runner checks this flag before attempting to create the minimal external table.
-    - `com.example.reloader.service.SessionPushService` — used to decide whether to take the H2 insert path and the generated-keys behavior.
+    - `com.onsemi.cim.apps.exensio.dearchiver.boot.DevExternalDbInitRunner` — the dev runner checks this flag before attempting to create the minimal external table.
+    - `com.onsemi.cim.apps.exensio.dearchiver.service.SessionPushService` — used to decide whether to take the H2 insert path and the generated-keys behavior.
 
 - external-db.allow-writes / EXTERNAL_DB_ALLOW_WRITES
-  - Read via: com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "external-db.allow-writes", "EXTERNAL_DB_ALLOW_WRITES", false)
+  - Read via: com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils.getBooleanFlag(env, "external-db.allow-writes", "EXTERNAL_DB_ALLOW_WRITES", false)
   - Example code locations:
-    - `com.example.reloader.service.SessionPushService` — the push path throws IllegalStateException if writes are not allowed.
-    - `com.example.reloader.service.SenderService` — guarded when the service may perform external writes.
+    - `com.onsemi.cim.apps.exensio.dearchiver.service.SessionPushService` — the push path throws IllegalStateException if writes are not allowed.
+    - `com.onsemi.cim.apps.exensio.dearchiver.service.SenderService` — guarded when the service may perform external writes.
 
 Helpful test annotations
 ------------------------
@@ -288,7 +288,7 @@ Several tests opt into the H2-external + external-writes behavior using Spring t
 @TestPropertySource(properties={"reloader.use-h2-external=true","external-db.allow-writes=true"})
 ```
 
-Look for these annotations in `backend/src/test/java/com/example/reloader/service` to find the tests that exercise remote-write code paths.
+Look for these annotations in `backend/src/test/java/com/onsemi/cim/apps/exensio/dearchiver/service` to find the tests that exercise remote-write code paths.
 
 Troubleshooting
 ---------------
@@ -424,9 +424,9 @@ The script will attempt to locate an H2 jar in your local Maven cache and fall b
 Where to look next in the code
 ------------------------------
 
-- `com.example.reloader.config.ConfigUtils` — helper used across the codebase to read flags with a primary property and fallback env/property name.
-- `com.example.reloader.boot.DevExternalDbInitRunner` — dev-only runner that can create the minimal table when `reloader.use-h2-external=true` and `dev` profile is active.
-- `com.example.reloader.service.SessionPushService` — main push logic (oracle fast-path, generic path, generated-key fallback, SKIPPED classification, backoff/retry).
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils` — helper used across the codebase to read flags with a primary property and fallback env/property name.
+- `com.onsemi.cim.apps.exensio.dearchiver.boot.DevExternalDbInitRunner` — dev-only runner that can create the minimal table when `reloader.use-h2-external=true` and `dev` profile is active.
+- `com.onsemi.cim.apps.exensio.dearchiver.service.SessionPushService` — main push logic (oracle fast-path, generic path, generated-key fallback, SKIPPED classification, backoff/retry).
 - `backend/src/main/resources/dbconnections.json.example` — per-site vendor hints example.
 
 If you'd like I can:

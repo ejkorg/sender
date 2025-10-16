@@ -29,5 +29,5 @@ Why this matters
 
 Where to look
 
-- `com.example.reloader.config.ConfigUtils` — centralized property lookup helpers.
-- `com.example.reloader.config.ExternalDbConfig` — per-site pool creation for Oracle connections.
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils` — centralized property lookup helpers.
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ExternalDbConfig` — per-site pool creation for Oracle connections.

@@ -55,9 +55,9 @@ mvn -f backend/pom.xml -DskipTests=false test -Dtest=SomeSpecificTest
 
 ## Where to look in code
 
-- `com.example.reloader.config.ExternalDbConfig` — per-site pool creation, Caffeine cache and eviction handling.
-- `com.example.reloader.config.ConfigUtils` — centralized config lookup and boolean parsing used across the app.
-- `com.example.reloader.service.SenderService` — guarded by `external-db.allow-writes` when performing remote writes.
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ExternalDbConfig` — per-site pool creation, Caffeine cache and eviction handling.
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils` — centralized config lookup and boolean parsing used across the app.
+- `com.onsemi.cim.apps.exensio.dearchiver.service.SenderService` — guarded by `external-db.allow-writes` when performing remote writes.
 
 ## Notes
 
