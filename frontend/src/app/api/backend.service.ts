@@ -152,6 +152,18 @@ export interface EnqueueResponse {
   skipped?: string[];
 }
 
+export interface DispatchRequest {
+  site: string;
+  senderId?: number | null;
+  limit?: number | null;
+}
+
+export interface DispatchResponse {
+  site: string;
+  senderId: number;
+  dispatched: number;
+}
+
 export interface ReloadFilterOptions {
   locations: string[];
   dataTypes: string[];
@@ -262,6 +274,11 @@ export class BackendService {
   enqueue(senderId: number, req: EnqueueRequest): Observable<EnqueueResponse> {
     const headers = this.auth.getAuthHeaders();
     return this.http.post<EnqueueResponse>(`${this.base}/senders/${senderId}/enqueue`, req, { headers: headers || undefined });
+  }
+
+  dispatchSender(senderId: number, req: DispatchRequest): Observable<DispatchResponse> {
+    const headers = this.auth.getAuthHeaders();
+    return this.http.post<DispatchResponse>(`${this.base}/senders/${senderId}/dispatch`, req, { headers: headers || undefined });
   }
 
   getQueue(senderId: number, status: string, limit: number): Observable<any[]> {

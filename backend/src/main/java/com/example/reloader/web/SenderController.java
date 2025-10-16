@@ -12,6 +12,8 @@ import com.example.reloader.web.dto.DiscoveryPreviewRequest;
 import com.example.reloader.web.dto.DiscoveryPreviewResponse;
 import com.example.reloader.web.dto.StagePayloadRequest;
 import com.example.reloader.web.dto.StagePayloadResponse;
+import com.example.reloader.web.dto.DispatchRequest;
+import com.example.reloader.web.dto.DispatchResponse;
 import com.example.reloader.web.dto.DuplicatePayloadView;
 import com.example.reloader.web.dto.EnqueueRequest;
 import org.slf4j.Logger;
@@ -71,6 +73,20 @@ public class SenderController {
         SenderService.EnqueueResultHolder holder = senderService.enqueuePayloadsWithResult(senderId, req.getPayloadIds(), req.getSource() != null ? req.getSource() : "ui_submit");
         com.example.reloader.web.dto.EnqueueResult result = new com.example.reloader.web.dto.EnqueueResult(holder.enqueuedCount, holder.skippedPayloads);
         return ResponseEntity.ok(result);
+    }
+
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PostMapping("/{id}/dispatch")
+    public ResponseEntity<DispatchResponse> dispatch(@PathVariable("id") Integer id, @RequestBody DispatchRequest request) {
+        if (request == null || request.site() == null || request.site().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        Integer resolvedSender = request.senderId() != null ? request.senderId() : id;
+        if (resolvedSender == null || resolvedSender <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        int dispatched = senderDispatchService.dispatchSender(request.site(), resolvedSender, request.limit());
+        return ResponseEntity.ok(new DispatchResponse(request.site(), resolvedSender, dispatched));
     }
 
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('USER')")

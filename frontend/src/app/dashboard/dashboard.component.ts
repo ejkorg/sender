@@ -6,8 +6,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { Subscription, timer } from 'rxjs';
-import { BackendService, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { firstValueFrom, Subscription, timer } from 'rxjs';
+import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
 import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
 
 interface DashboardAggregate {
@@ -56,6 +57,7 @@ type GlobalMetricName = 'activeSenders' | 'ready' | 'enqueued' | 'failed' | 'com
 interface GlobalDetailRow extends Record<string, string | number | null | undefined> {
   site: string;
   sender: string;
+  senderId: number | null;
   ready: number;
   enqueued: number;
   failed: number;
@@ -67,7 +69,7 @@ interface GlobalDetailRow extends Record<string, string | number | null | undefi
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatDialogModule],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatDialogModule, MatSnackBarModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -123,7 +125,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
-  constructor(private api: BackendService, private dialog: MatDialog) {}
+  constructor(private api: BackendService, private dialog: MatDialog, private snack: MatSnackBar) {}
 
   ngOnInit(): void {
     this.refresh();
@@ -314,9 +316,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const enqueued = status.enqueued ?? 0;
       const failed = status.failed ?? 0;
       const completed = status.completed ?? 0;
+      const siteValue = status.site || 'Unknown';
+      const senderIdValue = status.senderId ?? null;
       return {
-        site: status.site || 'Unknown',
-        sender: this.formatSenderLabel(status.site || 'Unknown', status.senderId ?? null),
+        site: siteValue,
+        sender: this.formatSenderLabel(siteValue, senderIdValue),
+        senderId: this.normalizeSenderId(senderIdValue),
         ready,
         enqueued,
         failed,
@@ -337,6 +342,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
       columns: this.globalDetailColumns(metric),
       rows: sorted
     };
+
+    if (metric === 'ready' && sorted.some(row => !this.isReadyActionHidden(row))) {
+      dialogData.rowActions = [
+        {
+          key: 'enqueue',
+          label: 'Enqueue',
+          icon: 'play_circle',
+          color: 'primary',
+          tooltip: 'Enqueue ready payloads for this sender',
+          handler: row => this.enqueueReady(row as GlobalDetailRow),
+          disabled: row => this.isReadyActionDisabled(row as GlobalDetailRow),
+          hidden: row => this.isReadyActionHidden(row as GlobalDetailRow)
+        }
+      ];
+      dialogData.rowKey = row => this.rowKeyForGlobalRow(row as GlobalDetailRow);
+    }
 
     this.openDetailDialog(dialogData);
   }
@@ -443,6 +464,68 @@ export class DashboardComponent implements OnInit, OnDestroy {
       maxHeight: '80vh',
       data
     });
+  }
+
+  private async enqueueReady(row: GlobalDetailRow): Promise<void> {
+    const senderId = this.normalizeSenderId(row.senderId);
+    const site = row.site;
+    if (!site || senderId === null) {
+      this.snack.open('Unable to determine site or sender for enqueue request.', 'Close', { duration: 4000 });
+      return;
+    }
+    const readyCount = Number(row.ready ?? 0);
+    const limit = Number.isFinite(readyCount) && readyCount > 0 ? Math.floor(readyCount) : undefined;
+    try {
+  const response: DispatchResponse = await firstValueFrom(this.api.dispatchSender(senderId, { site, senderId, limit }));
+  const dispatched = response.dispatched ?? 0;
+      if (dispatched > 0) {
+        this.snack.open(`Enqueued ${dispatched} payload${dispatched === 1 ? '' : 's'} for ${row.sender}`, undefined, { duration: 3500 });
+        row.ready = Math.max(0, (row.ready ?? 0) - dispatched);
+        row.backlog = Math.max(0, (row.backlog ?? 0) - dispatched);
+        row.enqueued = (row.enqueued ?? 0) + dispatched;
+      } else {
+        this.snack.open(`No payloads enqueued for ${row.sender}`, 'Close', { duration: 4000 });
+      }
+      this.refresh(false);
+    } catch (err) {
+      console.error(`Failed to enqueue ready payloads for ${site} sender ${senderId}`, err);
+      this.snack.open(`Failed to enqueue ${row.sender}. See console for details.`, 'Close', { duration: 5000 });
+    }
+  }
+
+  private isReadyActionHidden(row: GlobalDetailRow): boolean {
+    const readyValue = Number(row.ready ?? 0);
+    return !Number.isFinite(readyValue) || readyValue <= 0;
+  }
+
+  private isReadyActionDisabled(row: GlobalDetailRow): boolean {
+    if (this.isReadyActionHidden(row)) {
+      return true;
+    }
+    const site = row.site;
+    if (!site || site === 'Unknown') {
+      return true;
+    }
+    const senderId = this.normalizeSenderId(row.senderId);
+    return senderId === null;
+  }
+
+  private rowKeyForGlobalRow(row: GlobalDetailRow): string {
+    const senderPart = row.senderId != null ? String(row.senderId) : row.sender;
+    return `${row.site || 'Unknown'}::${senderPart}`;
+  }
+
+  private normalizeSenderId(value: number | string | null | undefined): number | null {
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+    }
+    return null;
   }
 
   private globalDetailColumns(metric: GlobalMetricName): DashboardDetailColumn[] {

@@ -190,17 +190,31 @@ public class SenderDispatchService {
     }
 
     public int dispatchSender(String site, int senderId) {
-        int perSend = properties.getDispatch().getPerSend();
-        int batchSize = perSend > 0 ? perSend : 200;
+        return dispatchSender(site, senderId, null);
+    }
+
+    public int dispatchSender(String site, int senderId, Integer limitOverride) {
+        int configuredPerSend = properties.getDispatch().getPerSend();
+        int defaultBatchSize = configuredPerSend > 0 ? configuredPerSend : 200;
+        int remaining = (limitOverride != null && limitOverride > 0) ? limitOverride : Integer.MAX_VALUE;
         int processed = 0;
+
         while (true) {
-            List<StageRecord> batch = refDbService.fetchNextBatchForSender(site, senderId, batchSize);
+            if (remaining <= 0) {
+                break;
+            }
+            int requestedBatch = Math.min(defaultBatchSize, remaining);
+            if (requestedBatch <= 0) {
+                break;
+            }
+            List<StageRecord> batch = refDbService.fetchNextBatchForSender(site, senderId, requestedBatch);
             if (batch.isEmpty()) {
                 break;
             }
             pushGroup(site, senderId, batch);
             processed += batch.size();
-            if (batch.size() < batchSize) {
+            remaining -= batch.size();
+            if (batch.size() < requestedBatch) {
                 break;
             }
         }
