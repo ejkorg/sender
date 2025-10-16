@@ -1,3 +1,50 @@
+%% Level-1 Data Flow Diagram (Mermaid)
+%% Entities: User, Frontend, Backend (Stage, Enqueue, Dispatch), Ref DB, DTP DB
+flowchart TD
+  User[User]
+  Browser[Browser / Angular]
+  Frontend[Frontend Stepper]
+
+  subgraph Backend[Backend Services]
+    StageAPI[/api/stage]\n(StageController)
+    SenderAPI[/api/sender]\n(SenderController)
+    DispatchSvc[SenderDispatchService]
+    SenderSvc[SenderService]
+    RefDbSvc[RefDbService]
+  end
+
+  RefDB[(Ref DB) - staged records]
+  DTPDB[(DTP DB) - sender queue)]
+
+  %% user -> frontend -> stage
+  User --> Browser
+  Browser --> Frontend
+  Frontend -->|1. preview discover| StageAPI
+  StageAPI -->|returns staged rows| Frontend
+
+  %% staging -> enqueue
+  Frontend -->|2. stage selected rows| SenderAPI
+  SenderAPI -->|3. enqueue payloads (insert NEW)| RefDbSvc
+  RefDbSvc --> RefDB
+
+  %% queue processing
+  SenderSvc -->|scheduled or manual| RefDbSvc
+  RefDbSvc -->|fetch NEW| RefDB
+  SenderSvc -->|mark SENT/FAILED| RefDB
+
+  %% dispatch to external DTP
+  DispatchSvc -->|scheduled| RefDbSvc
+  RefDbSvc -->|fetch staged| RefDB
+  DispatchSvc -->|push via JDBC inserts| DTPDB
+  DispatchSvc -->|on success mark enqueued| RefDbSvc
+  RefDbSvc --> RefDB
+
+  %% monitoring
+  Frontend -->|monitor poll| StageAPI
+  StageAPI --> Frontend
+
+  classDef db fill:#fef3c7,stroke:#b58900;
+  class RefDB,DTPDB db;
 flowchart LR
   %% Level 1 DFD: Enqueue -> Queue -> Processing
   User["User / Frontend"]
