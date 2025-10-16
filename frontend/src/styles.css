@@ -29,3 +29,12 @@
 .mat-mdc-select-panel .mat-pseudo-checkbox::after {
 	border-color: #fff;
 }
+
+.mat-icon:not(.material-icons-outlined) {
+	font-family: 'Material Icons' !important;
+	font-feature-settings: 'liga';
+}
+
+.mat-icon.material-icons-outlined {
+	font-family: 'Material Icons Outlined' !important;
+}

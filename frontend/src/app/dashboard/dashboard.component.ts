@@ -5,8 +5,10 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Subscription, timer } from 'rxjs';
-import { BackendService, StageStatus, StageUserStatus } from '../api/backend.service';
+import { BackendService, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
+import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
 
 interface DashboardAggregate {
   total: number;
@@ -20,6 +22,8 @@ interface DashboardAggregate {
 
 interface DashboardSenderSummary {
   senderId: number;
+  senderLabel: string;
+  senderName: string | null;
   total: number;
   ready: number;
   enqueued: number;
@@ -38,22 +42,40 @@ interface DashboardSiteSummary extends DashboardAggregate {
 
 interface BacklogSeries {
   label: string;
+  site: string;
+  senderId: number;
+  senderLabel: string;
   ready: number;
   enqueued: number;
   failed: number;
   total: number;
 }
 
+type GlobalMetricName = 'activeSenders' | 'ready' | 'enqueued' | 'failed' | 'completed' | 'backlog';
+
+interface GlobalDetailRow extends Record<string, string | number | null | undefined> {
+  site: string;
+  sender: string;
+  ready: number;
+  enqueued: number;
+  failed: number;
+  completed: number;
+  backlog: number;
+  active: number;
+}
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatDialogModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private refreshSub?: Subscription;
   private autoRefreshSub?: Subscription;
+  private senderCatalog = new Map<string, Map<number, string>>();
+  private senderLookupInFlight = new Set<string>();
 
   loading = false;
   errorMessage: string | null = null;
@@ -62,8 +84,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   readonly refreshIntervalMs = 60_000;
   readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
+  private readonly globalMetricConfig: Record<GlobalMetricName, { label: string; valueKey: keyof GlobalDetailRow; description: string; filterZero?: boolean }> = {
+    activeSenders: {
+      label: 'Active Senders',
+      valueKey: 'active',
+      description: 'Senders currently tracked across all connections.',
+      filterZero: false
+    },
+    ready: {
+      label: 'Ready Payloads',
+      valueKey: 'ready',
+      description: 'Payloads staged and ready to dispatch grouped by site and sender.',
+      filterZero: true
+    },
+    enqueued: {
+      label: 'Enqueued Payloads',
+      valueKey: 'enqueued',
+      description: 'Payloads already enqueued for processing.',
+      filterZero: true
+    },
+    failed: {
+      label: 'Failed Payloads',
+      valueKey: 'failed',
+      description: 'Payloads requiring attention due to failures.',
+      filterZero: true
+    },
+    completed: {
+      label: 'Completed Payloads',
+      valueKey: 'completed',
+      description: 'Payloads successfully processed.',
+      filterZero: true
+    },
+    backlog: {
+      label: 'Backlog Payloads',
+      valueKey: 'backlog',
+      description: 'Outstanding backlog totals accrued from ready, enqueued, and failed payloads.',
+      filterZero: true
+    }
+  };
 
-  constructor(private api: BackendService) {}
+  constructor(private api: BackendService, private dialog: MatDialog) {}
 
   ngOnInit(): void {
     this.refresh();
@@ -93,6 +153,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           completed: status?.completed ?? 0,
           users: (status?.users ?? []).map(user => this.normalizeUserStatus(user))
         } as StageStatus));
+        this.ensureSenderNames(this.statuses);
         this.lastUpdated = new Date();
         this.loading = false;
       },
@@ -142,6 +203,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       const senderSummary: DashboardSenderSummary = {
         senderId: status.senderId,
+        senderLabel: this.formatSenderLabel(siteKey, status.senderId),
+        senderName: this.lookupSenderName(siteKey, status.senderId),
         total: status.total,
         ready: status.ready,
         enqueued: status.enqueued,
@@ -202,8 +265,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         const ready = status.ready ?? 0;
         const enqueued = status.enqueued ?? 0;
         const failed = status.failed ?? 0;
+        const siteLabel = status.site || 'Unknown';
+        const senderLabel = this.formatSenderLabel(siteLabel, status.senderId ?? 0);
         return {
-          label: `${status.site || 'Unknown'} · ${status.senderId || 'N/A'}`,
+          site: siteLabel,
+          senderId: status.senderId ?? 0,
+          senderLabel,
+          label: `${siteLabel} · ${senderLabel}`,
           ready,
           enqueued,
           failed,
@@ -239,6 +307,176 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return `${label}: ${value} (${pct.toFixed(1)}%)`;
   }
 
+  openGlobalDetail(metric: GlobalMetricName): void {
+    const config = this.globalMetricConfig[metric];
+    const rows: GlobalDetailRow[] = (this.statuses || []).map(status => {
+      const ready = status.ready ?? 0;
+      const enqueued = status.enqueued ?? 0;
+      const failed = status.failed ?? 0;
+      const completed = status.completed ?? 0;
+      return {
+        site: status.site || 'Unknown',
+        sender: this.formatSenderLabel(status.site || 'Unknown', status.senderId ?? null),
+        ready,
+        enqueued,
+        failed,
+        completed,
+        backlog: ready + enqueued + failed,
+        active: 1
+      };
+    });
+
+    const filtered = config.filterZero
+      ? rows.filter(row => this.metricValue(row, config.valueKey) > 0)
+      : [...rows];
+    const sorted = filtered.sort((a, b) => this.metricValue(b, config.valueKey) - this.metricValue(a, config.valueKey));
+
+    const dialogData: DashboardDetailDialogData = {
+      title: config.label,
+      description: config.description,
+      columns: this.globalDetailColumns(metric),
+      rows: sorted
+    };
+
+    this.openDetailDialog(dialogData);
+  }
+
+  openBacklogDetail(series: BacklogSeries): void {
+    const status = this.statuses.find(s => (s.site || 'Unknown') === series.site && (s.senderId ?? 0) === series.senderId);
+    if (status?.users?.length) {
+      const rows = status.users.map(user => ({
+        user: user.username || 'unknown',
+        ready: user.ready ?? 0,
+        enqueued: user.enqueued ?? 0,
+        failed: user.failed ?? 0,
+        completed: user.completed ?? 0,
+        total: (user.ready ?? 0) + (user.enqueued ?? 0) + (user.failed ?? 0)
+      }));
+      const dialogData: DashboardDetailDialogData = {
+        title: `${series.site} · ${series.senderLabel} backlog contributors`,
+        description: `${series.site} · ${series.senderLabel}`,
+        columns: [
+          { key: 'user', label: 'User' },
+          { key: 'ready', label: 'Ready', align: 'end' },
+          { key: 'enqueued', label: 'Enqueued', align: 'end' },
+          { key: 'failed', label: 'Failed', align: 'end' },
+          { key: 'completed', label: 'Completed', align: 'end' },
+          { key: 'total', label: 'Total Active', align: 'end' }
+        ],
+        rows
+      };
+      this.openDetailDialog(dialogData);
+      return;
+    }
+
+    const rows = [
+      { metric: 'Ready', count: series.ready },
+      { metric: 'Enqueued', count: series.enqueued },
+      { metric: 'Failed', count: series.failed },
+      { metric: 'Backlog', count: series.total }
+    ];
+    this.openDetailDialog({
+      title: `${series.site} · ${series.senderLabel} backlog totals`,
+      description: `${series.site} · ${series.senderLabel}`,
+      columns: [
+        { key: 'metric', label: 'Metric' },
+        { key: 'count', label: 'Count', align: 'end' }
+      ],
+      rows
+    });
+  }
+
+  openSiteDetail(site: DashboardSiteSummary): void {
+    const rows = site.senders.map(sender => ({
+      sender: sender.senderLabel,
+      ready: sender.ready,
+      enqueued: sender.enqueued,
+      failed: sender.failed,
+      completed: sender.completed,
+      backlog: sender.backlog
+    }));
+    this.openDetailDialog({
+      title: `${site.site} · sender overview`,
+      description: `${site.activeSenders} active sender${site.activeSenders === 1 ? '' : 's'} tracked for this site.`,
+      columns: [
+        { key: 'sender', label: 'Sender' },
+        { key: 'ready', label: 'Ready', align: 'end' },
+        { key: 'enqueued', label: 'Enqueued', align: 'end' },
+        { key: 'failed', label: 'Failed', align: 'end' },
+        { key: 'completed', label: 'Completed', align: 'end' },
+        { key: 'backlog', label: 'Backlog', align: 'end' }
+      ],
+      rows
+    });
+  }
+
+  openSenderDetail(site: DashboardSiteSummary, sender: DashboardSenderSummary): void {
+    const status = this.statuses.find(s => (s.site || 'Unknown') === site.site && (s.senderId ?? 0) === sender.senderId);
+    const users = status?.users ?? [];
+    const rows = users.map(user => ({
+      user: user.username || 'unknown',
+      ready: user.ready ?? 0,
+      enqueued: user.enqueued ?? 0,
+      failed: user.failed ?? 0,
+      completed: user.completed ?? 0,
+      lastRequestedAt: user.lastRequestedAt ? formatDate(user.lastRequestedAt, this.uiDateFormat, 'en-US') : '—'
+    }));
+
+    this.openDetailDialog({
+      title: `${site.site} · ${sender.senderLabel} activity`,
+      description: 'User-level contribution for this sender.',
+      columns: [
+        { key: 'user', label: 'User' },
+        { key: 'ready', label: 'Ready', align: 'end' },
+        { key: 'enqueued', label: 'Enqueued', align: 'end' },
+        { key: 'failed', label: 'Failed', align: 'end' },
+        { key: 'completed', label: 'Completed', align: 'end' },
+        { key: 'lastRequestedAt', label: 'Last Requested', align: 'end' }
+      ],
+      rows
+    });
+  }
+
+  private openDetailDialog(data: DashboardDetailDialogData): void {
+    this.dialog.open(DashboardDetailDialogComponent, {
+      width: '720px',
+      maxHeight: '80vh',
+      data
+    });
+  }
+
+  private globalDetailColumns(metric: GlobalMetricName): DashboardDetailColumn[] {
+    if (metric === 'activeSenders') {
+      return [
+        { key: 'site', label: 'Site' },
+        { key: 'sender', label: 'Sender' },
+        { key: 'active', label: 'Active', align: 'end' }
+      ];
+    }
+
+    const columns: DashboardDetailColumn[] = [
+      { key: 'site', label: 'Site' },
+      { key: 'sender', label: 'Sender' }
+    ];
+
+    const metricColumns: DashboardDetailColumn[] = [
+      { key: 'ready', label: 'Ready', align: 'end' },
+      { key: 'enqueued', label: 'Enqueued', align: 'end' },
+      { key: 'failed', label: 'Failed', align: 'end' },
+      { key: 'completed', label: 'Completed', align: 'end' },
+      { key: 'backlog', label: 'Backlog', align: 'end' }
+    ];
+
+    const prioritized = [...metricColumns];
+    const valueKey = this.globalMetricConfig[metric].valueKey;
+    const valueIndex = prioritized.findIndex(col => col.key === valueKey);
+    if (valueIndex > 0) {
+      const [col] = prioritized.splice(valueIndex, 1);
+      prioritized.unshift(col);
+    }
+    return [...columns, ...prioritized];
+  }
+
   private aggregate(statuses: StageStatus[]): DashboardAggregate {
     return statuses.reduce<DashboardAggregate>((acc, status) => {
       acc.total += status.total;
@@ -262,5 +500,80 @@ export class DashboardComponent implements OnInit, OnDestroy {
       completed: user?.completed ?? 0,
       lastRequestedAt: user?.lastRequestedAt ?? null
     };
+  }
+
+  private metricValue(row: GlobalDetailRow, key: keyof GlobalDetailRow): number {
+    const value = row[key];
+    if (typeof value === 'number') {
+      return value;
+    }
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private ensureSenderNames(statuses: StageStatus[]): void {
+    const sitesNeedingLookup = new Set<string>();
+    for (const status of statuses) {
+      const siteKey = status.site || 'Unknown';
+      const senderId = status.senderId ?? null;
+      if (!siteKey || senderId === null || senderId === undefined) {
+        continue;
+      }
+      const cached = this.senderCatalog.get(siteKey);
+      if (!cached || !cached.has(senderId)) {
+        sitesNeedingLookup.add(siteKey);
+      }
+    }
+
+    for (const site of sitesNeedingLookup) {
+      if (this.senderLookupInFlight.has(site)) {
+        continue;
+      }
+      this.senderLookupInFlight.add(site);
+      this.api.getExternalSenders({ connectionKey: site }).subscribe({
+        next: senders => this.storeSenderOptions(site, senders),
+        error: err => {
+          console.error(`Failed to load sender names for ${site}`, err);
+          this.senderCatalog.set(site, this.senderCatalog.get(site) ?? new Map());
+        },
+        complete: () => {
+          this.senderLookupInFlight.delete(site);
+        }
+      });
+    }
+  }
+
+  private storeSenderOptions(site: string, senders: SenderOption[] | null | undefined): void {
+    const map = new Map<number, string>();
+    (senders || []).forEach(sender => {
+      if (sender && sender.idSender != null) {
+        const name = (sender.name ?? '').trim();
+        map.set(sender.idSender, name);
+      }
+    });
+    this.senderCatalog.set(site, map);
+  }
+
+  private lookupSenderName(site: string, senderId: number | null | undefined): string | null {
+    if (!site || senderId === null || senderId === undefined) {
+      return null;
+    }
+    const map = this.senderCatalog.get(site);
+    return map?.get(senderId) ?? null;
+  }
+
+  formatSenderLabel(site: string, senderId: number | string | null | undefined): string {
+    if (senderId === null || senderId === undefined || senderId === '') {
+      return 'N/A';
+    }
+    const id = typeof senderId === 'number' ? senderId : Number(senderId);
+    if (!Number.isNaN(id)) {
+      const name = this.lookupSenderName(site, id);
+      if (name && name.trim().length) {
+        return `${id}-${name.trim()}`;
+      }
+      return String(id);
+    }
+    return String(senderId);
   }
 }

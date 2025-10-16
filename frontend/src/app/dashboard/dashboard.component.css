@@ -104,6 +104,19 @@
   border: 1px solid rgba(0, 58, 112, 0.12);
 }
 
+.interactive {
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.interactive:hover,
+.interactive:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 58, 112, 0.16);
+  border-color: rgba(0, 163, 224, 0.4);
+  outline: none;
+}
+
 .metric-value {
   font-size: 1.6rem;
   font-weight: 600;
@@ -242,6 +255,19 @@
   margin-bottom: 0;
 }
 
+.sender-row.clickable {
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.sender-row.clickable:hover,
+.sender-row.clickable:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 58, 112, 0.12);
+  border-color: rgba(0, 163, 224, 0.38);
+  outline: none;
+}
+
 .sender-id {
   display: flex;
   align-items: center;
@@ -346,6 +372,20 @@
   gap: 12px;
   align-items: center;
   padding: 6px 0;
+}
+
+.graph-row.clickable {
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 8px 12px;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.graph-row.clickable:hover,
+.graph-row.clickable:focus-visible {
+  background-color: rgba(0, 163, 224, 0.12);
+  box-shadow: 0 8px 16px rgba(0, 58, 112, 0.12);
+  outline: none;
 }
 
 .graph-label {

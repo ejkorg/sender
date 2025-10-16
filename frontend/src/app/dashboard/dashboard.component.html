@@ -41,27 +41,33 @@
       <mat-card-title>System snapshot</mat-card-title>
       <mat-card-content>
         <div class="global-grid">
-          <div class="global-metric">
+          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View active sender detail"
+               (click)="openGlobalDetail('activeSenders')" (keydown.enter)="openGlobalDetail('activeSenders')">
             <span class="metric-value">{{ globalSummary.activeSenders }}</span>
             <span class="metric-label">Active Senders</span>
           </div>
-          <div class="global-metric">
+          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View ready payload detail"
+               (click)="openGlobalDetail('ready')" (keydown.enter)="openGlobalDetail('ready')">
             <span class="metric-value highlight">{{ globalSummary.ready }}</span>
             <span class="metric-label">Ready to Dispatch</span>
           </div>
-          <div class="global-metric">
+          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View enqueued payload detail"
+               (click)="openGlobalDetail('enqueued')" (keydown.enter)="openGlobalDetail('enqueued')">
             <span class="metric-value">{{ globalSummary.enqueued }}</span>
             <span class="metric-label">Enqueued</span>
           </div>
-          <div class="global-metric">
+          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View failed payload detail"
+               (click)="openGlobalDetail('failed')" (keydown.enter)="openGlobalDetail('failed')">
             <span class="metric-value warn" [class.attention]="globalSummary.failed > 0">{{ globalSummary.failed }}</span>
             <span class="metric-label">Failed</span>
           </div>
-          <div class="global-metric">
+          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View completed payload detail"
+               (click)="openGlobalDetail('completed')" (keydown.enter)="openGlobalDetail('completed')">
             <span class="metric-value">{{ globalSummary.completed }}</span>
             <span class="metric-label">Completed</span>
           </div>
-          <div class="global-metric">
+          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View backlog detail"
+               (click)="openGlobalDetail('backlog')" (keydown.enter)="openGlobalDetail('backlog')">
             <span class="metric-value">{{ globalSummary.backlog }}</span>
             <span class="metric-label">Backlog</span>
           </div>
@@ -81,7 +87,8 @@
           <span class="legend-item failed">Failed</span>
         </div>
         <div class="graph-list">
-          <div class="graph-row" *ngFor="let series of backlogSeries">
+          <div class="graph-row clickable" *ngFor="let series of backlogSeries" role="button" tabindex="0"
+               (click)="openBacklogDetail(series)" (keydown.enter)="openBacklogDetail(series)" matTooltip="View sender breakdown">
             <div class="graph-label" [matTooltip]="series.label">{{ series.label }}</div>
             <div class="graph-bar">
               <div class="bar-segment ready" *ngIf="series.ready" [style.width]="barWidth(series.ready, series.total)" [matTooltip]="segmentTooltip('Ready', series.ready, series.total)">
@@ -143,10 +150,11 @@
 
           <div class="sender-section">
             <h3>Sender focus</h3>
-            <div class="sender-row" *ngFor="let sender of site.senders">
+            <div class="sender-row clickable" *ngFor="let sender of site.senders" role="button" tabindex="0"
+                 (click)="openSenderDetail(site, sender)" (keydown.enter)="openSenderDetail(site, sender)" matTooltip="View user activity">
               <div class="sender-id">
                 <mat-icon aria-hidden="true" class="sender-icon" [class.alert]="sender.alert">router</mat-icon>
-                <span>Sender {{ sender.senderId || 'N/A' }}</span>
+                <span>Sender {{ sender.senderLabel }}</span>
               </div>
               <div class="sender-metrics">
                 <span class="badge" [class.highlight]="sender.ready > 0" matTooltip="Ready">R {{ sender.ready }}</span>
@@ -160,6 +168,9 @@
             </div>
           </div>
         </mat-card-content>
+        <mat-card-actions>
+          <button mat-button type="button" (click)="openSiteDetail(site)">View site details</button>
+        </mat-card-actions>
       </mat-card>
     </div>
   </section>

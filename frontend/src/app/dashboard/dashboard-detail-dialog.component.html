@@ -1,0 +1,36 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+
+<mat-dialog-content class="dialog-content">
+  <p class="description" *ngIf="data.description">{{ data.description }}</p>
+
+  <div class="table-wrapper" *ngIf="hasRows; else emptyState">
+    <table>
+      <thead>
+        <tr>
+          <th *ngFor="let column of data.columns" [class.align-end]="column.align === 'end'" [class.align-center]="column.align === 'center'">
+            {{ column.label }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of data.rows">
+          <td *ngFor="let column of data.columns" [class.align-end]="column.align === 'end'" [class.align-center]="column.align === 'center'">
+            {{ formatCell(row[column.key]) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #emptyState>
+    <p class="empty">No data available for this selection.</p>
+  </ng-template>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()">Close</button>
+  <button mat-flat-button color="primary" type="button" (click)="exportCsv()" [disabled]="!hasRows">
+    <mat-icon>download</mat-icon>
+    Export CSV
+  </button>
+</mat-dialog-actions>
