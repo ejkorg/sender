@@ -11,22 +11,26 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  background: linear-gradient(135deg, #003a70 0%, #00a3e0 100%);
-  border-radius: 16px;
-  padding: 24px 28px;
+  background: radial-gradient(circle at 18% 26%, rgba(0, 163, 224, 0.28) 0%, rgba(0, 58, 112, 0.92) 55%);
+  border-radius: 24px;
+  padding: 28px 32px;
   color: #fff;
+  box-shadow: 0 22px 44px rgba(0, 58, 112, 0.28);
 }
 
 .title-block h1 {
   margin: 0;
-  font-size: 1.8rem;
-  letter-spacing: 0.5px;
+  font-size: 2rem;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #fff;
 }
 
 .subtitle {
   margin: 4px 0 0;
   font-size: 0.95rem;
-  opacity: 0.85;
+  opacity: 0.88;
+  max-width: 420px;
 }
 
 .header-actions {
@@ -35,13 +39,32 @@
   gap: 12px;
 }
 
+.header-actions button {
+  border-radius: 999px;
+  padding: 0 22px;
+  height: 42px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+  transition: background-color 160ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.header-actions button:hover:not(:disabled) {
+  background: rgba(0, 163, 224, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
 .header-actions button mat-icon {
   margin-right: 4px;
 }
 
 .timestamp {
   font-size: 0.85rem;
-  opacity: 0.85;
+  opacity: 0.86;
 }
 
 .global-section,
@@ -57,8 +80,10 @@
 .graph-card,
 .error-card,
 .empty-card {
-  border-radius: 16px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(0, 58, 112, 0.14);
+  border: 1px solid rgba(0, 58, 112, 0.12);
+  overflow: hidden;
 }
 
 .global-grid {
@@ -71,11 +96,12 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background-color: rgba(0, 58, 112, 0.06);
-  border-radius: 12px;
-  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(0, 163, 224, 0.1) 0%, rgba(255, 255, 255, 0.92) 100%);
+  border-radius: 16px;
+  padding: 16px 18px;
   min-height: 90px;
   justify-content: center;
+  border: 1px solid rgba(0, 58, 112, 0.12);
 }
 
 .metric-value {
@@ -103,6 +129,11 @@
   color: rgba(0, 0, 0, 0.65);
 }
 
+.graph-card {
+  padding-bottom: 12px;
+  background: linear-gradient(180deg, rgba(0, 58, 112, 0.06) 0%, rgba(255, 255, 255, 0.95) 100%);
+}
+
 .site-section h2 {
   margin: 0;
   font-size: 1.4rem;
@@ -117,6 +148,7 @@
 
 .site-card {
   transition: transform 160ms ease, box-shadow 160ms ease;
+  background: linear-gradient(180deg, rgba(0, 58, 112, 0.05) 0%, rgba(255, 255, 255, 0.95) 100%);
 }
 
 .site-card:hover {
@@ -139,9 +171,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background-color: rgba(0, 163, 224, 0.08);
+  padding: 12px 14px;
+  border-radius: 16px;
+  background-color: rgba(0, 163, 224, 0.12);
+  border: 1px solid rgba(0, 58, 112, 0.08);
 }
 
 .metric-icon {
@@ -241,10 +274,6 @@
   color: rgba(0, 0, 0, 0.62);
 }
 
-.graph-card {
-  padding-bottom: 12px;
-}
-
 .graph-legend {
   display: flex;
   flex-wrap: wrap;
@@ -261,22 +290,24 @@
   font-size: 0.8rem;
   font-weight: 600;
   color: rgba(0, 0, 0, 0.7);
-  background-color: rgba(0, 58, 112, 0.08);
+  background-color: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 58, 112, 0.12);
+  box-shadow: 0 6px 12px rgba(0, 58, 112, 0.08);
 }
 
 .legend-item.ready,
 .bar-segment.ready {
-  background-color: rgba(0, 163, 224, 0.6);
+  background-color: rgba(0, 163, 224, 0.82);
 }
 
 .legend-item.enqueued,
 .bar-segment.enqueued {
-  background-color: rgba(255, 193, 7, 0.65);
+  background-color: rgba(255, 193, 7, 0.78);
 }
 
 .legend-item.failed,
 .bar-segment.failed {
-  background-color: rgba(196, 28, 36, 0.7);
+  background-color: rgba(196, 28, 36, 0.82);
 }
 
 .graph-list {
@@ -306,7 +337,8 @@
   height: 18px;
   border-radius: 999px;
   overflow: hidden;
-  background-color: rgba(0, 58, 112, 0.08);
+  background-color: rgba(0, 58, 112, 0.06);
+  border: 1px solid rgba(0, 58, 112, 0.1);
 }
 
 .bar-segment {
@@ -326,6 +358,7 @@
 .error-card,
 .empty-card {
   text-align: center;
+  background: linear-gradient(180deg, rgba(0, 58, 112, 0.05) 0%, rgba(255, 255, 255, 0.96) 100%);
 }
 
 @media (max-width: 720px) {
@@ -343,5 +376,8 @@
   }
   .sender-metrics {
     width: 100%;
+  }
+  .dashboard-container {
+    padding: 12px;
   }
 }
