@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, formatDate } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -61,6 +61,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   lastUpdated: Date | null = null;
 
   readonly refreshIntervalMs = 60_000;
+  readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
 
   constructor(private api: BackendService) {}
 
@@ -189,7 +190,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (!this.lastUpdated) {
       return 'Never';
     }
-    return this.lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatDate(this.lastUpdated, this.uiDateFormat, 'en-US');
   }
 
   get backlogSeries(): BacklogSeries[] {
@@ -221,6 +222,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     const pct = Math.max(0, Math.min(100, (value / total) * 100));
     return pct.toFixed(1) + '%';
+  }
+
+  showSegmentLabel(value: number, total: number): boolean {
+    if (!total || total <= 0) {
+      return false;
+    }
+    return (value / total) >= 0.12;
+  }
+
+  segmentTooltip(label: string, value: number, total: number): string {
+    if (!total || total <= 0) {
+      return `${label}: ${value}`;
+    }
+    const pct = (value / total) * 100;
+    return `${label}: ${value} (${pct.toFixed(1)}%)`;
   }
 
   private aggregate(statuses: StageStatus[]): DashboardAggregate {

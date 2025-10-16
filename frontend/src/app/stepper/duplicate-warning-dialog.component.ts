@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, formatDate } from '@angular/common';
 import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,6 +21,7 @@ export interface DuplicateWarningDialogData {
 })
 export class DuplicateWarningDialogComponent {
   readonly duplicatesToShow: DuplicatePayloadInfo[];
+  readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: DuplicateWarningDialogData,
               private dialogRef: MatDialogRef<DuplicateWarningDialogComponent>) {
@@ -47,7 +48,7 @@ export class DuplicateWarningDialogComponent {
     return trimmed.length ? trimmed : 'unknown';
   }
 
-  formatDate(value: string | null | undefined): string {
+  formatTimestamp(value: string | null | undefined): string {
     if (!value) {
       return '—';
     }
@@ -56,12 +57,7 @@ export class DuplicateWarningDialogComponent {
       if (isNaN(date.getTime())) {
         return value;
       }
-      return new Intl.DateTimeFormat(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(date);
+      return formatDate(date, this.uiDateFormat, 'en-US');
     } catch (err) {
       return value;
     }

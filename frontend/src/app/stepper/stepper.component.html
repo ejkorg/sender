@@ -107,8 +107,23 @@
             <div class="preview-header-actions">
               <button mat-button type="button" (click)="toggleSelectAllCurrentPage(true)" [disabled]="previewLoading || !previewRows.length">Select page</button>
               <button mat-button type="button" (click)="toggleSelectAllCurrentPage(false)" [disabled]="previewLoading || !previewRows.length">Clear page</button>
+              <button mat-button type="button" [matMenuTriggerFor]="exportMenu" [disabled]="previewLoading || (!previewRows.length && !selectedCount)">
+                <mat-icon>download</mat-icon>
+                Export CSV
+              </button>
             </div>
           </div>
+
+          <mat-menu #exportMenu="matMenu">
+            <button mat-menu-item type="button" (click)="exportPreviewCsv(false)" [disabled]="!previewRows.length">
+              <mat-icon>table_view</mat-icon>
+              Current page
+            </button>
+            <button mat-menu-item type="button" (click)="exportPreviewCsv(true)" [disabled]="!selectedCount">
+              <mat-icon>checklist</mat-icon>
+              Selected payloads
+            </button>
+          </mat-menu>
 
           <mat-card *ngIf="previewDebugSql" class="debug-sql-card">
             <mat-card-title>Preview SQL</mat-card-title>
@@ -139,7 +154,7 @@
                   <td>{{ row.metadataId || '—' }}</td>
                   <td>{{ row.dataId || '—' }}</td>
                   <td>{{ row.lot || '—' }}</td>
-                  <td>{{ row.endTime || '—' }}</td>
+                  <td>{{ row.endTime ? (row.endTime | date: uiDateFormat) : '—' }}</td>
                   <td class="select-cell">
                     <mat-checkbox [checked]="isRowSelected(row)" (change)="toggleRow(row, $event.checked)"></mat-checkbox>
                   </td>
@@ -208,7 +223,7 @@
                     <div class="duplicate-meta">
                       <mat-icon aria-hidden="true">person</mat-icon>
                       <span>{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</span>
-                      <span class="duplicate-time" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ (dup.lastRequestedAt || dup.stagedAt) | date:'medium' }}</span>
+                      <span class="duplicate-time" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ (dup.lastRequestedAt || dup.stagedAt) | date: uiDateFormat }}</span>
                       <span *ngIf="dup.previousStatus" class="duplicate-status">status {{ dup.previousStatus }}</span>
                       <span *ngIf="dup.requiresConfirmation" class="duplicate-attention">needs confirmation</span>
                     </div>
@@ -240,7 +255,7 @@
                     <span class="badge warn" matTooltip="Failed">F {{ user.failed }}</span>
                     <span class="badge muted" matTooltip="Completed">C {{ user.completed }}</span>
                   </div>
-                  <div class="user-timestamp" *ngIf="user.lastRequestedAt">{{ user.lastRequestedAt | date:'short' }}</div>
+                  <div class="user-timestamp" *ngIf="user.lastRequestedAt">{{ user.lastRequestedAt | date: uiDateFormat }}</div>
                 </div>
               </div>
             </mat-card-content>
@@ -289,8 +304,8 @@
                 <td>{{ record.dataId || '—' }}</td>
                 <td>{{ record.status }}</td>
                 <td>{{ record.lastRequestedBy || record.stagedBy || 'unknown' }}</td>
-                <td>{{ record.lastRequestedAt ? (record.lastRequestedAt | date:'short') : '—' }}</td>
-                <td>{{ record.updatedAt | date:'short' }}</td>
+                <td>{{ record.lastRequestedAt ? (record.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
+                <td>{{ record.updatedAt | date: uiDateFormat }}</td>
                 <td>{{ record.errorMessage || '—' }}</td>
               </tr>
             </tbody>

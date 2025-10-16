@@ -1,1 +1,31 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global theming adjustments */
+
+:root {
+	--onsemi-orange: #ff8200;
+	--onsemi-navy: #003a70;
+}
+
+.mat-mdc-select-panel {
+	background: rgba(255, 130, 0, 0.94) !important;
+	color: #fff;
+}
+
+.mat-mdc-option .mdc-list-item__primary-text {
+	color: #fff;
+}
+
+.mat-mdc-option.mdc-list-item--selected {
+	background: rgba(0, 58, 112, 0.35) !important;
+}
+
+.mat-mdc-option.mat-mdc-option-active:not(.mdc-list-item--disabled) {
+	background: rgba(0, 58, 112, 0.28) !important;
+}
+
+.mat-mdc-select-panel .mat-pseudo-checkbox {
+	color: #fff;
+}
+
+.mat-mdc-select-panel .mat-pseudo-checkbox::after {
+	border-color: #fff;
+}

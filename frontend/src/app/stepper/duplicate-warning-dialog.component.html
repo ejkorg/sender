@@ -18,7 +18,7 @@
         <div class="payload-meta">
           <mat-icon aria-hidden="true">person</mat-icon>
           <span>{{ displayUser(dup.lastRequestedBy || dup.stagedBy) }}</span>
-          <span class="timestamp" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ formatDate(dup.lastRequestedAt || dup.stagedAt) }}</span>
+          <span class="timestamp" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ formatTimestamp(dup.lastRequestedAt || dup.stagedAt) }}</span>
           <span class="status" *ngIf="dup.previousStatus">status {{ dup.previousStatus }}</span>
         </div>
       </div>

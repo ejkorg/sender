@@ -230,6 +230,10 @@ button.mat-mdc-button:disabled {
 	vertical-align: middle;
 }
 
+.preview-table td:nth-child(4) {
+	white-space: nowrap;
+}
+
 .preview-table thead,
 .records-table thead {
 	background-color: rgba(0, 58, 112, 0.07);

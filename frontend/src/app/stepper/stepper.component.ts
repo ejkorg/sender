@@ -31,6 +31,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatListModule } from '@angular/material/list';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { DuplicateWarningDialogComponent } from './duplicate-warning-dialog.component';
@@ -39,7 +40,7 @@ import { DuplicateWarningDialogComponent } from './duplicate-warning-dialog.comp
 @Component({
   selector: 'app-stepper',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatStepperModule, MatIconModule, MatDatepickerModule, MatNativeDateModule, MatCheckboxModule, MatDialogModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatStepperModule, MatIconModule, MatDatepickerModule, MatNativeDateModule, MatCheckboxModule, MatDialogModule, MatMenuModule],
   templateUrl: './stepper.component.html',
   styleUrls: ['./stepper.component.css']
 })
@@ -97,6 +98,7 @@ export class StepperComponent implements OnInit, OnDestroy {
   stageRecordsStatus: string = 'ALL';
   currentUser: string | null = null;
   private userSub?: Subscription;
+  readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
 
   constructor(private api: BackendService,
               private snack: MatSnackBar,
@@ -532,13 +534,13 @@ export class StepperComponent implements OnInit, OnDestroy {
           segments.push(`lastBy=${dup.lastRequestedBy}`);
         }
         if (dup.lastRequestedAt) {
-          segments.push(`lastAt=${dup.lastRequestedAt}`);
+          segments.push(`lastAt=${this.formatDateTime(dup.lastRequestedAt)}`);
         }
         if (dup.previousStatus) {
           segments.push(`status=${dup.previousStatus}`);
         }
         if (dup.processedAt) {
-          segments.push(`processedAt=${dup.processedAt}`);
+          segments.push(`processedAt=${this.formatDateTime(dup.processedAt)}`);
         }
         return segments.join(' ');
       })
@@ -594,6 +596,37 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.selectedCount = this.previewSelectedKeys.size;
   }
 
+  exportPreviewCsv(selectedOnly: boolean = false) {
+    const rows = selectedOnly ? this.collectSelectedPreviewRows() : [...this.previewRows];
+    if (!rows.length) {
+      this.snack.open(selectedOnly ? 'No selected payloads to export.' : 'No preview rows to export.', 'Close', { duration: 3000 });
+      return;
+    }
+
+    const headers = ['Metadata ID', 'Data ID', 'Lot', 'End Time'];
+    const csvRows = rows.map(row => [
+      row.metadataId ?? '',
+      row.dataId ?? '',
+      row.lot ?? '',
+      this.formatDateTime(row.endTime)
+    ]);
+
+    const csv = [headers, ...csvRows]
+      .map(cols => cols.map(value => this.escapeCsv(value)).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const timestamp = formatDate(new Date(), 'yyyyMMdd_HHmmss', 'en-US');
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `discovery_${selectedOnly ? 'selected' : 'page'}_${timestamp}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+
+    this.snack.open(`Exported ${rows.length} payload${rows.length === 1 ? '' : 's'} to CSV.`, 'OK', { duration: 3500 });
+  }
+
   private collectSelectedPayloads(): Array<{ metadataId: string; dataId: string }> {
     const results: Array<{ metadataId: string; dataId: string }> = [];
     for (const key of this.previewSelectedKeys) {
@@ -603,6 +636,17 @@ export class StepperComponent implements OnInit, OnDestroy {
       results.push({ metadataId: row.metadataId, dataId: row.dataId });
     }
     return results;
+  }
+
+  private collectSelectedPreviewRows(): DiscoveryPreviewRow[] {
+    const rows: DiscoveryPreviewRow[] = [];
+    for (const key of this.previewSelectedKeys) {
+      const row = this.previewRowCache.get(key);
+      if (row) {
+        rows.push(row);
+      }
+    }
+    return rows;
   }
 
   private loadStageStatus() {
@@ -684,5 +728,22 @@ export class StepperComponent implements OnInit, OnDestroy {
       return null;
     }
     return `${formatDate(this.endDate, 'yyyy-MM-dd', 'en-US')} 23:59:59`;
+  }
+
+  private formatDateTime(value: string | Date | null | undefined): string {
+    if (!value) {
+      return '';
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) {
+      return String(value ?? '');
+    }
+    return formatDate(date, this.uiDateFormat, 'en-US');
+  }
+
+  private escapeCsv(value: unknown): string {
+    const str = String(value ?? '');
+    const escaped = str.replace(/"/g, '""');
+    return `"${escaped}"`;
   }
 }
