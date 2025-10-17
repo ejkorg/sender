@@ -8,6 +8,8 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtAuthenticationFilter;
@@ -32,6 +34,7 @@ public class SecurityConfig {
             .csrf().disable() // tests don't provide CSRF token
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/h2-console/**").permitAll()
+                .requestMatchers("/api/auth/register").permitAll()
                 .requestMatchers("/internal/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
@@ -48,8 +51,9 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService users() {
+        // Keep an in-memory admin for dev convenience, but production authentication will use the DB-backed AppUserDetailsService
         UserDetails admin = User.withUsername("admin")
-            .password("admin123")
+            .password(passwordEncoder().encode("admin123"))
             .roles("ADMIN")
             .build();
         return new InMemoryUserDetailsManager(admin);
@@ -57,22 +61,14 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return NoOpPasswordEncoder.getInstance();
+        return new BCryptPasswordEncoder(12);
     }
 
     @Bean
     public AuthenticationManager authenticationManager() {
-        return new AuthenticationManager() {
-            @Override
-            public Authentication authenticate(Authentication authentication) {
-                String username = authentication.getPrincipal() == null ? null : authentication.getPrincipal().toString();
-                String password = authentication.getCredentials() == null ? null : authentication.getCredentials().toString();
-                // Simple dev/test credential check. Replace with real user details in production.
-                if ("admin".equals(username) && "admin123".equals(password)) {
-                    return new UsernamePasswordAuthenticationToken(username, password, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
-                }
-                throw new BadCredentialsException("Bad credentials");
-            }
-        };
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(users());
+        provider.setPasswordEncoder(passwordEncoder());
+        return authentication -> provider.authenticate(authentication);
     }
 }

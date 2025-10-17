@@ -1,4 +1,4 @@
-default-qa:
+default-QA:
   host: gyqsq-db.onsemi.com:1545/GYQSQ.onsemi.com
   user: DATAPORT_USER
   password: dpusr^401
@@ -8,7 +8,7 @@ default-qa:
     minimumIdle: 1
     connectionTimeoutMs: 20000
 
-EXTERNAL-qa:
+EXTERNAL-QA:
   host: gyqsq-db.onsemi.com:1545/GYQSQ.onsemi.com 
   user: DATAPORT_USER
   password: dpusr^401
