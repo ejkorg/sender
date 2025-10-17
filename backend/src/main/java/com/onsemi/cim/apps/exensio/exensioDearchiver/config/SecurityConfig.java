@@ -23,6 +23,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = "security.sso", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class SecurityConfig {
 
     @Bean
