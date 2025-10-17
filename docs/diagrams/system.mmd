@@ -1,66 +1,14 @@
-%% System architecture diagram (Mermaid)
-%% Shows frontend, backend, services, databases and external integrations
+%% Minimal System Architecture (render-safe)
 flowchart LR
-  subgraph UX[User & Browser]
-    U[User]
-    B[Browser / Angular]
-  end
+  User[User]
+  Browser[Browser]
+  Frontend[Frontend]
+  Backend[Backend]
+  RefDB[RefDB]
+  DTPDB[DTPDB]
 
-  subgraph FE[Frontend Application]
-    BUI[Stepper UI \n(Preview → Stage → Monitor)]
-    APIClient[Backend API Client (/api/*)]
-  end
-
-  subgraph BE[Backend - Spring Boot]
-    A[ReloaderApplication]
-    Auth[JWT Security]
-    Controllers[REST Controllers\n`/api/stage`, `/api/sender`, `/api/dispatch`]
-    Services[Core Services]\nRefDbService[RefDbService]
-    SenderSvc[SenderService (enqueue & scheduled processing)]
-    DispatchSvc[SenderDispatchService (scheduled dispatch → external DB)]
-    Repos[Spring Data Repositories]
-    Scheduler[Spring Scheduler]
-  end
-
-  subgraph DataStores[Datastores & External Systems]
-    RefDB[(Ref DB)\n(staged records, session payloads)]
-    DTPDB[(External DTP DB)\n(DTP_SENDER_QUEUE_ITEM)]
-    ExternalMetadata[(External Metadata Sources)\n(files, exporters, FTP)]
-  end
-
-  %% flows
-  U --> B
-  B --> BUI
-  BUI --> APIClient
-  APIClient --> Controllers
-  Controllers --> Services
-  Services --> Repos
-  Repos --> RefDB
-
-  %% Sender flow
-  SenderSvc --> RefDB
-  Scheduler --> SenderSvc
-  DispatchSvc -->|JDBC inserts| DTPDB
-  Scheduler --> DispatchSvc
-  DispatchSvc --> RefDbService
-  RefDbService --> RefDB
-  DispatchSvc -->|reads staged records| RefDB
-
-  %% external metadata discovery
-  Services --> ExternalMetadata
-  ExternalMetadata --> Services
-
-  %% cross-cutting
-  Controllers --> Auth
-  A --> Scheduler
-  BUI -. polls/refreshes .-> Controllers
-
-  classDef db fill:#f9f,stroke:#333,stroke-width:1px;
-  class RefDB,DTPDB db;
-
-  %% legend
-  subgraph legend[ ]
-    direction LR
-    L1[Frontend (Angular)] --- L2[Backend (Spring Boot)]
-    L2 --- L3[Databases / External Systems]
-  end
+  User --> Browser
+  Browser --> Frontend
+  Frontend --> Backend
+  Backend --> RefDB
+  Backend --> DTPDB
