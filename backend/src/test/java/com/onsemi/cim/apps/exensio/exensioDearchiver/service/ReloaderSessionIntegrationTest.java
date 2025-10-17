@@ -1,6 +1,6 @@
 package com.onsemi.cim.apps.exensio.exensioDearchiver.service;
 
-import com.onsemi.cim.apps.exensio.exensioDearchiver.ReloaderService;
+import com.onsemi.cim.apps.exensio.exensioDearchiver.ExensioDearchiveService;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.entity.LoadSession;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.entity.LoadSessionPayload;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.repository.LoadSessionPayloadRepository;
@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class ReloaderSessionIntegrationTest {
 
     @Autowired
-    private ReloaderService reloaderService;
+    private ExensioDearchiveService exensioDearchiveService;
 
     @Autowired
     private LoadSessionRepository loadSessionRepository;
@@ -50,12 +50,12 @@ public class ReloaderSessionIntegrationTest {
         params.put("listFile", tmp.toString());
 
         // act: create session via processReload (this will create the session and because listFile exists, skip remote query)
-        reloaderService.processReload(params);
+    exensioDearchiveService.processReload(params);
 
     // fetch the most recently created session to avoid collisions with other tests sharing the same DB
     LoadSession session = loadSessionRepository.findTopByOrderByIdDesc()
         .orElseThrow(() -> new IllegalStateException("Expected a session to be created"));
-    // ReloaderService currently sets initiatedBy to 'ui'
+    // ExensioDearchiveService currently sets initiatedBy to 'ui'
     assertThat(session.getInitiatedBy()).isEqualTo("ui");
         assertThat(session.getSite()).isEqualTo("EXAMPLE_SITE");
 
