@@ -38,6 +38,78 @@ public class AuthController {
         this.refreshTokenService = refreshTokenService;
     }
 
+    // --- verification / reset endpoints ---
+    @PostMapping("/verify")
+    public ResponseEntity<Map<String, String>> verify(@RequestBody Map<String, String> body) {
+        String token = body.get("token");
+        if (token == null || token.isBlank()) return ResponseEntity.badRequest().build();
+        // lookup verification token
+        var authTokenService = getAuthTokenService();
+        if (authTokenService == null) return ResponseEntity.status(500).build();
+        var found = authTokenService.findVerificationToken(token);
+        if (found.isEmpty()) return ResponseEntity.status(404).build();
+        String username = found.get().getUsername();
+        // enable the user
+        enableUser(username);
+        return ResponseEntity.ok(Map.of("message", "verified"));
+    }
+
+    @PostMapping("/request-reset")
+    public ResponseEntity<Map<String, String>> requestReset(@RequestBody Map<String, String> body) {
+        String username = body.get("username");
+        if (username == null || username.isBlank()) return ResponseEntity.badRequest().build();
+        var authTokenService = getAuthTokenService();
+        if (authTokenService == null) return ResponseEntity.status(500).build();
+        var token = authTokenService.createPasswordResetToken(username);
+        // in production we'd email the reset token; return for dev
+        return ResponseEntity.ok(Map.of("resetToken", token.getToken()));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody Map<String, String> body) {
+        String token = body.get("token");
+        String newPassword = body.get("password");
+        if (token == null || token.isBlank() || newPassword == null || newPassword.length() < 8) return ResponseEntity.badRequest().build();
+        var authTokenService = getAuthTokenService();
+        if (authTokenService == null) return ResponseEntity.status(500).build();
+        var found = authTokenService.findPasswordResetToken(token);
+        if (found.isEmpty()) return ResponseEntity.status(404).build();
+        String username = found.get().getUsername();
+        // update user password
+        updatePassword(username, newPassword);
+        return ResponseEntity.ok(Map.of("message", "password reset"));
+    }
+
+    // helper wiring via application context lookup to avoid constructor churn in this quick change
+    private org.springframework.context.ApplicationContext getAppContext() {
+        try {
+            return org.springframework.web.context.ContextLoader.getCurrentWebApplicationContext();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private AuthTokenService getAuthTokenService() {
+        var ctx = getAppContext();
+        if (ctx == null) return null;
+        return ctx.getBean(AuthTokenService.class);
+    }
+
+    private void enableUser(String username) {
+        var ctx = getAppContext();
+        if (ctx == null) return;
+        var repo = ctx.getBean(com.onsemi.cim.apps.exensio.exensioDearchiver.repository.AppUserRepository.class);
+        repo.findByUsername(username).ifPresent(u -> { u.setEnabled(true); repo.save(u); });
+    }
+
+    private void updatePassword(String username, String newPassword) {
+        var ctx = getAppContext();
+        if (ctx == null) return;
+        var repo = ctx.getBean(com.onsemi.cim.apps.exensio.exensioDearchiver.repository.AppUserRepository.class);
+        var encoder = ctx.getBean(org.springframework.security.crypto.password.PasswordEncoder.class);
+        repo.findByUsername(username).ifPresent(u -> { u.setPasswordHash(encoder.encode(newPassword)); repo.save(u); });
+    }
+
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody AuthRequest req, HttpServletResponse resp) {
         Authentication a = authManager.authenticate(new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword()));

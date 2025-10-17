@@ -20,9 +20,12 @@ public class RegisterController {
     private final AppUserRepository repo;
     private final PasswordEncoder encoder;
 
-    public RegisterController(AppUserRepository repo, PasswordEncoder encoder) {
+    private final AuthTokenService tokenService;
+
+    public RegisterController(AppUserRepository repo, PasswordEncoder encoder, AuthTokenService tokenService) {
         this.repo = repo;
         this.encoder = encoder;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/register")
@@ -48,8 +51,11 @@ public class RegisterController {
         u.setEnabled(true);
         repo.save(u);
 
+        // create verification token - in production we'd send this via email.
+        var vt = tokenService.createVerificationToken(u.getUsername());
         Map<String, String> body = new HashMap<>();
         body.put("message", "registered");
+        body.put("verificationToken", vt.getToken()); // dev helper
         return ResponseEntity.ok(body);
     }
 }
