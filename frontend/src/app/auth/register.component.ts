@@ -1,0 +1,47 @@
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { AuthService } from './auth.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-register',
+  standalone: true,
+  imports: [CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  template: `
+  <mat-card style="max-width:480px;margin:24px auto;padding:16px;">
+    <h3>Create account</h3>
+    <mat-form-field style="width:100%"><input matInput placeholder="Username" [(ngModel)]="username" /></mat-form-field>
+    <mat-form-field style="width:100%"><input matInput placeholder="Email (optional)" [(ngModel)]="email" /></mat-form-field>
+    <mat-form-field style="width:100%"><input matInput placeholder="Password" type="password" [(ngModel)]="password" /></mat-form-field>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button mat-button (click)="register()">Create</button>
+      <button mat-button (click)="cancel()">Cancel</button>
+    </div>
+  </mat-card>
+  `
+})
+export class RegisterComponent {
+  username = '';
+  email: string | null = null;
+  password = '';
+  constructor(private auth: AuthService, private snack: MatSnackBar, private router: Router) {}
+
+  register() {
+    if (!this.username || this.password.length < 8) {
+      this.snack.open('username required and password >= 8 chars', 'Close', { duration: 4000 });
+      return;
+    }
+    this.auth.register(this.username, this.email, this.password).subscribe(
+      _ => { this.snack.open('Registered and logged in', 'Close', { duration: 3000 }); this.router.navigateByUrl('/'); },
+      err => { this.snack.open('Registration failed: ' + (err?.error?.error || err?.message || 'unknown'), 'Close', { duration: 4000 }); }
+    );
+  }
+
+  cancel() { this.router.navigateByUrl('/'); }
+}

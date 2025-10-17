@@ -4,6 +4,7 @@ import com.onsemi.cim.apps.exensio.exensioDearchiver.entity.AppUser;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.repository.AppUserRepository;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.web.dto.RegisterRequest;
 import org.springframework.http.ResponseEntity;
+import com.onsemi.cim.apps.exensio.exensioDearchiver.service.AuthTokenService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
