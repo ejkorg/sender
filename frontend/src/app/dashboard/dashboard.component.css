@@ -412,7 +412,8 @@
 
 .graph-row {
   display: grid;
-  grid-template-columns: minmax(140px, 200px) 1fr auto;
+  /* make label column wider so sender id + name can show, shorten the bar column */
+  grid-template-columns: minmax(260px, 420px) 1fr 48px;
   gap: 12px;
   align-items: center;
   padding: 6px 0;
@@ -435,9 +436,10 @@
 .graph-label {
   font-weight: 600;
   color: rgba(0, 0, 0, 0.7);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* allow wrapping if necessary but prefer single-line when space is available */
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
 }
 
 .graph-bar {
