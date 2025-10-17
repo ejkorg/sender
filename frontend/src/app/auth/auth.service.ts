@@ -6,6 +6,7 @@ import { HttpHeaders } from '@angular/common/http';
 
 export interface UserInfo {
   username: string;
+  roles?: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -65,8 +66,18 @@ export class AuthService {
     }
     this.accessToken = token;
     const username = this.extractUsername(token) || fallbackUsername || null;
-    if (username) this.userSubject.next({ username }); else this.userSubject.next(null);
+    let roles: string[] = [];
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload && payload.roles) roles = Array.isArray(payload.roles) ? payload.roles : [payload.roles];
+    } catch {}
+    if (username) this.userSubject.next({ username, roles }); else this.userSubject.next(null);
     this.scheduleRefreshForToken(token);
+  }
+
+  isAdmin(): boolean {
+    const user = this.userSubject.value;
+    return !!user && Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN');
   }
 
   getAccessToken(): string | null {

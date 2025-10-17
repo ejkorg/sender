@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
+import { NgForm } from '@angular/forms';
 
 @Component({
   selector: 'app-register',
@@ -16,13 +17,27 @@ import { Router } from '@angular/router';
   template: `
   <mat-card style="max-width:480px;margin:24px auto;padding:16px;">
     <h3>Create account</h3>
-    <mat-form-field style="width:100%"><input matInput placeholder="Username" [(ngModel)]="username" /></mat-form-field>
-    <mat-form-field style="width:100%"><input matInput placeholder="Email (optional)" [(ngModel)]="email" /></mat-form-field>
-    <mat-form-field style="width:100%"><input matInput placeholder="Password" type="password" [(ngModel)]="password" /></mat-form-field>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button mat-button (click)="register()">Create</button>
-      <button mat-button (click)="cancel()">Cancel</button>
-    </div>
+    <form #f="ngForm" (ngSubmit)="register(f)">
+      <mat-form-field style="width:100%">
+        <input matInput name="username" required minlength="3" [(ngModel)]="username" #usernameCtrl="ngModel" placeholder="Username" />
+        <mat-error *ngIf="usernameCtrl.invalid && usernameCtrl.touched">
+          <span *ngIf="usernameCtrl.errors?.['required']">Username is required</span>
+          <span *ngIf="usernameCtrl.errors?.['minlength']">Username must be at least 3 characters</span>
+        </mat-error>
+      </mat-form-field>
+      <mat-form-field style="width:100%"><input matInput name="email" type="email" [(ngModel)]="email" #emailCtrl="ngModel" placeholder="Email (optional)" /></mat-form-field>
+      <mat-form-field style="width:100%">
+        <input matInput name="password" required minlength="8" type="password" [(ngModel)]="password" #passwordCtrl="ngModel" placeholder="Password" />
+        <mat-error *ngIf="passwordCtrl.invalid && passwordCtrl.touched">
+          <span *ngIf="passwordCtrl.errors?.['required']">Password is required</span>
+          <span *ngIf="passwordCtrl.errors?.['minlength']">Password must be at least 8 characters</span>
+        </mat-error>
+      </mat-form-field>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button mat-button type="submit" [disabled]="f.invalid">Create</button>
+        <button mat-button type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
   </mat-card>
   `
 })
@@ -30,18 +45,31 @@ export class RegisterComponent {
   username = '';
   email: string | null = null;
   password = '';
+
   constructor(private auth: AuthService, private snack: MatSnackBar, private router: Router) {}
 
-  register() {
-    if (!this.username || this.password.length < 8) {
+  register(form?: NgForm) {
+    if (form && form.invalid) {
+      // mark controls as touched to show inline validation messages
+      Object.values((form as any).controls || {}).forEach((c: any) => c.markAsTouched());
+      return;
+    }
+
+    if (!form && (!this.username || this.password.length < 8)) {
       this.snack.open('username required and password >= 8 chars', 'Close', { duration: 4000 });
       return;
     }
+
     this.auth.register(this.username, this.email, this.password).subscribe(
-      _ => { this.snack.open('Registered and logged in', 'Close', { duration: 3000 }); this.router.navigateByUrl('/'); },
-      err => { this.snack.open('Registration failed: ' + (err?.error?.error || err?.message || 'unknown'), 'Close', { duration: 4000 }); }
+      _ => {
+        this.snack.open('Registered — check verification (dev)', 'Close', { duration: 4000 });
+        this.router.navigateByUrl('/login');
+      },
+      err => {
+        this.snack.open('Registration failed: ' + (err?.error?.error || err?.message || 'unknown'), 'Close', { duration: 4000 });
+      }
     );
   }
 
-  cancel() { this.router.navigateByUrl('/'); }
+  cancel() { this.router.navigateByUrl('/login'); }
 }

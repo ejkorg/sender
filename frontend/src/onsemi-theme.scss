@@ -1,0 +1,67 @@
+
+@use '@angular/material' as mat;
+
+$onsemi-primary: mat.define-palette(mat.$green-palette, 500, 300, 900);
+$onsemi-accent: mat.define-palette(mat.$yellow-palette, 600, 300, 900);
+$onsemi-warn: mat.define-palette(mat.$red-palette);
+
+$onsemi-theme: mat.define-light-theme((
+  color: (
+    primary: $onsemi-primary,
+    accent: $onsemi-accent,
+    warn: $onsemi-warn,
+  ),
+  typography: mat.define-typography-config(),
+  density: 0
+));
+
+@include mat.all-component-themes($onsemi-theme);
+
+body {
+  font-family: 'Inter', 'Roboto', Arial, sans-serif;
+  background: #fff;
+  color: #003a70;
+}
+
+.mat-toolbar {
+  background: #fff !important;
+  color: #003a70 !important;
+  border-bottom: 2px solid #00B140;
+}
+
+.mat-button, .mat-raised-button, .mat-flat-button {
+  font-weight: 600;
+  border-radius: 4px;
+}
+
+.mat-raised-button.mat-primary {
+  background: #00B140 !important;
+  color: #fff !important;
+}
+
+.mat-raised-button.mat-accent {
+  background: #FFD100 !important;
+  color: #003a70 !important;
+}
+
+.mat-table {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #003a7012;
+}
+
+h2, h3, h4 {
+  color: #003a70;
+  font-weight: 700;
+}
+
+a, .mat-button {
+  color: #00B140;
+}
+
+/* Add logo to toolbar */
+.mat-toolbar .onsemi-logo {
+  height: 32px;
+  margin-right: 16px;
+  vertical-align: middle;
+}

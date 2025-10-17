@@ -21,13 +21,21 @@ import { MatInputModule } from '@angular/material/input';
       <ng-template #loginForm>
         <div style="display:flex; flex-direction:column; gap:8px;">
           <div *ngIf="!registerMode">
-            <mat-form-field><input matInput [(ngModel)]="username" placeholder="username" (keydown.enter)="login($event)" /></mat-form-field>
-            <mat-form-field><input matInput [(ngModel)]="password" type="password" placeholder="password" (keydown.enter)="login($event)" /></mat-form-field>
-            <div style="display:flex; gap:8px;">
-              <button mat-raised-button color="primary" type="button" (click)="login($event)">Login</button>
-              <button mat-button type="button" (click)="router.navigateByUrl('/register')">Register</button>
-              <button mat-button type="button" (click)="router.navigateByUrl('/request-reset')">Reset</button>
-            </div>
+            <form #lf="ngForm" (ngSubmit)="login($event)">
+              <mat-form-field>
+                <input matInput name="username" required [(ngModel)]="username" #usernameCtl="ngModel" placeholder="username" />
+                <mat-error *ngIf="usernameCtl.invalid && usernameCtl.touched">Username is required</mat-error>
+              </mat-form-field>
+              <mat-form-field>
+                <input matInput name="password" required [(ngModel)]="password" #passwordCtl="ngModel" type="password" placeholder="password" />
+                <mat-error *ngIf="passwordCtl.invalid && passwordCtl.touched">Password is required</mat-error>
+              </mat-form-field>
+              <div style="display:flex; gap:8px;">
+                <button mat-raised-button color="primary" type="submit" [disabled]="lf.invalid">Login</button>
+                <button mat-button type="button" (click)="router.navigateByUrl('/register')">Register</button>
+                <button mat-button type="button" (click)="router.navigateByUrl('/request-reset')">Reset</button>
+              </div>
+            </form>
           </div>
           <div *ngIf="registerMode">
             <mat-form-field><input matInput [(ngModel)]="regUsername" placeholder="username" /></mat-form-field>

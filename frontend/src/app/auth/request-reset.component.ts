@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { HttpClient } from '@angular/common/http';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
+import { NgForm } from '@angular/forms';
 
 @Component({
   selector: 'app-request-reset',
@@ -15,21 +16,30 @@ import { Router } from '@angular/router';
   template: `
   <mat-card style="max-width:480px;margin:24px auto;padding:16px;">
     <h3>Request password reset</h3>
-    <mat-form-field style="width:100%"><input matInput placeholder="username or email" [(ngModel)]="username" /></mat-form-field>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button mat-button (click)="request()">Request</button>
-      <button mat-button (click)="cancel()">Cancel</button>
-    </div>
+    <form #rf="ngForm" (ngSubmit)="request(rf)">
+      <mat-form-field style="width:100%">
+        <input matInput name="username" placeholder="username or email" required [(ngModel)]="username" #usernameCtl="ngModel" />
+        <mat-error *ngIf="usernameCtl.invalid && usernameCtl.touched">Username or email is required</mat-error>
+      </mat-form-field>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button mat-button type="submit" [disabled]="rf.invalid">Request</button>
+        <button mat-button type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
   </mat-card>
   `
 })
 export class RequestResetComponent {
   username = '';
   constructor(private http: HttpClient, private snack: MatSnackBar, private router: Router) {}
-  request() {
-    if (!this.username) { this.snack.open('username required', 'Close', { duration: 3000 }); return; }
+  request(form?: NgForm) {
+    if (form && form.invalid) {
+      Object.values((form as any).controls || {}).forEach((c: any) => c.markAsTouched());
+      return;
+    }
+    if (!form && !this.username) { this.snack.open('username required', 'Close', { duration: 3000 }); return; }
     this.http.post('/api/auth/request-reset', { username: this.username }).subscribe(
-      (res: any) => { const token = res?.resetToken; this.snack.open('Reset requested: ' + (token? token : ''), 'Close', { duration: 6000 }); this.router.navigateByUrl('/'); },
+      (res: any) => { const token = res?.resetToken; this.snack.open('Reset requested: ' + (token ? token : ''), 'Close', { duration: 6000 }); this.router.navigateByUrl('/'); },
       err => { this.snack.open('Request failed', 'Close', { duration: 4000 }); }
     );
   }
