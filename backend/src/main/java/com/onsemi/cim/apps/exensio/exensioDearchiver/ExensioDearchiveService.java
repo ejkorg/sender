@@ -23,15 +23,15 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class ReloaderService {
-    private static final Logger log = LoggerFactory.getLogger(ReloaderService.class);
+public class ExensioDearchiveService {
+    private static final Logger log = LoggerFactory.getLogger(ExensioDearchiveService.class);
 
     private final ExternalDbConfig externalDbConfig;
     private final RefDbService refDbService;
     private final RefDbProperties refDbProperties;
     private final LoadSessionRepository loadSessionRepository;
 
-    public ReloaderService(ExternalDbConfig externalDbConfig, RefDbService refDbService, RefDbProperties refDbProperties, LoadSessionRepository loadSessionRepository) {
+    public ExensioDearchiveService(ExternalDbConfig externalDbConfig, RefDbService refDbService, RefDbProperties refDbProperties, LoadSessionRepository loadSessionRepository) {
         this.externalDbConfig = externalDbConfig;
         this.refDbService = refDbService;
         this.refDbProperties = refDbProperties;
@@ -62,22 +62,19 @@ public class ReloaderService {
 
         String startDate = emptyToNull(params.get("startDate"));
         String endDate = emptyToNull(params.get("endDate"));
-    String testerType = emptyToNull(params.get("testerType"));
-    String dataType = emptyToNull(params.get("dataType"));
-    String location = emptyToNull(params.get("location"));
-    String testPhase = emptyToNull(params.get("testPhase"));
+        String testerType = emptyToNull(params.get("testerType"));
+        String dataType = emptyToNull(params.get("dataType"));
+        String location = emptyToNull(params.get("location"));
+        String testPhase = emptyToNull(params.get("testPhase"));
 
-        // Create a LoadSession record up front so callers/tests can reference it even when skipping discovery
-    String environment = emptyToNull(params.get("environment"));
-    // As per current business rule and tests, initiatedBy is always set to 'ui'
-    String initiatedBy = "ui";
+        String environment = emptyToNull(params.get("environment"));
+        String initiatedBy = "ui";
         String source = emptyToNull(params.get("source"));
         if (source == null) source = "ui";
         LoadSession session = new LoadSession(initiatedBy, site, environment, senderId, source);
         session.setStatus("CREATED");
         session = loadSessionRepository.save(session);
 
-        // If a listFile is provided, skip external discovery entirely (tests rely on this behavior)
         String listFile = emptyToNull(params.get("listFile"));
         if (listFile != null) {
             log.info("List file provided; skipping discovery for site {} and leaving session {} ready for manual payload insert.", site, session.getId());
@@ -89,13 +86,13 @@ public class ReloaderService {
             if (discovered.isEmpty()) {
                 return "No payloads discovered for " + site;
             }
-        StageResult result = refDbService.stagePayloads(site, senderId, discovered);
-        log.info("Staged {} payloads for site {} sender {} ({} duplicates)", result.stagedCount(), site, senderId, result.duplicates().size());
-        if (!result.duplicates().isEmpty()) {
-            log.debug("Skipped payloads during staging: {}", result.duplicates());
-        }
-        return String.format("Staged %d payloads for %s. Dispatch threshold is %d per run.",
-            result.stagedCount(), site, refDbProperties.getDispatch().getPerSend());
+            StageResult result = refDbService.stagePayloads(site, senderId, discovered);
+            log.info("Staged {} payloads for site {} sender {} ({} duplicates)", result.stagedCount(), site, senderId, result.duplicates().size());
+            if (!result.duplicates().isEmpty()) {
+                log.debug("Skipped payloads during staging: {}", result.duplicates());
+            }
+            return String.format("Staged %d payloads for %s. Dispatch threshold is %d per run.",
+                result.stagedCount(), site, refDbProperties.getDispatch().getPerSend());
         } catch (SQLException ex) {
             log.error("Failed discovering payloads for site {}", site, ex);
             return "Error during discovery: " + ex.getMessage();

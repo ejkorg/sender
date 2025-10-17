@@ -8,15 +8,15 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-public class ReloaderApplication extends SpringBootServletInitializer {
+public class ExensioDearchiverApplication extends SpringBootServletInitializer {
 
     public static void main(String[] args) {
-        SpringApplication.run(ReloaderApplication.class, args);
+        SpringApplication.run(ExensioDearchiverApplication.class, args);
     }
 
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-        return application.sources(ReloaderApplication.class);
+        return application.sources(ExensioDearchiverApplication.class);
     }
 
 }

@@ -11,34 +11,34 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "http://localhost:4200")
-public class ReloaderController {
+public class ExensioDearchiveController {
 
     @Autowired
-    private ReloaderService reloaderService;
+    private ExensioDearchiveService exensioDearchiveService;
 
     @GetMapping("/sites")
     public List<String> getSites() {
-        return reloaderService.getSites();
+        return exensioDearchiveService.getSites();
     }
 
     @GetMapping("/stage/status")
     public List<StageStatus> getStageStatus() {
-        return reloaderService.getStageStatuses();
+        return exensioDearchiveService.getStageStatuses();
     }
 
     @GetMapping("/stage/status/by")
     public List<StageStatus> getStageStatusFiltered(@RequestParam(required = false) String site,
                                                     @RequestParam(required = false) Integer senderId) {
-        return reloaderService.getStageStatuses(site, senderId);
+        return exensioDearchiveService.getStageStatuses(site, senderId);
     }
 
     @PostMapping("/reload")
     public String reload(@RequestBody Map<String, String> params) {
-        return reloaderService.processReload(params);
+        return exensioDearchiveService.processReload(params);
     }
 
     @GetMapping("/reload/filters")
     public ReloadFilterOptions reloadFilters(@RequestParam String site) {
-        return reloaderService.getReloadFilters(site);
+        return exensioDearchiveService.getReloadFilters(site);
     }
 }
