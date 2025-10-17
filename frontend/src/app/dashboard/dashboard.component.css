@@ -442,6 +442,13 @@
   word-break: break-word;
 }
 
+/* Allow material tooltip to wrap long labels nicely */
+.mat-tooltip {
+  white-space: normal !important;
+  max-width: 34rem !important;
+  word-break: break-word !important;
+}
+
 .graph-bar {
   display: flex;
   width: 100%;

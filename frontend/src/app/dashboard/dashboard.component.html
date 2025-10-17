@@ -89,7 +89,7 @@
         <div class="graph-list">
           <div class="graph-row clickable" *ngFor="let series of backlogSeries" role="button" tabindex="0"
                (click)="openBacklogDetail(series)" (keydown.enter)="openBacklogDetail(series)" matTooltip="View sender breakdown">
-            <div class="graph-label" [matTooltip]="series.label">{{ series.label }}</div>
+            <div class="graph-label" [matTooltip]="series.label" matTooltipPosition="above" matTooltipShowDelay="150" title="{{ series.label }}">{{ series.label }}</div>
             <div class="graph-bar">
               <div class="bar-segment ready" *ngIf="series.ready" [style.width]="barWidth(series.ready, series.total)" [matTooltip]="segmentTooltip('Ready', series.ready, series.total)">
                 <span *ngIf="showSegmentLabel(series.ready, series.total)">{{ series.ready }}</span>
