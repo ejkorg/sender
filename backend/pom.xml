@@ -9,10 +9,10 @@
         <relativePath/>
     </parent>
     <groupId>com.onsemi.cim.apps</groupId>
-    <artifactId>reloader-backend</artifactId>
+    <artifactId>exensioDearchiver-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>reloader-backend</name>
-    <description>Data Reloader Backend</description>
+    <name>exensioDearchiver-backend</name>
+    <description>Exensio Dearchiver Backend</description>
     <properties>
         <java.version>17</java.version>
     </properties>
