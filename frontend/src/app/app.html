@@ -1,5 +1,5 @@
 <mat-toolbar color="primary">
-  <span>Dataport Reload</span>
+  <span>exensio dearchiver</span>
   <span style="flex:1 1 auto"></span>
   <ng-container *ngIf="(auth.user$ | async) as u">
     <ng-container *ngIf="u?.username; else toolbarLogin">
@@ -21,7 +21,7 @@
           <mat-tab label="Dashboard">
             <app-dashboard></app-dashboard>
           </mat-tab>
-          <mat-tab label="DTP Resender">
+          <mat-tab label="Resender">
             <div class="tab-content">
               <app-stepper></app-stepper>
             </div>
