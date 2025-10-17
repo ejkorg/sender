@@ -114,6 +114,22 @@ Add the env var to the deployment spec:
 env:
   - name: SPRING_PROFILES_ACTIVE
     value: "dev"
+## Liquibase (prod) and RefDB authorization
+
+The `onsemi-oracle` profile (`application-onsemi-oracle.yml`) explicitly enables Liquibase at startup and points to the main changelog (`classpath:db/changelog/db.changelog-1.0.xml`). That changelog includes the auth changelog which creates the APP_* authorization schema (`APP_USERS`, `APP_ROLES`, `APP_USER_ROLES`) and seeds baseline roles (for example `ROLE_USER` and `ROLE_ADMIN`). Prefer using Liquibase in production to provision the RefDB authorization schema.
+
+For local development there is also a small code-first bootstrap runner that can create the same APP_* entries. This runner is intentionally disabled by default. To enable the dev-only bootstrap (do NOT enable in production), set the following properties:
+
+- `refdb.auth-bootstrap-enabled=true`
+- `refdb.bootstrap-admins=fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x`
+
+You can pass them as Spring arguments when running locally, for example:
+
+```bash
+mvn -f backend/pom.xml -Dspring-boot.run.arguments="--refdb.auth-bootstrap-enabled=true --refdb.bootstrap-admins=fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x" -DskipTests spring-boot:run
+```
+
+Or enable them temporarily in `application.yml` for an isolated dev run (we include a commented example in `application.yml`). Keep this disabled in CI and production; Liquibase should be used there.
 ```
 
 5) Quick curl examples (after enabling the dev profile)
