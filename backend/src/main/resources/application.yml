@@ -21,3 +21,8 @@ reloader:
   dbconn:
     yaml:
       path: classpath:dbconnections.yml
+
+# Optional: Dev-only local authorization bootstrap (use Liquibase in prod)
+#refdb:
+#  auth-bootstrap-enabled: true
+#  bootstrap-admins: "fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x"

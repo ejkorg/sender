@@ -2,7 +2,11 @@ spring:
   config:
     activate:
       on-profile: onsemi-oracle
+  autoconfigure:
+    # Override base exclusion: re-enable Liquibase auto-configuration in this profile
+    exclude: []
   liquibase:
+    enabled: true
     change-log: classpath:db/changelog/db.changelog-1.0.xml
   datasource:
     # Use refdb.* properties below via placeholders so the canonical values live in refdb
