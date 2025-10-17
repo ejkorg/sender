@@ -119,6 +119,25 @@ export class AuthService {
     });
   }
 
+  // Register a new user using backend register endpoint. On success, attempt login.
+  register(username: string, email: string | null, password: string): Observable<boolean> {
+    return new Observable<boolean>((observer) => {
+      this.http.post('/api/auth/register', { username, email, password }, { withCredentials: true }).subscribe(
+        (res: any) => {
+          // after registration, attempt login to obtain access token
+          this.login(username, password).subscribe(
+            ok => {
+              observer.next(ok);
+              observer.complete();
+            },
+            err => observer.error(err)
+          );
+        },
+        (err: any) => observer.error(err)
+      );
+    });
+  }
+
   logout() {
     this.setSession(null);
   }
