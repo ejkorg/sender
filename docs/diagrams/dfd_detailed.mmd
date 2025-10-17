@@ -1,0 +1,48 @@
+flowchart TD
+  User[User]
+  Browser[Browser]
+  Frontend[Frontend]
+  Backend[Backend]
+  RefDB[RefDB]
+  DTPDB[DTPDB]
+  User --> Browser
+  Browser --> Frontend
+  Frontend --> Backend
+  Backend --> RefDB
+  Backend --> DTPDB
+
+    RefDbSvc --> Repo
+    %% Detailed Data Flow Diagram (render-safe)
+    flowchart TD
+      U["User"]
+      B["Browser"]
+      F["Frontend"]
+
+      Stage["Stage API"]
+      Enqueue["Enqueue API"]
+      Dispatch["Dispatch API"]
+  %% Minimal DFD Detailed (render-safe)
+  flowchart TD
+    User[User]
+    Browser[Browser]
+    Frontend[Frontend]
+      flowchart TD
+        U["User"]
+        B["Browser"]
+        F["Frontend"]
+        BE["Backend"]
+        RefDB["RefDB"]
+        DTPDB["DTPDB"]
+        Stage["Stage API"]
+        Enqueue["Enqueue API"]
+        Dispatch["Dispatch API"]
+
+        U --> B --> F
+        F --> Stage
+        F --> Enqueue
+        F --> Dispatch
+        Stage --> BE
+        Enqueue --> BE
+        Dispatch --> BE
+        BE --> RefDB
+        BE --> DTPDB

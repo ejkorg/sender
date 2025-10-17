@@ -15,16 +15,10 @@ export class AuthService {
   private accessTokenKey = 'reloader_access_token';
 
   constructor(private http: HttpClient) {
-    const token = localStorage.getItem(this.accessTokenKey);
-    if (token) {
-      // set a minimal user to indicate authenticated state (don't trust JWT parsing for dev)
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const username = payload && payload.sub ? payload.sub : '';
-        this.userSubject.next({ username });
-      } catch (e) {
-        this.userSubject.next(null);
-      }
+    const token = this.getAccessToken();
+    const username = token ? this.extractUsername(token) : null;
+    if (token && username) {
+      this.userSubject.next({ username });
     }
   }
 
@@ -39,9 +33,50 @@ export class AuthService {
     return null;
   }
 
+  private extractUsername(token: string): string | null {
+    if (!token) {
+      return null;
+    }
+    if (token.includes('.')) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload && payload.sub) {
+          return String(payload.sub);
+        }
+      } catch (e) {
+        return null;
+      }
+    } else if (token.startsWith('token:')) {
+      const parts = token.split(':');
+      if (parts.length >= 2) {
+        return parts[1];
+      }
+    }
+    return null;
+  }
+
+  private setSession(token: string | null, fallbackUsername?: string): void {
+    if (!token) {
+      localStorage.removeItem(this.accessTokenKey);
+      this.userSubject.next(null);
+      return;
+    }
+    localStorage.setItem(this.accessTokenKey, token);
+    const username = this.extractUsername(token) || fallbackUsername || null;
+    if (username) {
+      this.userSubject.next({ username });
+    } else {
+      this.userSubject.next(null);
+    }
+  }
+
+  getAccessToken(): string | null {
+    return localStorage.getItem(this.accessTokenKey);
+  }
+
   // returns true if token exists and will expire within `ttlSeconds` seconds
   isTokenExpiringWithin(ttlSeconds: number): boolean {
-    const token = localStorage.getItem(this.accessTokenKey);
+    const token = this.getAccessToken();
     if (!token) return true;
     const exp = this.parseExpiry(token);
     if (!exp) return true;
@@ -51,19 +86,14 @@ export class AuthService {
 
   // refresh the access token using the backend refresh endpoint (backend sets refresh cookie)
   refresh(): Observable<boolean> {
-    return this.http.post('/api/auth/refresh', null).pipe(
+    return this.http.post('/api/auth/refresh', null, { withCredentials: true }).pipe(
       map((res: any) => {
         const token = res && res.accessToken ? res.accessToken : null;
         if (token) {
-          localStorage.setItem(this.accessTokenKey, token);
-          // update user subject
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const username = payload && payload.sub ? payload.sub : '';
-            this.userSubject.next({ username });
-          } catch (e) {}
+          this.setSession(token);
           return true;
         }
+        this.setSession(null);
         return false;
       }),
       catchError((_) => of(false))
@@ -73,12 +103,11 @@ export class AuthService {
   // Use the proper JWT login endpoint
   login(username: string, password: string): Observable<boolean> {
     return new Observable<boolean>((observer) => {
-      this.http.post('/api/auth/login', { username, password }).subscribe(
+      this.http.post('/api/auth/login', { username, password }, { withCredentials: true }).subscribe(
         (res: any) => {
           const token = res && res.accessToken ? res.accessToken : null;
           if (token) {
-            localStorage.setItem(this.accessTokenKey, token);
-            this.userSubject.next({ username });
+            this.setSession(token, username);
             observer.next(true);
             observer.complete();
           } else {
@@ -91,12 +120,11 @@ export class AuthService {
   }
 
   logout() {
-    localStorage.removeItem(this.accessTokenKey);
-    this.userSubject.next(null);
+    this.setSession(null);
   }
 
   getAuthHeaders(): HttpHeaders | null {
-    const token = localStorage.getItem(this.accessTokenKey);
+    const token = this.getAccessToken();
     if (!token) return null;
     return new HttpHeaders({ Authorization: `Bearer ${token}` });
   }

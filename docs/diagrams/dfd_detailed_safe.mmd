@@ -1,0 +1,23 @@
+```plaintext
+%% dfd_detailed_safe - simplified for rendering
+flowchart TD
+  User[User]
+  Browser[Browser]
+  Frontend[Frontend]
+  StageAPI[Stage API]
+  EnqueueAPI[Enqueue API]
+  RefDbService[RefDb Service]
+  SenderService[Sender Service]
+  DispatchService[Dispatch Service]
+  RefDB[Ref DB]
+  DTPDB[DTP DB]
+
+  User --> Browser
+  Browser --> Frontend
+  Frontend --> StageAPI
+  StageAPI --> RefDbService
+  Frontend --> EnqueueAPI
+  EnqueueAPI --> RefDbService
+  RefDbService --> RefDB
+  DispatchService --> DTPDB
+```

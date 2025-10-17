@@ -55,10 +55,38 @@ mvn -f backend/pom.xml -DskipTests=false test -Dtest=SomeSpecificTest
 
 ## Where to look in code
 
-- `com.example.reloader.config.ExternalDbConfig` — per-site pool creation, Caffeine cache and eviction handling.
-- `com.example.reloader.config.ConfigUtils` — centralized config lookup and boolean parsing used across the app.
-- `com.example.reloader.service.SenderService` — guarded by `external-db.allow-writes` when performing remote writes.
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ExternalDbConfig` — per-site pool creation, Caffeine cache and eviction handling.
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils` — centralized config lookup and boolean parsing used across the app.
+- `com.onsemi.cim.apps.exensio.dearchiver.service.SenderService` — guarded by `external-db.allow-writes` when performing remote writes.
 
 ## Notes
 
 - These runtime guards and the centralized `ConfigUtils` were added to prevent accidental remote writes and to make tests deterministic and safe to run in CI.
+
+## Profiles and environments
+
+- onsemi-oracle (runtime)
+  - Activate with `SPRING_PROFILES_ACTIVE=onsemi-oracle`.
+  - Uses `application-onsemi-oracle.yml` to point the app’s reference database (staging/dispatch) at Oracle.
+  - External connections are still supplied via YAML/JSON (see RELOADER_DBCONN_PATH) and can point at Oracle instances per environment.
+
+- Tests/CI
+  - Tests force external connections to H2 via `reloader.use-h2-external=true` (env: `RELOADER_USE_H2_EXTERNAL=true`).
+  - The test profile lives in `src/test/resources/application-test.yml` with H2 datasource settings for the app’s primary DB and the above flag set.
+  - A `schema.sql` under `src/test/resources/` provides minimal objects (like `ALL_METADATA_VIEW`) to satisfy discovery queries.
+
+## Optional hardening: per-test DB isolation
+
+By default, the suite uses a shared in-memory DB name (e.g., `jdbc:h2:mem:testdb`). To reduce cross-test interference:
+
+- Prefer deterministic reads (e.g., repository methods like `findTopByOrderByIdDesc`) when selecting the latest entity.
+- For stricter isolation, give each test class a unique DB name via a property override:
+
+  ```java
+  @TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:${random.value};DB_CLOSE_DELAY=-1"
+  })
+  public class MyIsolatedTest { /* ... */ }
+  ```
+
+This increases startup time (additional contexts) but avoids flakiness in concurrent runs.

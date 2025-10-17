@@ -1,0 +1,65 @@
+%% DFD Level-4 (detailed, render-safe)
+%% DFD Level-4 (detailed, fully sanitized for mermaid CLI)
+flowchart TD
+  %% Components
+  U[User]
+  B[Browser]
+  FE[Frontend]
+  StageAPI[Stage API]
+  flowchart TD
+    %% Components
+    U["User"]
+    B["Browser"]
+    FE["Frontend"]
+    StageAPI["Stage API"]
+    EnqueueAPI["Enqueue API"]
+    SenderService["Sender Service"]
+    DispatchService["Dispatch Service"]
+    SessionPushService["Session Push Service"]
+    Scheduler["Scheduler"]
+    RefDB["Ref DB staging"]
+    DTPDB["DTP DB destination"]
+    ExternalDB["External DB"]
+
+    U --> B --> FE
+    FE --> StageAPI
+    FE --> EnqueueAPI
+
+    EnqueueAPI --> E11["11. SenderController.enqueue(payloadIds, senderId)"]
+    E11 --> E12["12. SenderService.enqueuePayloadsWithResult(senderId, payloadIds, source) - dedupe check"]
+    E12 --> E12a["12a. repository.findExisting(senderId, payloadIds) - checks existing payload ids"]
+    E12a --> E13["13. For each new payload: repository.save(entry) -> INSERT sender_queue_entry (status=NEW)"]
+    E13 --> E14["14. On DataIntegrityViolationException (concurrent insert) -> treat as SKIPPED"]
+    E13 --> E15["15. Return enqueuedCount + skipped list to caller"]
+
+    Scheduler --> P16["16. Scheduler triggers SenderService.scheduledRun()"]
+    P16 --> P17["17. runIfBelowThreshold: guard by countByStatus('NEW')"]
+    P17 --> P18["18. processBatch(limit): repository.findByStatusOrderByCreatedAt('NEW', PageRequest)"]
+    P18 --> P19["19. For each entry: set PROCESSING -> send -> on success set SENT -> on failure set FAILED"]
+
+    Scheduler --> D22["22. Scheduler triggers SenderDispatchService.dispatch()"]
+    D22 --> D23["23. findSitesWithPending() - SELECT DISTINCT site FROM staging WHERE status=NEW"]
+    D23 --> D24["24. fetchNextBatchForSite(site, limit) - SELECT ... WHERE status=NEW AND site=? ORDER BY created_at LIMIT ?"]
+    D24 --> D25["25. Group by senderId -> pushGroup(site, senderId, recordsList)"]
+    D25 --> D26["26. Check maxQueueSize and safeCountQueue(id_sender) - SELECT COUNT(1) FROM DTP_SENDER_QUEUE_ITEM WHERE id_sender=?"]
+    D26 --> D27["27. Compute available slots and cap toDispatch accordingly"]
+    D27 --> D28["28. externalDbConfig.getConnection(site) -> detect dialect via metadata"]
+    D28 --> D29["29. If Oracle: SELECT SEQ.NEXTVAL; INSERT with explicit id (sequence path)"]
+    D28 --> D30["30. Else (identity): INSERT letting DB generate id (identity path)"]
+    D29 --> D31["31. Handle SQLException: if duplicate (SQLState class 23) -> treat as success (concurrent insert); else mark FAILED"]
+    D30 --> D31
+    D31 --> D32["32. markEnqueued(successIds) -> UPDATE staging rows status=ENQUEUED"]
+    D31 --> D33["33. On connection failure -> markFailed(eachRecord, message) and schedule retry"]
+
+    SessionPushService --> S34["34. claimNextBatch(sessionId,batchSize): transactional claim via SELECT..UPDATE to avoid duplicate claims"]
+    SessionPushService --> S35["35. pushSessionBatch: gate writes by EXTERNAL_DB_ALLOW_WRITES; use sequence or generated keys; on integrity violation mark SKIPPED; on transient errors mark FAILED and schedule retry with exponential backoff"]
+
+    RefDB --> U40["40. updateStatus(ids,status,message) - batch UPDATE"]
+    RefDB --> U41["41. markEnqueued(ids) -> updateStatus(ids,'ENQUEUED',NULL)"]
+    RefDB --> U42["42. markFailed(id,msg) -> updateStatus([id],'FAILED',message)"]
+
+    FE --> M43["43. Monitoring: StageController.list(...) -> refDbService.listRecords(...)"]
+    M43 --> M44["44. Retry: retryFailed -> set status=NEW for eligible nextAttemptAt<=now and requeue"]
+
+    classDef db fill:#fef3c7,stroke:#b58900;
+    class RefDB,DTPDB db;

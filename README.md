@@ -157,7 +157,7 @@ If you're on Windows with Docker Desktop (WSL2 backend) follow the same `docker 
 Tomcat / WAR deployment
 ------------------------
 
-If you plan to deploy the backend as a WAR in Tomcat, see `backend/README-DEV.md` → "Tomcat WAR deployment" for build commands, a `setenv.sh` template, and runtime notes. A ready example `setenv.sh` is available at `backend/examples/setenv.sh`.
+If you plan to deploy the backend as a WAR in Tomcat, see `backend/README-DEV.md` → "Tomcat WAR deployment" for build commands, a `setenv.sh` template, and runtime notes.
 
 Quick Windows examples
 ----------------------
@@ -343,3 +343,22 @@ npm run e2e
 ```
 
 In CI the workflow will build the backend, start it in background, and execute Playwright tests against http://localhost:8080.
+
+Profiles and testing
+--------------------
+
+- Production/onsemi runtime uses the `onsemi-oracle` profile to point the backend’s reference DB at Oracle. Run with:
+
+	```bash
+	SPRING_PROFILES_ACTIVE=onsemi-oracle \
+	RELOADER_DBCONN_PATH=/etc/reloader/dbconnections.json \
+	java -jar backend/target/reloader-backend-0.0.1-SNAPSHOT.jar
+	```
+
+- Tests/CI never contact Oracle. External connections are forced to H2 by `reloader.use-h2-external=true` (env `RELOADER_USE_H2_EXTERNAL=true`). To run backend tests:
+
+	```bash
+	mvn -f backend/pom.xml test
+	```
+
+See `backend/README.md` and `backend/docs/external-db-runbook.md` for more about the profile and flags.

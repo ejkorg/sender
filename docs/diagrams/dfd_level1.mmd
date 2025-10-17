@@ -1,25 +1,38 @@
-flowchart LR
-  %% Level 1 DFD: Enqueue -> Queue -> Processing
-  User["User / Frontend"]
-  API["SenderController (handles POST /enqueue)"]
-  DB[("App DB - sender_queue table")]
-  Scheduler["DiscoveryScheduler"]
-  Processor["SenderService.processQueueEntry()"]
-  ExternalDBs[("External Data Sources")]
-  Mail["MailService / SMTP"]
+%% Level-1 Data Flow Diagram (Mermaid)
+%% Entities: User, Frontend, Backend (Stage, Enqueue, Dispatch), Ref DB, DTP DB
+flowchart TD
+  User[User]
+  Browser[Browser]
+  Frontend[Frontend]
 
-  User -->|"enqueue form"| API
-  API -->|"validate & persist EnqueueRequest"| DB
-  DB -->|"new SenderQueueEntry row"| Scheduler
-  Scheduler -->|"fetch batch"| Processor
-  Processor -->|"lookup metadata from external DBs"| ExternalDBs
-  Processor -->|"update status in DB"| DB
-  Processor -->|"send notifications"| Mail
-
-  classDef datastore fill:#f0f9ff,stroke:#0284c7
-  class DB,ExternalDBs datastore
-
-  subgraph Notes
-    N1["Queue rows are SenderQueueEntry entity"]
-    N2["Metadata rows stored via ExternalMetadataRepository/JdbcExternalMetadataRepository"]
+  subgraph Backend[Backend Services]
+    StageAPI[Stage API]
+    SenderAPI[Sender API]
+    DispatchSvc[Dispatch Service]
+    SenderSvc[Sender Service]
+    RefDbSvc[RefDb Service]
   end
+
+  RefDB[Ref DB]
+  DTPDB[DTP DB]
+
+  User --> Browser
+  Browser --> Frontend
+  Frontend --> StageAPI
+  StageAPI --> Frontend
+
+  Frontend --> SenderAPI
+  SenderAPI --> RefDbSvc
+  RefDbSvc --> RefDB
+
+  SenderSvc --> RefDbSvc
+  RefDbSvc --> RefDB
+
+  DispatchSvc --> RefDbSvc
+  RefDbSvc --> RefDB
+  DispatchSvc --> DTPDB
+
+  Frontend --> StageAPI
+
+  classDef db fill:#fef3c7,stroke:#b58900;
+  class RefDB,DTPDB db;

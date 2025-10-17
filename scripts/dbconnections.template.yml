@@ -1,0 +1,48 @@
+# Copy this file to a secure location (e.g., /etc/reloader/dbconnections.yml)
+# and point the app to it with:
+#   RELOADER_DBCONN_YAML_PATH=file:/etc/reloader/dbconnections.yml
+#
+# Keys on the left are the connection keys shown in the UI dropdown.
+# You can suffix with environment (e.g., SITE-qa, SITE-prod) and the app
+# will attempt to resolve by <site>-<env>, <site>_<env>, <site>.<env>, <site>.
+#
+# Field meanings:
+# - host: One of the following forms is supported
+#     host:port/SERVICE   (recommended)
+#     host:port:SID       (legacy SID)
+#     jdbc:oracle:thin:@//host:port/SERVICE  (full JDBC URL)
+# - user, password: Credentials for the external DTP database (never commit real creds)
+# - dbType: oracle|h2|postgres (optional vendor hint; "oracle" recommended here)
+# - hikari (optional): per-connection pool overrides
+
+EXTERNAL_QA:
+  host: dtp-qa.example.com:1521/DTPSVC
+  user: DTP_APP
+  password: REPLACE_ME
+  dbType: oracle
+  hikari:
+    maximumPoolSize: 10
+    minimumIdle: 1
+    connectionTimeoutMs: 20000
+    idleTimeoutMs: 600000
+    validationTimeoutMs: 5000
+
+EXTERNAL_PROD:
+  host: dtp-prod.example.com:1521/PRODSVC
+  user: DTP_APP
+  password: REPLACE_ME
+  dbType: oracle
+  hikari:
+    maximumPoolSize: 20
+    minimumIdle: 2
+    connectionTimeoutMs: 20000
+    idleTimeoutMs: 600000
+    validationTimeoutMs: 5000
+
+# Example with environment suffix in the key; the UI may pass site+env
+# and the backend will resolve to this entry.
+MY_SITE-qa:
+  host: mysite-qa-db.example.com:1521/QASERVICE
+  user: DTP_APP
+  password: REPLACE_ME
+  dbType: oracle

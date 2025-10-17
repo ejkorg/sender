@@ -1,100 +1,328 @@
 <mat-card class="stepper-card">
-  <div *ngIf="step === 1">
-    <h3>1. Provide connection and filter</h3>
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Connection Key (optional)</mat-label>
-      <input matInput [(ngModel)]="connectionKey" name="connectionKey" />
-    </mat-form-field>
+  <mat-horizontal-stepper linear [selectedIndex]="stepIndex" (selectionChange)="onStepperChange($event)">
+    <mat-step label="1. Choose filters" [completed]="stepIndex > 0">
+      <div class="step-content">
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Site / Connection</mat-label>
+          <mat-select [(ngModel)]="selectedSite" name="site" (selectionChange)="onSiteChange()">
+            <mat-option [value]="null">-- Select site --</mat-option>
+            <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
+          </mat-select>
+        </mat-form-field>
 
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Saved Location ID (optional)</mat-label>
-      <input matInput type="number" [(ngModel)]="locationId" name="locationId" />
-    </mat-form-field>
-
-    <mat-form-field appearance="fill" class="full-width">
-      <mat-label>Metadata location (required)</mat-label>
-      <input matInput [(ngModel)]="metadataLocation" name="metadataLocation" />
-    </mat-form-field>
-
-    <div style="display:flex; gap:8px;">
-      <button mat-raised-button color="primary" (click)="doSearch()" [disabled]="!canSearch() || loading">Search</button>
-    </div>
-  </div>
-
-  <div *ngIf="step === 2">
-    <h3>2. Discovered results</h3>
-    <div *ngIf="loading"><mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner> Searching...</div>
-    <div *ngIf="!loading && discovered && discovered.length === 0">No results</div>
-    <div *ngIf="senders && senders.length">
-      <mat-form-field appearance="fill" class="full-width">
-        <mat-label>Choose sender (for enqueue)</mat-label>
-        <mat-select [(ngModel)]="selectedSenderId" name="selectedSenderId">
-          <mat-option *ngFor="let s of senders" [value]="s.idSender">{{ s.idSender }} — {{ s.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-    <div *ngIf="!loading && discovered && discovered.length">
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px;">
-        <button mat-button (click)="selectAll(sel)">Select all</button>
-        <button mat-button (click)="clearSelection(sel)">Clear</button>
-      </div>
-      <mat-selection-list #sel>
-        <mat-list-option *ngFor="let d of discovered" [value]="d">
-          <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
-            <div>{{ d.idSender || 'unknown' }} — {{ d.name }}</div>
-            <div><small>{{ d.extra || '' }}</small></div>
-          </div>
-        </mat-list-option>
-      </mat-selection-list>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button mat-button (click)="backToInputs()">Back</button>
-        <button mat-raised-button color="primary" (click)="submitSelectionFromList(sel.selectedOptions.selected)" [disabled]="!selectedSenderId">Enqueue selected</button>
-      </div>
-    </div>
-    <div style="display:flex; gap:8px; margin-top:8px;">
-      <button mat-button (click)="backToInputs()">Back</button>
-      <button mat-button color="primary" (click)="step = 3">Go to monitoring</button>
-    </div>
-  </div>
-
-  <div *ngIf="step === 3">
-    <h3>3. Monitoring</h3>
-    <div *ngIf="monitoringQueue && monitoringQueue.length === 0">No queue items found</div>
-
-    <!-- Enqueue response details card -->
-    <div *ngIf="enqueueResponse" style="margin-bottom:12px;">
-      <mat-card>
-        <mat-card-title>Enqueue result</mat-card-title>
-        <mat-card-content>
-          <div><strong>Enqueued:</strong> {{ enqueueResponse.enqueued != null ? enqueueResponse.enqueued : 'N/A' }}</div>
-          <div *ngIf="enqueueResponse.skipped && enqueueResponse.skipped.length">
-            <p><strong>Skipped ({{ enqueueResponse.skipped.length }}):</strong></p>
-            <mat-list>
-              <mat-list-item *ngFor="let sid of enqueueResponse.skipped">{{ sid }}</mat-list-item>
-            </mat-list>
-            <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
-              <button mat-button (click)="copySkippedToClipboard()">Copy Skipped IDs</button>
-              <button mat-button (click)="showFullResponse = !showFullResponse">{{ showFullResponse ? 'Hide' : 'Show' }} Full Response</button>
-            </div>
-            <mat-expansion-panel *ngIf="showFullResponse" style="margin-top:8px;">
-              <mat-expansion-panel-header>
-                <mat-panel-title>Full Enqueue Response</mat-panel-title>
-              </mat-expansion-panel-header>
-              <pre style="white-space:pre-wrap">{{ enqueueResponse | json }}</pre>
-            </mat-expansion-panel>
-          </div>
-          <div *ngIf="!enqueueResponse.skipped || enqueueResponse.skipped.length === 0"><small>No skipped payloads reported.</small></div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-    <mat-card *ngFor="let q of monitoringQueue" style="margin-bottom:8px;">
-      <mat-card-content style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; gap:12px; align-items:center;">
-          <div>{{ q.id }} — {{ q.payloadId || q.id_data || q.id_metadata }}</div>
-          <mat-chip [color]="getStatusColor(q.status)" selected>{{ q.status }}</mat-chip>
+        <div class="filters-loading" *ngIf="filtersLoading">
+          <mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner>
+          <span>Loading connection filters…</span>
         </div>
-      </mat-card-content>
-    </mat-card>
-    <div style="margin-top:8px;"><button mat-button (click)="loadMonitoring()">Refresh</button></div>
-  </div>
+
+        <ng-container *ngIf="!filtersLoading && filterOptions as filters">
+          <div class="two-col">
+            <mat-form-field appearance="fill">
+              <mat-label>Location</mat-label>
+              <mat-select [(ngModel)]="selectedLocation" name="location" (selectionChange)="onLocationChanged()">
+                <mat-option [value]="''">-- Select location --</mat-option>
+                <mat-option *ngFor="let loc of filters.locations" [value]="loc">{{ loc }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill">
+              <mat-label>Data type</mat-label>
+              <mat-select [(ngModel)]="selectedDataType" name="dataType" (selectionChange)="onDataTypeChanged()">
+                <mat-option [value]="''">-- Select data type --</mat-option>
+                <mat-option *ngFor="let dt of filters.dataTypes" [value]="dt">{{ dt }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="two-col">
+            <mat-form-field appearance="fill">
+              <mat-label>Tester type</mat-label>
+              <mat-select [(ngModel)]="selectedTesterType" name="testerType" (selectionChange)="onTesterTypeChanged()">
+                <mat-option [value]="''">-- Select tester type --</mat-option>
+                <mat-option *ngFor="let tt of filters.testerTypes" [value]="tt">{{ tt }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="sender-field">
+              <mat-label>Sender</mat-label>
+              <mat-select [(ngModel)]="selectedSenderId" name="senderId" (selectionChange)="onSenderChanged()" [disabled]="sendersLoading || !senderOptions.length">
+                <mat-option [value]="null">-- Select sender --</mat-option>
+                <mat-option *ngFor="let sender of senderOptions" [value]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</mat-option>
+              </mat-select>
+              <mat-progress-spinner *ngIf="sendersLoading" matSuffix diameter="20" mode="indeterminate"></mat-progress-spinner>
+              <mat-hint *ngIf="selectedSite && !sendersLoading && !senderOptions.length">No senders available for this connection.</mat-hint>
+            </mat-form-field>
+          </div>
+        </ng-container>
+
+        <div class="two-col" *ngIf="selectedSite">
+          <mat-form-field appearance="fill" class="phase-field">
+            <mat-label>Test phase</mat-label>
+            <mat-select [(ngModel)]="selectedTestPhase" name="testPhase" [disabled]="!testPhaseOptions.length && !testPhaseLoading">
+              <mat-option [value]="''">-- Any --</mat-option>
+              <mat-option *ngFor="let phase of testPhaseOptions" [value]="phase">{{ phase || 'None' }}</mat-option>
+            </mat-select>
+            <mat-progress-spinner *ngIf="testPhaseLoading" matSuffix diameter="20" mode="indeterminate"></mat-progress-spinner>
+            <mat-hint *ngIf="selectedSite && !testPhaseLoading && !testPhaseOptions.length">
+              Select location, data type, tester type, and sender to load phases.
+            </mat-hint>
+          </mat-form-field>
+        </div>
+
+        <div class="two-col">
+          <div class="date-range">
+            <mat-form-field appearance="fill">
+              <mat-label>Start date</mat-label>
+              <input matInput [matDatepicker]="startPicker" [(ngModel)]="startDate" name="startDate" />
+              <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+              <mat-datepicker #startPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="fill">
+              <mat-label>End date</mat-label>
+              <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate" name="endDate" />
+              <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+              <mat-datepicker #endPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <div class="step-actions">
+          <span class="helper" *ngIf="!canSearch()">Select site, location, data type, tester, and sender to continue.</span>
+          <button mat-flat-button color="primary" (click)="doPreview(0)" [disabled]="loading || !canSearch()">
+            <mat-icon *ngIf="loading" class="spinner-icon">sync</mat-icon>
+            {{ loading ? 'Previewing…' : 'Preview' }}
+          </button>
+        </div>
+      </div>
+    </mat-step>
+
+    <mat-step label="2. Select payloads" [completed]="stepIndex > 1">
+      <div class="step-content">
+        <ng-container *ngIf="previewLoaded; else noPreview">
+          <div class="preview-header">
+            <div>
+              <span class="preview-count">{{ previewTotal }} result{{ previewTotal === 1 ? '' : 's' }}</span>
+              <span class="preview-selected">({{ selectedCount }} selected)</span>
+            </div>
+            <div class="preview-header-actions">
+              <button mat-button type="button" (click)="toggleSelectAllCurrentPage(true)" [disabled]="previewLoading || !previewRows.length">Select page</button>
+              <button mat-button type="button" (click)="toggleSelectAllCurrentPage(false)" [disabled]="previewLoading || !previewRows.length">Clear page</button>
+              <button mat-button type="button" [matMenuTriggerFor]="exportMenu" [disabled]="previewLoading || (!previewRows.length && !selectedCount)">
+                <mat-icon>download</mat-icon>
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          <mat-menu #exportMenu="matMenu">
+            <button mat-menu-item type="button" (click)="exportPreviewCsv(false)" [disabled]="!previewRows.length">
+              <mat-icon>table_view</mat-icon>
+              Current page
+            </button>
+            <button mat-menu-item type="button" (click)="exportPreviewCsv(true)" [disabled]="!selectedCount">
+              <mat-icon>checklist</mat-icon>
+              Selected payloads
+            </button>
+          </mat-menu>
+
+          <mat-card *ngIf="previewDebugSql" class="debug-sql-card">
+            <mat-card-title>Preview SQL</mat-card-title>
+            <mat-card-content>
+              <pre>{{ previewDebugSql }}</pre>
+            </mat-card-content>
+            <mat-card-actions>
+              <button mat-button type="button" (click)="copyPreviewSql()">Copy SQL</button>
+            </mat-card-actions>
+          </mat-card>
+
+          <div class="preview-table-wrapper" [class.loading]="previewLoading">
+            <div class="loading-overlay" *ngIf="previewLoading">
+              <mat-progress-spinner diameter="36" mode="indeterminate"></mat-progress-spinner>
+            </div>
+            <table class="preview-table" *ngIf="previewRows.length">
+              <thead>
+                <tr>
+                  <th>Metadata ID</th>
+                  <th>Data ID</th>
+                  <th>Lot</th>
+                  <th>End Time</th>
+                  <th class="select-cell">Select</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of previewRows">
+                  <td>{{ row.metadataId || '—' }}</td>
+                  <td>{{ row.dataId || '—' }}</td>
+                  <td>{{ row.lot || '—' }}</td>
+                  <td>{{ row.endTime ? (row.endTime | date: uiDateFormat) : '—' }}</td>
+                  <td class="select-cell">
+                    <mat-checkbox [checked]="isRowSelected(row)" (change)="toggleRow(row, $event.checked)"></mat-checkbox>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="empty-hint" *ngIf="!previewRows.length && !previewLoading">No results on this page.</p>
+          </div>
+
+          <div class="pagination-bar" *ngIf="previewLoaded && previewTotal > 0">
+            <button mat-icon-button type="button" (click)="changePreviewPage(-1)" [disabled]="previewLoading || previewPage === 0">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <span>Page {{ previewPage + 1 }} of {{ previewLastPage + 1 }}</span>
+            <button mat-icon-button type="button" (click)="changePreviewPage(1)" [disabled]="previewLoading || previewLastPage < 0 || previewPage >= previewLastPage">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+            <mat-form-field appearance="outline" class="page-size-field">
+              <mat-label>Page size</mat-label>
+              <mat-select [(ngModel)]="previewSize" name="previewSize" (selectionChange)="changePreviewSize($event.value)">
+                <mat-option *ngFor="let size of previewSizes" [value]="size">{{ size }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <mat-checkbox [(ngModel)]="triggerDispatch" name="triggerDispatch">Dispatch immediately after staging</mat-checkbox>
+
+          <div class="step-actions">
+            <button mat-button type="button" (click)="goToStep(0)">Back</button>
+            <span class="helper">{{ selectedCount }} selected</span>
+            <button mat-raised-button color="primary" type="button" (click)="stageSelected()" [disabled]="staging || selectedCount === 0">
+              <mat-icon *ngIf="staging" class="spinner-icon">sync</mat-icon>
+              {{ staging ? 'Staging…' : 'Stage selected' }}
+            </button>
+          </div>
+        </ng-container>
+        <ng-template #noPreview>
+          <p *ngIf="!loading">Preview results appear here after step 1.</p>
+        </ng-template>
+      </div>
+    </mat-step>
+
+    <mat-step label="3. Monitor staging">
+      <div class="step-content">
+        <div class="step-actions">
+          <button mat-button type="button" (click)="reset()">Start over</button>
+          <button mat-stroked-button type="button" (click)="refreshMonitoring()" [disabled]="statusLoading || stageRecordsLoading">Refresh</button>
+        </div>
+
+        <mat-card *ngIf="stageResponse" class="enqueue-card">
+          <mat-card-title>Last staging run</mat-card-title>
+          <mat-card-content>
+            <div><strong>Staged:</strong> {{ stageResponse.staged }}</div>
+            <div><strong>Duplicates:</strong> {{ stageResponse.duplicates }}</div>
+            <div><strong>Dispatched:</strong> {{ stageResponse.dispatched }}</div>
+            <div *ngIf="stageResponse.requiresConfirmation" class="warning-note">
+              <mat-icon aria-hidden="true">warning</mat-icon>
+              <span>Dispatch pending confirmation. Re-run staging to proceed.</span>
+            </div>
+            <div *ngIf="stageResponse.duplicatePayloads?.length">
+              <p><strong>Duplicate payloads ({{ stageResponse.duplicatePayloads.length }}):</strong></p>
+              <mat-list dense>
+                <mat-list-item *ngFor="let dup of stageResponse.duplicatePayloads | slice:0:10">
+                  <div class="duplicate-row">
+                    <div class="duplicate-ids">{{ dup.metadataId }}, {{ dup.dataId }}</div>
+                    <div class="duplicate-meta">
+                      <mat-icon aria-hidden="true">person</mat-icon>
+                      <span>{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</span>
+                      <span class="duplicate-time" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ (dup.lastRequestedAt || dup.stagedAt) | date: uiDateFormat }}</span>
+                      <span *ngIf="dup.previousStatus" class="duplicate-status">status {{ dup.previousStatus }}</span>
+                      <span *ngIf="dup.requiresConfirmation" class="duplicate-attention">needs confirmation</span>
+                    </div>
+                  </div>
+                </mat-list-item>
+              </mat-list>
+              <button mat-button type="button" (click)="copyDuplicatesToClipboard()">Copy duplicates</button>
+            </div>
+            <div *ngIf="!stageResponse.duplicatePayloads?.length"><small>No duplicates reported.</small></div>
+          </mat-card-content>
+        </mat-card>
+
+        <div class="status-grid" *ngIf="stageStatus.length">
+          <mat-card *ngFor="let status of stageStatus" class="status-card">
+            <mat-card-title>Sender {{ status.senderId }}</mat-card-title>
+            <mat-card-content>
+              <div class="status-line"><span>Total</span><strong>{{ status.total }}</strong></div>
+              <div class="status-line"><span>Ready</span><strong>{{ status.ready }}</strong></div>
+              <div class="status-line"><span>Enqueued</span><strong>{{ status.enqueued }}</strong></div>
+              <div class="status-line"><span>Completed</span><strong>{{ status.completed }}</strong></div>
+              <div class="status-line"><span>Failed</span><strong>{{ status.failed }}</strong></div>
+              <div class="status-users" *ngIf="status.users?.length">
+                <h4>User breakdown</h4>
+                <div class="status-user-row" *ngFor="let user of status.users">
+                  <div class="user-name">{{ user.username || 'unknown' }}</div>
+                  <div class="user-metrics">
+                    <span class="badge" matTooltip="Ready">R {{ user.ready }}</span>
+                    <span class="badge" matTooltip="Enqueued">E {{ user.enqueued }}</span>
+                    <span class="badge warn" matTooltip="Failed">F {{ user.failed }}</span>
+                    <span class="badge muted" matTooltip="Completed">C {{ user.completed }}</span>
+                  </div>
+                  <div class="user-timestamp" *ngIf="user.lastRequestedAt">{{ user.lastRequestedAt | date: uiDateFormat }}</div>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+        <p *ngIf="!stageStatus.length && !statusLoading">No staging metrics available yet.</p>
+
+        <div class="records-header">
+          <mat-form-field appearance="outline">
+            <mat-label>Status filter</mat-label>
+            <mat-select [(ngModel)]="stageRecordsStatus" name="recordsStatus" (selectionChange)="loadStageRecords(0)">
+              <mat-option value="ALL">All</mat-option>
+              <mat-option value="NEW">New</mat-option>
+              <mat-option value="ENQUEUED">Enqueued</mat-option>
+              <mat-option value="DONE">Done</mat-option>
+              <mat-option value="FAILED">Failed</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="page-size-field">
+            <mat-label>Page size</mat-label>
+            <mat-select [(ngModel)]="stageRecordsSize" name="recordPageSize" (selectionChange)="changeStageRecordsSize($event.value)">
+              <mat-option *ngFor="let size of stageRecordsSizes" [value]="size">{{ size }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="records-table-wrapper" [class.loading]="stageRecordsLoading">
+          <div class="loading-overlay" *ngIf="stageRecordsLoading">
+            <mat-progress-spinner diameter="36" mode="indeterminate"></mat-progress-spinner>
+          </div>
+          <table class="records-table" *ngIf="stageRecords.length">
+            <thead>
+              <tr>
+                <th>Metadata ID</th>
+                <th>Data ID</th>
+                <th>Status</th>
+                <th>Staged By</th>
+                <th>Last Requested</th>
+                <th>Updated</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let record of stageRecords">
+                <td>{{ record.metadataId || '—' }}</td>
+                <td>{{ record.dataId || '—' }}</td>
+                <td>{{ record.status }}</td>
+                <td>{{ record.lastRequestedBy || record.stagedBy || 'unknown' }}</td>
+                <td>{{ record.lastRequestedAt ? (record.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
+                <td>{{ record.updatedAt | date: uiDateFormat }}</td>
+                <td>{{ record.errorMessage || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="empty-hint" *ngIf="!stageRecords.length && !stageRecordsLoading">No staged records for this filter.</p>
+        </div>
+
+        <div class="pagination-bar" *ngIf="stageRecordsTotal > 0">
+          <button mat-icon-button type="button" (click)="changeStageRecordsPage(-1)" [disabled]="stageRecordsLoading || stageRecordsPage === 0">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <span>Page {{ stageRecordsPage + 1 }} of {{ stageRecordsLastPage + 1 }}</span>
+          <button mat-icon-button type="button" (click)="changeStageRecordsPage(1)" [disabled]="stageRecordsLoading || stageRecordsLastPage < 0 || stageRecordsPage >= stageRecordsLastPage">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    </mat-step>
+  </mat-horizontal-stepper>
 </mat-card>

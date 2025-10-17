@@ -1,59 +1,38 @@
+.app-shell {
+  display: flex;
+  justify-content: center;
+  background: #f4f7fb;
+  min-height: calc(100vh - 64px);
+  padding: 32px 16px 48px;
+}
+
 .app-container {
-  max-width: 800px;
-  margin: 24px auto;
-  padding: 16px;
-}
-
-.full-width {
   width: 100%;
+  max-width: 1120px;
 }
 
-label {
-  display: block;
-  margin-bottom: 5px;
+.app-tabs {
+  background: transparent;
+  box-shadow: none;
 }
 
-input, select {
-  width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
+.app-tabs ::ng-deep .mat-mdc-tab-body-wrapper {
+  background: transparent;
+  padding-top: 16px;
 }
 
-button {
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  cursor: pointer;
+.tab-content {
+  padding: 8px 0 0;
 }
 
-button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.actions {
-  margin-top: 16px;
-}
-
-.result-card {
-  margin-top: 16px;
-}
-
-.stepper-skeleton {
-  margin-bottom: 12px;
-}
-.skeleton-line {
-  height: 12px;
-  background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
-  background-size: 200% 100%;
-  animation: loading 1.2s linear infinite;
-  margin: 8px 0;
-}
-.skeleton-line.short { width: 140px; }
-.skeleton-line.half { width: 50%; }
-
-@keyframes loading {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
+.login-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  text-align: center;
+  padding: 32px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }

@@ -199,6 +199,55 @@ RELOADER_USE_H2_EXTERNAL=true EXTERNAL_DB_ALLOW_WRITES=true mvn -f backend/pom.x
 
 Set these with care in shared CI runners. Prefer scoped CI job steps using dedicated test databases or ephemeral runners so actual production systems are never affected.
 
+---
+
+Run against Oracle RefDB (staging) and Oracle DTP
+--------------------------------------------------
+
+Use the `oracle` Spring profile and provide RefDB credentials via environment variables. Supply your DTP connection entries via an external YAML and point the app to it.
+
+1) RefDB environment variables:
+
+```bash
+export REFDB_HOST=your-refdb-host
+export REFDB_PORT=1521
+export REFDB_SERVICE=ORCLPDB1   # or set REFDB_SID instead
+export REFDB_USER=RELOADER
+export REFDB_PASSWORD=******
+```
+
+2) External DTP entries (YAML file), e.g. `/etc/reloader/dbconnections.yml`:
+
+```yaml
+EXTERNAL_QA:
+  host: dtp-host.example.com:1521/DTPSVC
+  user: DTP_APP
+  password: secret
+  dbType: oracle
+EXTERNAL_PROD:
+  host: dtp-prod.example.com:1521/PRODSVC
+  user: DTP_APP
+  password: secret
+  dbType: oracle
+```
+
+Point the app to that file:
+
+```bash
+export RELOADER_DBCONN_YAML_PATH=file:/etc/reloader/dbconnections.yml
+```
+
+3) Start the backend with the Oracle profile:
+
+```bash
+mvn -f backend/pom.xml -DskipTests spring-boot:run -Dspring-boot.run.profiles=oracle
+```
+
+Tuning and notes:
+- Pool sizing for RefDB: `REFDB_POOL_MAX`, `REFDB_POOL_MIN_IDLE`, etc. For DTP pools: `DTP_POOL_MAX`, `DTP_CONN_TIMEOUT_MS`, etc. See `application-oracle.yml`.
+- Ensure the Oracle JDBC driver is available to Maven. If using a private repository, configure settings.xml appropriately.
+- Keep `RELOADER_USE_H2_EXTERNAL` unset or false so the app uses real Oracle for DTP.
+
 CI workflow for external-write tests
 ------------------------------------
 
@@ -219,16 +268,16 @@ Exact property names & where they're read (code references)
 For precision in the README, here are the exact property names and the places in the code that read them:
 
 - reloader.use-h2-external / RELOADER_USE_H2_EXTERNAL
-  - Read via: com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false)
+  - Read via: com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils.getBooleanFlag(env, "reloader.use-h2-external", "RELOADER_USE_H2_EXTERNAL", false)
   - Example code locations:
-    - `com.example.reloader.boot.DevExternalDbInitRunner` — the dev runner checks this flag before attempting to create the minimal external table.
-    - `com.example.reloader.service.SessionPushService` — used to decide whether to take the H2 insert path and the generated-keys behavior.
+    - `com.onsemi.cim.apps.exensio.dearchiver.boot.DevExternalDbInitRunner` — the dev runner checks this flag before attempting to create the minimal external table.
+    - `com.onsemi.cim.apps.exensio.dearchiver.service.SessionPushService` — used to decide whether to take the H2 insert path and the generated-keys behavior.
 
 - external-db.allow-writes / EXTERNAL_DB_ALLOW_WRITES
-  - Read via: com.example.reloader.config.ConfigUtils.getBooleanFlag(env, "external-db.allow-writes", "EXTERNAL_DB_ALLOW_WRITES", false)
+  - Read via: com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils.getBooleanFlag(env, "external-db.allow-writes", "EXTERNAL_DB_ALLOW_WRITES", false)
   - Example code locations:
-    - `com.example.reloader.service.SessionPushService` — the push path throws IllegalStateException if writes are not allowed.
-    - `com.example.reloader.service.SenderService` — guarded when the service may perform external writes.
+    - `com.onsemi.cim.apps.exensio.dearchiver.service.SessionPushService` — the push path throws IllegalStateException if writes are not allowed.
+    - `com.onsemi.cim.apps.exensio.dearchiver.service.SenderService` — guarded when the service may perform external writes.
 
 Helpful test annotations
 ------------------------
@@ -239,7 +288,7 @@ Several tests opt into the H2-external + external-writes behavior using Spring t
 @TestPropertySource(properties={"reloader.use-h2-external=true","external-db.allow-writes=true"})
 ```
 
-Look for these annotations in `backend/src/test/java/com/example/reloader/service` to find the tests that exercise remote-write code paths.
+Look for these annotations in `backend/src/test/java/com/onsemi/cim/apps/exensio/dearchiver/service` to find the tests that exercise remote-write code paths.
 
 Troubleshooting
 ---------------
@@ -375,9 +424,9 @@ The script will attempt to locate an H2 jar in your local Maven cache and fall b
 Where to look next in the code
 ------------------------------
 
-- `com.example.reloader.config.ConfigUtils` — helper used across the codebase to read flags with a primary property and fallback env/property name.
-- `com.example.reloader.boot.DevExternalDbInitRunner` — dev-only runner that can create the minimal table when `reloader.use-h2-external=true` and `dev` profile is active.
-- `com.example.reloader.service.SessionPushService` — main push logic (oracle fast-path, generic path, generated-key fallback, SKIPPED classification, backoff/retry).
+- `com.onsemi.cim.apps.exensio.dearchiver.config.ConfigUtils` — helper used across the codebase to read flags with a primary property and fallback env/property name.
+- `com.onsemi.cim.apps.exensio.dearchiver.boot.DevExternalDbInitRunner` — dev-only runner that can create the minimal table when `reloader.use-h2-external=true` and `dev` profile is active.
+- `com.onsemi.cim.apps.exensio.dearchiver.service.SessionPushService` — main push logic (oracle fast-path, generic path, generated-key fallback, SKIPPED classification, backoff/retry).
 - `backend/src/main/resources/dbconnections.json.example` — per-site vendor hints example.
 
 If you'd like I can:
@@ -410,28 +459,7 @@ Important safety notes:
 - Do NOT run this script in production environments. The repository now uses `onFail="HALT"` in changelogs to ensure deployments fail fast if schema objects are missing.
 - The helper backs up the original changelog files and restores them after you confirm (it will prompt you to press Enter). If you cancel restoration, restore them manually from the backup directory created under `target/`.
 
-If you prefer an environment-driven toggle rather than editing files on disk, the project now supports a parameterized preCondition behavior via the Liquibase property
-`liquibase.precondition.onFail` and a convenience Maven profile.
-
-Usage options:
-
-- Use the Maven profile `liquibase-relaxed` (recommended for local dev):
-
-```bash
-# sets liquibase.precondition.onFail=MARK_RAN for the duration of the build/run
-mvn -f backend/pom.xml -Pliquibase-relaxed -DskipITs=true test
-```
-
-- Or pass the property directly at runtime:
-
-```bash
-# Pass the property to Maven or Java
-mvn -f backend/pom.xml -Dliquibase.precondition.onFail=MARK_RAN liquibase:update
-# or when running the jar
-java -Dliquibase.precondition.onFail=MARK_RAN -jar target/reloader-backend-0.0.1-SNAPSHOT.jar ...
-```
-
-This avoids editing changelog files and preserves `onFail="HALT"` as the production default.
+If you prefer an environment-driven toggle instead of editing files, use Liquibase contexts (for example, add a secondary changelog include guarded by `context="dev"`) or wrap the helper script above in your tooling. Liquibase validates changelog XML before property substitution, so attributes such as `onFail` and `onError` must always be literal values (`HALT`, `WARN`, `CONTINUE`, or `MARK_RAN`).
 
 Windows (PowerShell) usage
 ---------------------------

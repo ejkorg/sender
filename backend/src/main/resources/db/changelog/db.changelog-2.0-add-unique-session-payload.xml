@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <databaseChangeLog
         xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -6,9 +5,8 @@
             http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
 
     <changeSet id="2025-10-04-1-dedupe-load-session-payload" author="copilot">
-       <!-- The onFail behavior is parameterized so devs can relax it with -Dliquibase.precondition.onFail=MARK_RAN
-           without editing changelog files. Default is HALT (safe for production). -->
-       <preConditions onFail="${liquibase.precondition.onFail:HALT}">
+        <!-- Fail fast if the staging table is missing; use the dev helper script if you need to relax this locally. -->
+    <preConditions onFail="HALT">
             <tableExists tableName="load_session_payload" />
         </preConditions>
         <!--
@@ -32,8 +30,14 @@
     </changeSet>
 
     <changeSet id="2025-10-04-2-add-global-payload-id" author="copilot">
-        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
-            <tableExists tableName="load_session_payload" />
+    <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <columnExists tableName="load_session_payload" columnName="global_payload_id" />
+                </not>
+            </and>
         </preConditions>
         <addColumn tableName="load_session_payload">
             <column name="global_payload_id" type="BIGINT" />
@@ -44,9 +48,11 @@
     </changeSet>
 
     <changeSet id="2025-10-04-3-add-unique-constraint-session-payload" author="copilot">
-        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
+    <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN">
             <and>
                 <tableExists tableName="load_session_payload" />
+                <sqlCheck expectedResult="0">SELECT COUNT(*) FROM user_constraints WHERE constraint_name = 'UK_LSP_SESS_PL' AND constraint_type IN ('U','P')</sqlCheck>
             </and>
         </preConditions>
         <!-- Constraint name shortened for Oracle identifier limits (<= 30 chars) -->

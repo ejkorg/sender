@@ -1,8 +1,16 @@
 {
-		"xe-local": {
-			"host": "localhost/XEPDB1",
-			"user": "reloader",
-			"password": "Password123",
-			"port": "1521"
-		}
+	"EXTERNAL_QA": {
+		"host": "gyqsq-db.onsemi.com:1545/GYQSQ",
+		"port": "1545",
+		"user": "DATAPORT_USER",
+		"password": "dpusr^401",
+		"dbType": "oracle"
+	},
+	"EXTERNAL_PROD": {
+		"host": "gyqsq-db.onsemi.com:1545/GYQSQ",
+		"port": "1545",
+		"user": "DATAPORT_USER",
+		"password": "dpusr^401",
+		"dbType": "oracle"
+	}
 }

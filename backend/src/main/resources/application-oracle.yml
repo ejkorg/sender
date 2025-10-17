@@ -1,0 +1,47 @@
+server:
+  port: 8080
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
+
+# Ensure we do NOT use the in-memory H2 external DB when connecting to a real Oracle DTP instance
+
+reloader:
+  use-h2-external: false
+  dbconn:
+    yaml:
+      # You can point this to a file path (e.g., file:/etc/reloader/dbconnections.yml)
+      path: ${RELOADER_DBCONN_YAML_PATH:classpath:dbconnections.yml}
+
+# RefDB Oracle staging connection
+refdb:
+  host: ${REFDB_HOST:exndev-db.onsemi.com}
+  port: ${REFDB_PORT:1739}
+  # Provide either SID or service; service is preferred for modern setups
+  service: ${REFDB_SERVICE:EXNDEV.onsemi.com}
+  # sid: ${REFDB_SID:ORCL}
+  user: ${REFDB_USER:refdb}
+  password: ${REFDB_PASSWORD:XBfjCq#$1542FFz}
+  staging-table: ${REFDB_STAGING_TABLE:SENDER_STAGE}
+  pool:
+    max-size: ${REFDB_POOL_MAX:10}
+    min-idle: ${REFDB_POOL_MIN_IDLE:1}
+  dispatch:
+    per-send: ${REFDB_DISPATCH_PER_SEND:200}
+    interval-ms: ${REFDB_DISPATCH_INTERVAL_MS:60000}
+    max-queue-size: ${REFDB_DISPATCH_MAX_QUEUE:2000}
+    monitor-interval-ms: ${REFDB_DISPATCH_MONITOR_MS:120000}
+
+# External DB pool defaults (used when connecting to Oracle DTP from the dropdown)
+external-db:
+  hikari:
+    maximum-pool-size: ${DTP_POOL_MAX:10}
+    minimum-idle: ${DTP_POOL_MIN_IDLE:1}
+    connection-timeout-ms: ${DTP_CONN_TIMEOUT_MS:20000}
+    idle-timeout-ms: ${DTP_IDLE_TIMEOUT_MS:600000}
+    validation-timeout-ms: ${DTP_VALIDATION_TIMEOUT_MS:5000}
+  cache:
+    max-pools: ${DTP_CACHE_MAX_POOLS:50}
+    expire-after-access-minutes: ${DTP_CACHE_EXPIRE_MIN:60}

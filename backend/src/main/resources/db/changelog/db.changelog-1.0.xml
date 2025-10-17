@@ -88,6 +88,15 @@
     </changeSet>
 
     <changeSet id="5" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <and>
+                <tableExists tableName="external_location" />
+                <not>
+                    <columnExists tableName="external_location" columnName="site" />
+                </not>
+            </and>
+        </preConditions>
         <addColumn tableName="external_location">
             <column name="site" type="VARCHAR(100)" />
         </addColumn>
@@ -98,14 +107,155 @@
         <sql dbms="h2">UPDATE external_location SET site = UPPER(CASE WHEN LOCATE(' ', label) &gt; 0 THEN SUBSTRING(label, 1, LOCATE(' ', label)-1) ELSE label END);</sql>
         <sql dbms="oracle">UPDATE external_location SET site = UPPER(CASE WHEN INSTR(label, ' ') &gt; 0 THEN SUBSTR(label, 1, INSTR(label, ' ')-1) ELSE label END);</sql>
     </changeSet>
+    <!-- Create load_session table -->
+    <changeSet id="6a-create-load-session" author="copilot">
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <not>
+                <tableExists tableName="load_session" />
+            </not>
+        </preConditions>
+        <createTable tableName="load_session">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="initiated_by" type="VARCHAR(255)" />
+            <column name="site" type="VARCHAR(100)" />
+            <column name="environment" type="VARCHAR(100)" />
+            <column name="sender_id" type="INT" />
+            <column name="source" type="VARCHAR(200)" />
+            <column name="status" type="VARCHAR(50)" />
+            <column name="total_payloads" type="INT" />
+            <column name="enqueued_local_count" type="INT" />
+            <column name="pushed_remote_count" type="INT" />
+            <column name="skipped_count" type="INT" />
+            <column name="failed_count" type="INT" />
+            <column name="created_at" type="TIMESTAMP" />
+            <column name="updated_at" type="TIMESTAMP" />
+        </createTable>
+    </changeSet>
+
+    <!-- Create load_session_payload table -->
+    <changeSet id="6a-create-load-session-payload" author="copilot">
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <not>
+                <tableExists tableName="load_session_payload" />
+            </not>
+        </preConditions>
+        <createTable tableName="load_session_payload">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="session_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payload_id" type="VARCHAR(1000)" />
+            <column name="status" type="VARCHAR(50)" />
+            <column name="error" type="VARCHAR(2000)" />
+            <column name="external_id" type="VARCHAR(255)" />
+            <column name="pushed_at" type="TIMESTAMP" />
+            <column name="next_attempt_at" type="TIMESTAMP" />
+            <column name="attempts" type="INT" />
+            <column name="created_at" type="TIMESTAMP" />
+            <column name="updated_at" type="TIMESTAMP" />
+            <column name="global_payload_id" type="BIGINT" />
+        </createTable>
+    </changeSet>
+
+    <!-- Add foreign key after both tables exist -->
+    <changeSet id="6a-add-fk-load-session-payload" author="copilot">
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <tableExists tableName="load_session" />
+            </and>
+        </preConditions>
+        <addForeignKeyConstraint baseTableName="load_session_payload" baseColumnNames="session_id" referencedTableName="load_session" referencedColumnNames="id" constraintName="fk_lsp_session"/>
+    </changeSet>
 
     <changeSet id="7" author="copilot">
-        <preConditions onFail="${liquibase.precondition.onFail:HALT}">
-            <tableExists tableName="load_session_payload" />
+        <!-- Only add column if it does not already exist. If it exists, mark this changeset as ran. -->
+        <!-- validCheckSum ANY prevents checksum validation failures in DBs where this changeset was already applied with the previous content. -->
+        <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <and>
+                <tableExists tableName="load_session_payload" />
+                <not>
+                    <columnExists tableName="load_session_payload" columnName="next_attempt_at" />
+                </not>
+            </and>
         </preConditions>
         <addColumn tableName="load_session_payload">
             <column name="next_attempt_at" type="TIMESTAMP" />
         </addColumn>
+    </changeSet>
+
+    <!-- Oracle-specific sequences and triggers for auto-increment behavior -->
+    <!-- Oracle sequences and triggers split into per-object changeSets with existence checks -->
+    <changeSet id="6b-oracle-seq-load-session" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <and>
+                <dbms type="oracle" />
+                <not>
+                    <sequenceExists sequenceName="app_seq_load_session" />
+                </not>
+            </and>
+        </preConditions>
+        <createSequence sequenceName="app_seq_load_session" startValue="1" incrementBy="1" />
+    </changeSet>
+
+    <changeSet id="6b-oracle-seq-load-session-payload" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <and>
+                <dbms type="oracle" />
+                <not>
+                    <sequenceExists sequenceName="app_seq_load_session_payload" />
+                </not>
+            </and>
+        </preConditions>
+        <createSequence sequenceName="app_seq_load_session_payload" startValue="1" incrementBy="1" />
+    </changeSet>
+
+    <changeSet id="6b-oracle-trg-load-session" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <and>
+                <dbms type="oracle" />
+                <!-- trigger existence check via SQL against user_triggers; returns 0 when not present -->
+                <sqlCheck expectedResult="0">SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'APP_TRG_LOAD_SESSION_BI'</sqlCheck>
+            </and>
+        </preConditions>
+        <sql dbms="oracle" splitStatements="false">
+            CREATE OR REPLACE TRIGGER app_trg_load_session_bi
+            BEFORE INSERT ON load_session
+            FOR EACH ROW
+            BEGIN
+                IF :new.id IS NULL THEN
+                    SELECT app_seq_load_session.NEXTVAL INTO :new.id FROM dual;
+                END IF;
+            END;
+        </sql>
+    </changeSet>
+
+    <changeSet id="6b-oracle-trg-load-session-payload" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+    <preConditions onFail="MARK_RAN" onError="HALT">
+            <and>
+                <dbms type="oracle" />
+                <sqlCheck expectedResult="0">SELECT COUNT(*) FROM user_triggers WHERE trigger_name = 'APP_TRG_LSP_BI'</sqlCheck>
+            </and>
+        </preConditions>
+        <sql dbms="oracle" splitStatements="false">
+            CREATE OR REPLACE TRIGGER app_trg_lsp_bi
+            BEFORE INSERT ON load_session_payload
+            FOR EACH ROW
+            BEGIN
+                IF :new.id IS NULL THEN
+                    SELECT app_seq_load_session_payload.NEXTVAL INTO :new.id FROM dual;
+                END IF;
+            END;
+        </sql>
     </changeSet>
 
     <!-- Include additional changelogs -->

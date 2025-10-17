@@ -1,0 +1,14 @@
+%% Minimal System Architecture (render-safe)
+flowchart LR
+  User[User]
+  Browser[Browser]
+  Frontend[Frontend]
+  Backend[Backend]
+  RefDB[RefDB]
+  DTPDB[DTPDB]
+
+  User --> Browser
+  Browser --> Frontend
+  Frontend --> Backend
+  Backend --> RefDB
+  Backend --> DTPDB

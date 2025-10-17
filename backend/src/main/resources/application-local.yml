@@ -2,20 +2,9 @@ server:
   port: 8080
 
 spring:
-  datasource:
-    url: jdbc:h2:mem:reloader;DB_CLOSE_DELAY=-1;MODE=Oracle
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
-  jpa:
-    # Let Hibernate auto-detect the dialect at runtime. Override with
-    # -Dspring.jpa.database-platform=org.hibernate.dialect.Oracle12cDialect
-    # when you explicitly want to force Oracle in local runs.
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-  liquibase:
-    change-log: classpath:db/changelog/db.changelog-1.0.xml
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
 
 # External DB pool defaults (used when connecting to selected Oracle from dropdown)
 external-db:
@@ -28,10 +17,6 @@ external-db:
   cache:
     max-pools: 20
     expire-after-access-minutes: 30
-
-# In local profile you can optionally set this to true to simulate the external DB as in-memory H2
-# reloader:
-#   use-h2-external: true
 
 # Point the app to the local YAML list of external DB connections for the UI dropdown
 reloader:

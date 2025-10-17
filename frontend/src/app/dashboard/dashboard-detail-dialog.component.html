@@ -1,0 +1,56 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+
+<mat-dialog-content class="dialog-content">
+  <p class="description" *ngIf="data.description">{{ data.description }}</p>
+
+  <div class="table-wrapper" *ngIf="hasRows; else emptyState">
+    <table>
+      <thead>
+        <tr>
+          <th *ngFor="let column of data.columns" [class.align-end]="column.align === 'end'" [class.align-center]="column.align === 'center'">
+            {{ column.label }}
+          </th>
+          <th *ngIf="hasRowActions" class="align-end actions-header">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of data.rows">
+          <td *ngFor="let column of data.columns" [class.align-end]="column.align === 'end'" [class.align-center]="column.align === 'center'">
+            {{ formatCell(row[column.key]) }}
+          </td>
+          <td *ngIf="hasRowActions" class="actions-cell">
+            <div class="row-actions">
+              <ng-container *ngFor="let action of data.rowActions">
+                <button *ngIf="!isActionHidden(action, row)"
+                        mat-stroked-button
+                        type="button"
+                        [color]="action.color || 'primary'"
+                        [disabled]="isActionDisabled(action, row)"
+                        [matTooltip]="action.tooltip || ''"
+                        [matTooltipDisabled]="!action.tooltip"
+                        matTooltipPosition="above"
+                        (click)="triggerAction(action, row)">
+                  <mat-icon *ngIf="isExecuting(row)" class="spin" aria-hidden="true">autorenew</mat-icon>
+                  <mat-icon *ngIf="!isExecuting(row) && action.icon" aria-hidden="true">{{ action.icon }}</mat-icon>
+                  <span>{{ action.label }}</span>
+                </button>
+              </ng-container>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #emptyState>
+    <p class="empty">No data available for this selection.</p>
+  </ng-template>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()">Close</button>
+  <button mat-flat-button color="primary" type="button" (click)="exportCsv()" [disabled]="!hasRows">
+    <mat-icon>download</mat-icon>
+    Export CSV
+  </button>
+</mat-dialog-actions>
