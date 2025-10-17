@@ -24,13 +24,13 @@ public class LocalAuthoritiesMapper {
 
     public Collection<? extends GrantedAuthority> loadAuthorities(String username) {
         try {
-            // For now, use a simple heuristic: REFDB may have a notion of admin users or roles.
-            // Wire to actual REFDB calls when available.
             Set<GrantedAuthority> roles = new HashSet<>();
-            roles.add(new SimpleGrantedAuthority("ROLE_USER"));
-            // If REFDB indicates admin, add ROLE_ADMIN. Placeholder: usernames ending with ".admin" for demo.
-            if (username != null && username.toLowerCase().contains("admin")) {
-                roles.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            for (String role : refDbService.getUserAuthorities(username)) {
+                roles.add(new SimpleGrantedAuthority(role));
+            }
+            if (roles.isEmpty()) {
+                // Always grant basic user if none found
+                roles.add(new SimpleGrantedAuthority("ROLE_USER"));
             }
             return roles;
         } catch (Exception e) {

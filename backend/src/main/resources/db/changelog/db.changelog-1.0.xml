@@ -260,5 +260,6 @@
 
     <!-- Include additional changelogs -->
     <include file="db.changelog-1.1-add-load-session-payload-remote-fields.xml" relativeToChangelogFile="true" />
+    <include file="db.changelog-3.0-authz-refdb.xml" relativeToChangelogFile="true" />
 
 </databaseChangeLog>

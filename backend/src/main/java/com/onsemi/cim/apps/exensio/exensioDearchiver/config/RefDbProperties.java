@@ -13,6 +13,8 @@ public class RefDbProperties {
     private String user;
     private String password;
     private String stagingTable = "SENDER_STAGE";
+    // Optional: comma-separated usernames to bootstrap as ADMIN on startup (e.g., "alice,bob")
+    private String bootstrapAdmins;
     private Pool pool = new Pool();
     private Dispatch dispatch = new Dispatch();
 
@@ -70,6 +72,14 @@ public class RefDbProperties {
 
     public void setStagingTable(String stagingTable) {
         this.stagingTable = stagingTable;
+    }
+
+    public String getBootstrapAdmins() {
+        return bootstrapAdmins;
+    }
+
+    public void setBootstrapAdmins(String bootstrapAdmins) {
+        this.bootstrapAdmins = bootstrapAdmins;
     }
 
     public Pool getPool() {
