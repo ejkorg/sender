@@ -1,73 +1,65 @@
-%% Level-4 DFD — Execution trace for one staged payload → enqueue → dispatch run
-%% Each step is numbered and references concrete methods and SQL fragments from the codebase.
-
+%% DFD Level-4 (detailed, render-safe)
+%% DFD Level-4 (detailed, fully sanitized for mermaid CLI)
 flowchart TD
-  %% Actors
-  U[1. User clicks "Stage Selected" in UI]
-  Browser[Browser / Angular]
+  %% Components
+  U[User]
+  B[Browser]
+  FE[Frontend]
+  StageAPI[Stage API]
+  flowchart TD
+    %% Components
+    U["User"]
+    B["Browser"]
+    FE["Frontend"]
+    StageAPI["Stage API"]
+    EnqueueAPI["Enqueue API"]
+    SenderService["Sender Service"]
+    DispatchService["Dispatch Service"]
+    SessionPushService["Session Push Service"]
+    Scheduler["Scheduler"]
+    RefDB["Ref DB staging"]
+    DTPDB["DTP DB destination"]
+    ExternalDB["External DB"]
 
-  %% Backend entry points
-  StageAPI[/2. POST /api/sender (or /api/stage endpoint)\nStageController -> RefDbService.stagePayloads(...) ]
+    U --> B --> FE
+    FE --> StageAPI
+    FE --> EnqueueAPI
 
-  %% Step 3..10: staging / duplicate handling
-  S3[3. RefDbService.stagePayloads(site, senderId, payloads)]
-  S3a[SQL: INSERT INTO {staging_table} (id, site, sender_id, metadata_id, data_id, status, created_at, updated_at, staged_by, last_requested_by, last_requested_at) VALUES (NEXT_ID_EXPR, ?, ?, ?, ?, 'NEW', TIMESTAMP, TIMESTAMP, ?, ?, TIMESTAMP)]
-  S4[4. For each payload: executeUpdate()]
-  S5[5. On SQLException -> isDuplicate(ex) check (errorCode==1 or message contains UNIQUE)]
-  S6[6. If duplicate: loadExistingPayload(connection, table, site, senderId, candidate)\nSQL: SELECT status, processed_at, created_at, staged_by, last_requested_by, last_requested_at FROM {table} WHERE site=? AND sender_id=? AND metadata_id=? AND data_id=?]
-  S7[7. Decide allowResubmit = forceDuplicates || sameUser || existing==null]
-  S8[8. If allowResubmit -> markRetry(connection, table, site, senderId, candidate, requestedBy)\nSQL: UPDATE {table} SET status='NEW', error_message=NULL, processed_at=NULL, updated_at=TIMESTAMP, last_requested_by=?, last_requested_at=TIMESTAMP WHERE site=? AND sender_id=? AND metadata_id=? AND data_id=?]
-  S9[9. Build DuplicatePayload info returned to UI (requiresConfirmation flag if not allowed)]
-  S10[10. Return StageResult(insertedCount, duplicatesList) to controller → UI shows preview results]
+    EnqueueAPI --> E11["11. SenderController.enqueue(payloadIds, senderId)"]
+    E11 --> E12["12. SenderService.enqueuePayloadsWithResult(senderId, payloadIds, source) - dedupe check"]
+    E12 --> E12a["12a. repository.findExisting(senderId, payloadIds) - checks existing payload ids"]
+    E12a --> E13["13. For each new payload: repository.save(entry) -> INSERT sender_queue_entry (status=NEW)"]
+    E13 --> E14["14. On DataIntegrityViolationException (concurrent insert) -> treat as SKIPPED"]
+    E13 --> E15["15. Return enqueuedCount + skipped list to caller"]
 
-  %% Step 11..15: enqueue API handling
-  E11[11. Frontend calls Enqueue API (SenderController.enqueue)]
-  E12[12. SenderService.enqueuePayloadsWithResult(senderId, payloadIds, source)]
-  E12a[SQL: repository.findPayloadIdsBySenderIdAndPayloadIdIn(senderId, normalizedList) — checks existing payloads]
-  E13[13. For each new payload: repository.save(entry) -> INSERT into sender_queue_entry table (status='NEW')]
-  E14[14. On DataIntegrityViolationException -> treat as concurrent duplicate and mark skipped]
-  E15[15. Return enqueuedCount + skipped list to caller → UI advances or shows duplicates]
+    Scheduler --> P16["16. Scheduler triggers SenderService.scheduledRun()"]
+    P16 --> P17["17. runIfBelowThreshold: guard by countByStatus('NEW')"]
+    P17 --> P18["18. processBatch(limit): repository.findByStatusOrderByCreatedAt('NEW', PageRequest)"]
+    P18 --> P19["19. For each entry: set PROCESSING -> send -> on success set SENT -> on failure set FAILED"]
 
-  %% Step 16..21: SenderService scheduled processing (internal queue to SENT)
-  P16[16. Scheduler triggers SenderService.scheduledRun() (@Scheduled) -> runIfBelowThreshold()] 
-  P17[17. runIfBelowThreshold checks repository.countByStatus('NEW') (threshold guard); if below -> processBatch(limit)]
-  P18[18. processBatch(limit): repository.findByStatusOrderByCreatedAt('NEW', PageRequest.of(0,limit))] 
-  P19[19. For each SenderQueueEntry e: set status='PROCESSING' (save), perform send (external API or internal mark), set status='SENT' and set processed_at=Instant.now() (save) OR on exception set status='FAILED']
+    Scheduler --> D22["22. Scheduler triggers SenderDispatchService.dispatch()"]
+    D22 --> D23["23. findSitesWithPending() - SELECT DISTINCT site FROM staging WHERE status=NEW"]
+    D23 --> D24["24. fetchNextBatchForSite(site, limit) - SELECT ... WHERE status=NEW AND site=? ORDER BY created_at LIMIT ?"]
+    D24 --> D25["25. Group by senderId -> pushGroup(site, senderId, recordsList)"]
+    D25 --> D26["26. Check maxQueueSize and safeCountQueue(id_sender) - SELECT COUNT(1) FROM DTP_SENDER_QUEUE_ITEM WHERE id_sender=?"]
+    D26 --> D27["27. Compute available slots and cap toDispatch accordingly"]
+    D27 --> D28["28. externalDbConfig.getConnection(site) -> detect dialect via metadata"]
+    D28 --> D29["29. If Oracle: SELECT SEQ.NEXTVAL; INSERT with explicit id (sequence path)"]
+    D28 --> D30["30. Else (identity): INSERT letting DB generate id (identity path)"]
+    D29 --> D31["31. Handle SQLException: if duplicate (SQLState class 23) -> treat as success (concurrent insert); else mark FAILED"]
+    D30 --> D31
+    D31 --> D32["32. markEnqueued(successIds) -> UPDATE staging rows status=ENQUEUED"]
+    D31 --> D33["33. On connection failure -> markFailed(eachRecord, message) and schedule retry"]
 
-  %% Step 22..35: Dispatch — grouping, queue-size check, insert to DTP DB
-  D22[22. Scheduler triggers SenderDispatchService.dispatch() (@Scheduled fixedDelay)]
-  D23[23. DispatchService calls refDbService.findSitesWithPending()\nSQL: SELECT DISTINCT site FROM {staging_table} WHERE status='NEW']
-  D24[24. For each site: refDbService.fetchNextBatchForSite(site, limit)\nSQL: SELECT id, site, sender_id, metadata_id, data_id, status, error_message, created_at,... FROM {table} WHERE status='NEW' AND site=? ORDER BY created_at FETCH FIRST ? ROWS ONLY]
-  D25[25. Group batch by senderId → pushGroup(site, senderId, recordsList)]
-  D26[26. In pushGroup: check maxQueueSize via properties and safeCountQueue(connection, senderId)\nSQL: SELECT COUNT(1) FROM DTP_SENDER_QUEUE_ITEM WHERE id_sender = ?]
-  D27[27. Compute available slots = maxQueueSize - existing; limit toDispatch accordingly]
-  D28[28. Establish external connection: externalDbConfig.getConnection(site) — detect productName via connection.getMetaData() to decide sequence vs identity]
-  D29[29. If requiresSequence (Oracle): for each record: nextQueueId(connection) -> SQL: SELECT DTP_SENDER_QUEUE_ITEM_SEQ.NEXTVAL FROM dual; then INSERT with explicit id\nINSERT INTO DTP_SENDER_QUEUE_ITEM (id, id_metadata, id_data, id_sender, record_created) VALUES (?, ?, ?, ?, ?)]
-  D30[30. Else (identity path): INSERT without id or with NEXT VALUE FOR seq depending on DB dialect\nINSERT ... (id_metadata, id_data, id_sender, record_created) or (id, id_metadata,... values (NEXT VALUE FOR ...,...))]
-  D31[31. For each insert: handle SQLException — if isDuplicate (isDuplicate(sqlEx) or SQLState class 23) -> treat as already enqueued (success) and add record.id to success list; else markFailed(record.id, ex.getMessage()) via refDbService.markFailed(id, message)]
-  D32[32. After loop: if success non-empty -> refDbService.markEnqueued(successList) -> update staging rows status to 'ENQUEUED' via UPDATE batch]
-  D33[33. On connection failure (catch SQLException at connection open): for each record -> refDbService.markFailed(record.id, ex.getMessage())]
+    SessionPushService --> S34["34. claimNextBatch(sessionId,batchSize): transactional claim via SELECT..UPDATE to avoid duplicate claims"]
+    SessionPushService --> S35["35. pushSessionBatch: gate writes by EXTERNAL_DB_ALLOW_WRITES; use sequence or generated keys; on integrity violation mark SKIPPED; on transient errors mark FAILED and schedule retry with exponential backoff"]
 
-  %% Step 34..40: SessionPushService specifics for session-based payloads
-  S34[34. For session-based pushes: SessionPushService.claimNextBatch(sessionId,batchSize) (transactional) -> payloadRepo.claimNextBatch(...) (JDBC) which does safe SELECT -> conditional UPDATE -> load-by-id to avoid duplicate claims]
-  S35[35. SessionPushService.pushSessionBatch(sessionId,batchSize): gate external writes via EXTERNAL_DB_ALLOW_WRITES flag; detect DB product via ExternalDbConfig or JDBC metadata; insert using sequence or generated keys; on integrity violation set status 'SKIPPED', on transient SQL errors markFailed and set nextAttemptAt using exponential backoff (computeBackoffMillis)]
+    RefDB --> U40["40. updateStatus(ids,status,message) - batch UPDATE"]
+    RefDB --> U41["41. markEnqueued(ids) -> updateStatus(ids,'ENQUEUED',NULL)"]
+    RefDB --> U42["42. markFailed(id,msg) -> updateStatus([id],'FAILED',message)"]
 
-  %% Persistence and status update details
-  U40[40. Status updates use RefDbService.updateStatus(ids, status, message)\nSQL: UPDATE {table} SET status=?, error_message=?, updated_at=TIMESTAMP WHERE id=? (batch via addBatch()/executeBatch())]
-  U41[41. markEnqueued(ids) calls updateStatus(ids,'ENQUEUED', null) — atomic batch per call]
-  U42[42. markFailed(id,msg) calls updateStatus([id],'FAILED', message)]
+    FE --> M43["43. Monitoring: StageController.list(...) -> refDbService.listRecords(...)"]
+    M43 --> M44["44. Retry: retryFailed -> set status=NEW for eligible nextAttemptAt<=now and requeue"]
 
-  %% Monitoring & retries
-  M43[43. Monitoring: UI polls StageController.list(...) which calls refDbService.listRecords(site,senderId,status,offset,size) -> SELECT ... ORDER BY updated_at DESC]
-  M44[44. Retry path: SessionPushService.retryFailed(sessionId,batchSize) -> findBySessionIdAndStatusOrderById(... 'FAILED') -> requeue eligible ones (nextAttemptAt <= now) by setting status='NEW' and payloadRepo.saveAll() and payloadRepo.flush(), then call pushSessionBatch to reprocess]
-
-  %% Legend / footnotes
-  classDef code fill:#eef,stroke:#333;
-  class S3,S3a,S4,S5,S6,S7,S8,S9,S10,E11,E12,E12a,E13,E14,E15,P16,P17,P18,P19,D22,D23,D24,D25,D26,D27,D28,D29,D30,D31,D32,D33,S34,S35,U40,U41,U42,M43,M44 code;
-
-  note right of S3a
-    SQL fragments use NEXT_ID_EXPR: isOracle? "SEQ.NEXTVAL" : "NEXT VALUE FOR SEQ"
-  end
-
-  style S3 fill:#fff5e6,stroke:#ff8c00
-  style D29 fill:#e6fff5,stroke:#0a8c44
+    classDef db fill:#fef3c7,stroke:#b58900;
+    class RefDB,DTPDB db;

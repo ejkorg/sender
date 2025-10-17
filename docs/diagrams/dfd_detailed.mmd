@@ -1,117 +1,48 @@
-%% Detailed Data Flow Diagram (Mermaid)
-%% This diagram models the end-to-end logic at a low level:
-%% - discovery/preview
-%% - staging rows and duplicate checks
-%% - enqueueing into internal Ref DB queue (NEW status)
-%% - SenderService processing (PROCESSING -> SENT/FAILED)
-%% - Dispatch process grouping by site & sender, queue size checks
-%% - JDBC insert details (sequence vs identity insert), duplicate handling
-%% - Error handling and retry/mark-failed paths
-
 flowchart TD
-  %% External actors and UI
   User[User]
-  Browser[Browser / Angular]
-  Frontend[Frontend Stepper\n(Preview → Stage → Monitor)]
-
-  %% Backend APIs
-  StageAPI[/api/stage/records]\n(StageController)
-  EnqueueAPI[/api/sender/enqueue]\n(SenderController)
-  DispatchAPI[/api/dispatch/sender]\n(DispatchController)
-
-  %% Core backend processes
-  subgraph Backend[Backend - Spring Boot]
-    RefDbSvc[RefDbService]
-    SenderSvc[SenderService]
-    DispatchSvc[SenderDispatchService]
-    Repo[SenderQueueRepository / StageRecordRepo]
-    Scheduler[Spring Scheduler]
-  end
-
-  %% Data stores
-  RefDB[(Ref DB)\n- staged_records\n- load_session_payload\n- sender_queue_entries]
-  DTPDB[(External DTP DB)\n- DTP_SENDER_QUEUE_ITEM]
-
-  %% Discovery & Preview
+  Browser[Browser]
+  Frontend[Frontend]
+  Backend[Backend]
+  RefDB[RefDB]
+  DTPDB[DTPDB]
   User --> Browser
   Browser --> Frontend
-  Frontend -->|1: discovery request(site)| StageAPI
-  StageAPI -->|query| RefDbSvc
-  RefDbSvc -->|SELECT staged rows| RefDB
-  RefDB -->|rows| RefDbSvc
-  RefDbSvc -->|return page| StageAPI
-  StageAPI -->|2: show preview| Frontend
+  Frontend --> Backend
+  Backend --> RefDB
+  Backend --> DTPDB
 
-  %% Staging selected rows (server-side staging)
-  Frontend -->|3: stage selected rows (site, senderId, rowIds)| EnqueueAPI
-  EnqueueAPI -->|validate payloadIds| RefDbSvc
-  RefDbSvc -->|check existing payloads for sender| Repo
-  Repo -->|existing payload ids| RefDbSvc
-  RefDbSvc -->|insert NEW entries| RefDB
-  RefDbSvc -->|return EnqueueResult (enqueuedCount, skipped list)| EnqueueAPI
-  EnqueueAPI --> Frontend
+    RefDbSvc --> Repo
+    %% Detailed Data Flow Diagram (render-safe)
+    flowchart TD
+      U["User"]
+      B["Browser"]
+      F["Frontend"]
 
-  %% Notes: duplicate handling during enqueue
-  subgraph DuplicateHandling[Duplicate handling]
-    RefDbSvc -. checks uniqueness via repo query .-> Repo
-    RefDbSvc -. catches DataIntegrityViolation (concurrent insert) .-> RefDB
-  end
+      Stage["Stage API"]
+      Enqueue["Enqueue API"]
+      Dispatch["Dispatch API"]
+  %% Minimal DFD Detailed (render-safe)
+  flowchart TD
+    User[User]
+    Browser[Browser]
+    Frontend[Frontend]
+      flowchart TD
+        U["User"]
+        B["Browser"]
+        F["Frontend"]
+        BE["Backend"]
+        RefDB["RefDB"]
+        DTPDB["DTPDB"]
+        Stage["Stage API"]
+        Enqueue["Enqueue API"]
+        Dispatch["Dispatch API"]
 
-  %% SenderService processing (internal queue processor)
-  Scheduler -->|scheduled trigger| SenderSvc
-  SenderSvc -->|fetch NEW limit N| Repo
-  Repo -->|NEW entries| SenderSvc
-  SenderSvc -->|mark PROCESSING| RefDB
-  SenderSvc -->|attempt send (external API) or mark SENT| RefDB
-  SenderSvc -->|on failure mark FAILED| RefDB
-
-  %% Dispatch scheduling and grouping
-  Scheduler -->|scheduled fixedDelay| DispatchSvc
-  DispatchSvc -->|find sites with pending staged records| RefDbSvc
-  RefDbSvc -->|sites list| DispatchSvc
-  DispatchSvc -->|fetchNextBatchForSite(site, perSend)| RefDbSvc
-  RefDbSvc -->|batch of StageRecord| DispatchSvc
-  DispatchSvc -->|group by senderId| DispatchSvc
-
-  %% Queue size check & batch limiting
-  DispatchSvc -->|safeCountQueue(senderId)| DTPDB
-  DTPDB -->|count| DispatchSvc
-  DispatchSvc -->|limit to available slots| DispatchSvc
-
-  %% JDBC insert behaviour (sequence vs identity)
-  DispatchSvc -->|requiresSequence(connection)?| DispatchSvc
-  alt Oracle (sequence required)
-    DispatchSvc -->|SELECT DTP_SENDER_QUEUE_ITEM_SEQ.NEXTVAL| DTPDB
-    DTPDB -->|nextval| DispatchSvc
-    DispatchSvc -->|INSERT with id, id_metadata, id_data, id_sender, record_created| DTPDB
-  else Identity / NEXT VALUE
-    DispatchSvc -->|INSERT with id_metadata, id_data, id_sender, record_created| DTPDB
-  end
-
-  %% Duplicate during push handling
-  DTPDB -->|SQL Exception UNIQUE| DispatchSvc
-  DispatchSvc -->|on duplicate markEnqueued(record.id)| RefDbSvc
-  DispatchSvc -->|on other SQL error markFailed(record.id)| RefDbSvc
-
-  %% Success path
-  DispatchSvc -->|collect success ids| RefDbSvc
-  RefDbSvc -->|markEnqueued(ids)| RefDB
-
-  %% Monitoring and UI refresh
-  Frontend -->|poll monitor| StageAPI
-  StageAPI --> RefDbSvc
-  RefDbSvc --> RefDB
-  StageAPI --> Frontend
-
-  %% Error and retry strategy (high level)
-  RefDB -. retry logic (consumer side) .-> SenderSvc
-  DispatchSvc -. logs and marks failures for manual retry .-> RefDB
-
-  classDef db fill:#fef3c7,stroke:#b58900;
-  class RefDB,DTPDB db;
-
-  %% Legend
-  subgraph Legend[ ]
-    direction LR
-    E1[Processes] --- S1[Stores]
-  end
+        U --> B --> F
+        F --> Stage
+        F --> Enqueue
+        F --> Dispatch
+        Stage --> BE
+        Enqueue --> BE
+        Dispatch --> BE
+        BE --> RefDB
+        BE --> DTPDB
