@@ -1,0 +1,20 @@
+security:
+  ldap:
+    enabled: true
+    urls: ${LDAP_URLS:ldap://ad.onsemi.com:389}
+    base: ${LDAP_BASE:dc=onsemi,dc=com}
+    manager-dn: ${LDAP_MANAGER_DN:CN=svc_ldap,OU=Service Accounts,DC=onsemi,DC=com}
+    manager-password: ${LDAP_MANAGER_PASSWORD:changeme}
+    user-search-base: ${LDAP_USER_SEARCH_BASE:OU=Users}
+    user-search-filter: ${LDAP_USER_SEARCH_FILTER:(sAMAccountName={0})}
+
+# Local authorization (RefDB) bootstrap: seed initial admin users on startup
+refdb:
+  # Comma-separated list of usernames to grant ROLE_ADMIN (and ROLE_USER) on first run
+  bootstrapAdmins: "fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x"
+  # For production, prefer Liquibase to create APP_* tables and seed baseline roles.
+  # Enable the code-first bootstrap only for dev/test or initial sandboxing:
+  auth-bootstrap-enabled: false
+
+server:
+  forward-headers-strategy: framework

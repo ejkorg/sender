@@ -13,6 +13,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
@@ -39,6 +40,8 @@ public class RefDbService {
     private final RefDbProperties properties;
     private final HikariDataSource dataSource;
     private final boolean isOracle;
+    @Value("${refdb.auth-bootstrap-enabled:false}")
+    private boolean authBootstrapEnabled;
 
     public RefDbService(RefDbProperties properties) {
         this.properties = properties;
@@ -66,6 +69,12 @@ public class RefDbService {
     public void initialize() {
         try (Connection connection = dataSource.getConnection()) {
             ensureStageTable(connection);
+            if (authBootstrapEnabled) {
+                ensureAuthTables(connection);
+                bootstrapAdmins(connection);
+            } else {
+                log.info("RefDB auth bootstrap is disabled (refdb.auth-bootstrap-enabled=false). Skipping APP_* schema/seed.");
+            }
         } catch (SQLException ex) {
             throw new IllegalStateException("Unable to initialize staging schema", ex);
         }
@@ -493,6 +502,127 @@ public class RefDbService {
         }
     }
 
+    // --- Authorization schema (local app users/roles) ---
+    private void ensureAuthTables(Connection connection) throws SQLException {
+        // USERS(username PK), ROLES(name PK), USER_ROLES(username, role_name)
+        if (!tableExists(connection, "APP_USERS")) {
+            String ddl = isOracle
+                    ? "CREATE TABLE APP_USERS (username VARCHAR2(128) PRIMARY KEY, active NUMBER(1) DEFAULT 1 NOT NULL)"
+                    : "CREATE TABLE APP_USERS (username VARCHAR(128) PRIMARY KEY, active BOOLEAN DEFAULT TRUE NOT NULL)";
+            try (Statement st = connection.createStatement()) { st.executeUpdate(ddl); }
+        }
+        if (!tableExists(connection, "APP_ROLES")) {
+            String ddl = isOracle
+                    ? "CREATE TABLE APP_ROLES (name VARCHAR2(64) PRIMARY KEY)"
+                    : "CREATE TABLE APP_ROLES (name VARCHAR(64) PRIMARY KEY)";
+            try (Statement st = connection.createStatement()) { st.executeUpdate(ddl); }
+        }
+        if (!tableExists(connection, "APP_USER_ROLES")) {
+            String ddl = isOracle
+                    ? "CREATE TABLE APP_USER_ROLES (username VARCHAR2(128) NOT NULL, role_name VARCHAR2(64) NOT NULL, CONSTRAINT PK_APP_USER_ROLES PRIMARY KEY (username, role_name))"
+                    : "CREATE TABLE APP_USER_ROLES (username VARCHAR(128) NOT NULL, role_name VARCHAR(64) NOT NULL, CONSTRAINT PK_APP_USER_ROLES PRIMARY KEY (username, role_name))";
+            try (Statement st = connection.createStatement()) { st.executeUpdate(ddl); }
+        }
+        // Ensure ROLE_USER and ROLE_ADMIN exist
+        upsertRole(connection, "ROLE_USER");
+        upsertRole(connection, "ROLE_ADMIN");
+    }
+
+    private void upsertRole(Connection connection, String roleName) throws SQLException {
+        String sqlCheck = "SELECT COUNT(1) FROM APP_ROLES WHERE name = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sqlCheck)) {
+            ps.setString(1, roleName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    try (PreparedStatement ins = connection.prepareStatement("INSERT INTO APP_ROLES(name) VALUES (?)")) {
+                        ins.setString(1, roleName);
+                        ins.executeUpdate();
+                    }
+                }
+            }
+        }
+    }
+
+    private void bootstrapAdmins(Connection connection) throws SQLException {
+        String seed = properties.getBootstrapAdmins();
+        if (seed == null || seed.isBlank()) {
+            return;
+        }
+        String[] users = seed.split(",");
+        for (String u : users) {
+            String username = normalizeUser(u);
+            if (username.isBlank()) continue;
+            ensureUser(connection, username);
+            ensureUserRole(connection, username, "ROLE_USER");
+            ensureUserRole(connection, username, "ROLE_ADMIN");
+        }
+    }
+
+    private void ensureUser(Connection connection, String username) throws SQLException {
+        String check = "SELECT COUNT(1) FROM APP_USERS WHERE username = ?";
+        try (PreparedStatement ps = connection.prepareStatement(check)) {
+            ps.setString(1, username);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    try (PreparedStatement ins = connection.prepareStatement("INSERT INTO APP_USERS(username, active) VALUES (?, ?)")) {
+                        psCloseableSet(ins, 1, username);
+                        if (isOracle) ins.setInt(2, 1); else ins.setBoolean(2, true);
+                        ins.executeUpdate();
+                    }
+                }
+            }
+        }
+    }
+
+    private void ensureUserRole(Connection connection, String username, String role) throws SQLException {
+        String check = "SELECT COUNT(1) FROM APP_USER_ROLES WHERE username = ? AND role_name = ?";
+        try (PreparedStatement ps = connection.prepareStatement(check)) {
+            ps.setString(1, username);
+            ps.setString(2, role);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) == 0) {
+                    try (PreparedStatement ins = connection.prepareStatement("INSERT INTO APP_USER_ROLES(username, role_name) VALUES (?, ?)")) {
+                        ins.setString(1, username);
+                        ins.setString(2, role);
+                        ins.executeUpdate();
+                    }
+                }
+            }
+        }
+    }
+
+    private void psCloseableSet(PreparedStatement ps, int idx, String value) throws SQLException {
+        if (value == null) {
+            ps.setNull(idx, java.sql.Types.VARCHAR);
+        } else {
+            ps.setString(idx, value);
+        }
+    }
+
+    public Set<String> getUserAuthorities(String username) {
+        Set<String> roles = new HashSet<>();
+        if (username == null || username.isBlank()) {
+            return roles;
+        }
+        try (Connection connection = dataSource.getConnection()) {
+            // Auto-provision user on first sight
+            ensureUser(connection, username);
+            // Every user implicitly has ROLE_USER
+            roles.add("ROLE_USER");
+            String sql = "SELECT role_name FROM APP_USER_ROLES WHERE username = ?";
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setString(1, username);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        roles.add(rs.getString(1));
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            log.warn("Failed loading authorities for {}: {}", username, ex.getMessage());
+        }
+        return roles;
+    }
     private boolean tableExists(Connection connection, String table) throws SQLException {
         if (isOracle) {
             try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(1) FROM user_tables WHERE table_name = ?")) {

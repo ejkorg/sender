@@ -1,0 +1,22 @@
+security:
+  sso:
+    enabled: true
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          onsemi:
+            client-id: ${SSO_CLIENT_ID:changeme}
+            client-secret: ${SSO_CLIENT_SECRET:changeme}
+            scope: openid, profile, email
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-name: onsemi
+        provider:
+          onsemi:
+            issuer-uri: ${SSO_ISSUER_URI:https://login.microsoftonline.com/your-tenant-id/v2.0}
+
+server:
+  forward-headers-strategy: framework

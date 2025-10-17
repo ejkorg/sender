@@ -142,6 +142,51 @@ If you want, I can add a short paragraph to your main README pointing to this do
 
 ---
 
+Authentication modes (default, SSO, LDAP)
+-----------------------------------------
+
+The backend supports multiple, opt-in authentication modes. By default (no flags set), the app runs with simple Basic auth for local dev/tests and an in-memory admin user. Two optional modes can be enabled at runtime:
+
+- Default (no flags): Basic auth + optional Bearer JWT passthrough
+  - Active when both of these are false (or unset): `security.sso.enabled`, `security.ldap.enabled`.
+  - In-memory admin user: `admin` / `admin123` (ROLE_ADMIN). Do not use outside dev/tests.
+
+- OAuth2/OIDC SSO (optional):
+  - Enable by setting `security.sso.enabled=true` and providing your OIDC client/issuer config.
+  - Example config template: `src/main/resources/application-sso.yml`.
+  - App roles are loaded via the `LocalAuthoritiesMapper` (backed by RefDB; currently stubbed) and combined with IdP authorities.
+
+- LDAP (optional):
+  - Enable by setting `security.ldap.enabled=true` and supplying LDAP connection/search properties.
+  - Example config template: `src/main/resources/application-ldap.yml`.
+  - The LDAP user bind authenticates users; app roles are loaded locally via `LocalAuthoritiesMapper` (RefDB-backed; currently stubbed).
+
+Important: Only one auth mode should be enabled at a time. When LDAP is enabled, the default Basic chain is disabled automatically. Likewise for SSO.
+
+Quick local run examples (replace values as needed):
+
+```bash
+# Default (Basic auth):
+mvn -f backend/pom.xml -DskipTests spring-boot:run
+
+# LDAP mode (will try to connect to your LDAP; ensure env values are correct):
+LDAP_URLS=ldap://your-ldap:389 \
+LDAP_BASE="dc=example,dc=com" \
+LDAP_MANAGER_DN="CN=svc_ldap,OU=Service Accounts,DC=example,DC=com" \
+LDAP_MANAGER_PASSWORD=secret \
+mvn -f backend/pom.xml -DskipTests spring-boot:run -Dspring-boot.run.arguments="--security.ldap.enabled=true"
+
+# OIDC SSO mode:
+mvn -f backend/pom.xml -DskipTests spring-boot:run \
+  -Dspring-boot.run.arguments="--security.sso.enabled=true --spring.security.oauth2.client.provider.azure.issuer-uri=https://login.microsoftonline.com/<tenant>/v2.0 --spring.security.oauth2.client.registration.azure.client-id=<client-id> --spring.security.oauth2.client.registration.azure.client-secret=<client-secret>"
+```
+
+Endpoints and role checks are consistent across modes: `/internal/**` requires `ROLE_ADMIN`; `/api/auth/**` and `/h2-console/**` are permitted anonymously in dev.
+
+Known limitation: `LocalAuthoritiesMapper` currently contains a stub implementation; wire it to your RefDB user/role tables to enforce real app roles.
+
+---
+
 H2 as the dev "external" database (opt-in)
 
 For convenience the project can use an H2 in-memory database as the external database used by discovery and the dev helpers. Because production external databases are real, potentially shared systems, any code that performs DDL (CREATE TABLE) or writes to the external queue is guarded and requires an explicit opt-in in development.
