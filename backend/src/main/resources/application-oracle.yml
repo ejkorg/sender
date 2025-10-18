@@ -26,7 +26,7 @@ refdb:
   password: ${REFDB_PASSWORD:XBfjCq#$1542FFz}
   staging-table: ${REFDB_STAGING_TABLE:SENDER_STAGE}
   auth-bootstrap-enabled: ${REFDB_AUTH_BOOTSTRAP_ENABLED:true}
-  bootstrap-admins: "${REFDB_BOOTSTRAP_ADMINS:fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x}"
+  bootstrap-admins: "${REFDB_BOOTSTRAP_ADMINS:}"
   pool:
     max-size: ${REFDB_POOL_MAX:10}
     min-idle: ${REFDB_POOL_MIN_IDLE:1}

@@ -33,7 +33,7 @@ refdb:
   user: refdb
   password: "XBfjCq#$1542FFz"
   auth-bootstrap-enabled: true
-  bootstrap-admins: "fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x"
+  bootstrap-admins: ""
   staging-table: SENDER_STAGE
   pool:
     max-size: 5
