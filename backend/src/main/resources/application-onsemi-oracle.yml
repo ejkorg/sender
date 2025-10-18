@@ -1,3 +1,6 @@
+server:
+  port: 61051
+
 spring:
   config:
     activate:
@@ -8,6 +11,10 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-1.0.xml
+  jpa:
+    properties:
+      hibernate.dialect: org.hibernate.dialect.OracleDialect
+      hibernate.jdbc.time_zone: UTC
   datasource:
     # Use refdb.* properties below via placeholders so the canonical values live in refdb
     url: "jdbc:oracle:thin:@//${refdb.host}:${refdb.port}/${refdb.service}"
@@ -29,6 +36,8 @@ refdb:
   service: EXNDEV.onsemi.com
   user: refdb
   password: "XBfjCq#$1542FFz"
+  auth-bootstrap-enabled: true
+  bootstrap-admins: "admin"
   staging-table: SENDER_STAGE
   pool:
     max-size: 5
@@ -52,3 +61,12 @@ reloader:
   dbconn:
     yaml:
       path: classpath:dbconnections.yml
+
+
+security:
+  ldap:
+    enabled: false
+  sso:
+    enabled: false
+  csp:
+    relaxed: true

@@ -25,6 +25,7 @@
     </changeSet>
 
     <changeSet id="2" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
         <createTable tableName="refresh_tokens">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -35,13 +36,13 @@
             <column name="username" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
-            <column name="expires_at" type="TIMESTAMP">
+            <column name="expires_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
                 <constraints nullable="false"/>
             </column>
-            <column name="revoked" type="BOOLEAN">
+            <column name="revoked" type="BOOLEAN" defaultValueBoolean="false">
                 <constraints nullable="false"/>
             </column>
-            <column name="created_at" type="TIMESTAMP">
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
                 <constraints nullable="false"/>
             </column>
         </createTable>
@@ -189,6 +190,32 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="7a-refresh-tokens-oracle-timestamps" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
+        <preConditions onFail="MARK_RAN" onError="HALT">
+            <dbms type="oracle"/>
+        </preConditions>
+        <addColumn tableName="refresh_tokens">
+            <column name="expires_at_tz" type="TIMESTAMP(6) WITH TIME ZONE"/>
+        </addColumn>
+        <addColumn tableName="refresh_tokens">
+            <column name="created_at_tz" type="TIMESTAMP(6) WITH TIME ZONE"/>
+        </addColumn>
+        <sql dbms="oracle">
+            UPDATE refresh_tokens
+            SET expires_at_tz = CASE WHEN expires_at IS NOT NULL THEN FROM_TZ(expires_at, 'UTC') ELSE NULL END,
+                created_at_tz = CASE WHEN created_at IS NOT NULL THEN FROM_TZ(created_at, 'UTC') ELSE NULL END;
+        </sql>
+        <dropColumn tableName="refresh_tokens" columnName="expires_at"/>
+        <dropColumn tableName="refresh_tokens" columnName="created_at"/>
+        <renameColumn tableName="refresh_tokens" oldColumnName="expires_at_tz" newColumnName="expires_at" columnDataType="TIMESTAMP(6) WITH TIME ZONE"/>
+        <renameColumn tableName="refresh_tokens" oldColumnName="created_at_tz" newColumnName="created_at" columnDataType="TIMESTAMP(6) WITH TIME ZONE"/>
+        <addDefaultValue tableName="refresh_tokens" columnName="expires_at" defaultValueComputed="SYSTIMESTAMP"/>
+        <addDefaultValue tableName="refresh_tokens" columnName="created_at" defaultValueComputed="SYSTIMESTAMP"/>
+        <addNotNullConstraint tableName="refresh_tokens" columnName="expires_at" columnDataType="TIMESTAMP(6) WITH TIME ZONE"/>
+        <addNotNullConstraint tableName="refresh_tokens" columnName="created_at" columnDataType="TIMESTAMP(6) WITH TIME ZONE"/>
+    </changeSet>
+
     <!-- Oracle-specific sequences and triggers for auto-increment behavior -->
     <!-- Oracle sequences and triggers split into per-object changeSets with existence checks -->
     <changeSet id="6b-oracle-seq-load-session" author="copilot">
@@ -261,5 +288,6 @@
     <!-- Include additional changelogs -->
     <include file="db.changelog-1.1-add-load-session-payload-remote-fields.xml" relativeToChangelogFile="true" />
     <include file="db.changelog-3.0-authz-refdb.xml" relativeToChangelogFile="true" />
+    <include file="db.changelog-4.0-users.xml" relativeToChangelogFile="true" />
 
 </databaseChangeLog>

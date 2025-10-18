@@ -23,3 +23,9 @@ reloader:
   dbconn:
     yaml:
       path: classpath:dbconnections.yml
+
+security:
+  ldap:
+    enabled: false
+  sso:
+    enabled: false
