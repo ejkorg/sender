@@ -149,9 +149,11 @@ export class AuthService {
 
   // Use the proper JWT login endpoint
   login(username: string, password: string): Observable<boolean> {
+    console.debug('[AuthService] login attempt', { username });
     return new Observable<boolean>((observer) => {
       this.http.post('/api/auth/login', { username, password }, { withCredentials: true }).subscribe(
         (res: any) => {
+          console.debug('[AuthService] login succeeded', res);
           const token = res && res.accessToken ? res.accessToken : null;
           if (token) {
             this.setSession(token, username);
@@ -159,10 +161,14 @@ export class AuthService {
             observer.next(true);
             observer.complete();
           } else {
+            console.warn('[AuthService] login response missing accessToken', res);
             observer.error(new Error('No access token in response'));
           }
         },
-        (err: any) => observer.error(err)
+        (err: any) => {
+          console.error('[AuthService] login failed', err);
+          observer.error(err);
+        }
       );
     });
   }

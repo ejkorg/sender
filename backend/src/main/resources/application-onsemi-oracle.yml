@@ -68,3 +68,5 @@ security:
     enabled: false
   sso:
     enabled: false
+  csp:
+    relaxed: true

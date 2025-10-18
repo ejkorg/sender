@@ -6,6 +6,10 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
 
+security:
+  csp:
+    relaxed: true
+
 # Base refdb configuration. Per-environment overrides should be placed in
 # the corresponding profile such as `application-oracle.yml`.
 refdb:

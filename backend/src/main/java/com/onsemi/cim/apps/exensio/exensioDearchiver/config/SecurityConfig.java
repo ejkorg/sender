@@ -1,5 +1,6 @@
 package com.onsemi.cim.apps.exensio.exensioDearchiver.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -28,9 +29,14 @@ import com.onsemi.cim.apps.exensio.exensioDearchiver.service.AppUserDetailsServi
 @org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("!'${security.sso.enabled:false}'.equalsIgnoreCase('true') and !'${security.ldap.enabled:false}'.equalsIgnoreCase('true')")
 public class SecurityConfig {
     private final com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil jwtUtil;
+    private final boolean relaxedCsp;
 
-    public SecurityConfig(com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil jwtUtil) {
+    public SecurityConfig(
+        com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil jwtUtil,
+        @Value("${security.csp.relaxed:false}") boolean relaxedCsp
+    ) {
         this.jwtUtil = jwtUtil;
+        this.relaxedCsp = relaxedCsp;
     }
 
     @Bean
@@ -52,6 +58,18 @@ public class SecurityConfig {
 
         // Allow H2 console frames
         http.headers().frameOptions().disable();
+
+        if (relaxedCsp) {
+            final String csp = String.join(" ",
+                "default-src 'self';",
+                "connect-src 'self' http://localhost:4200 http://127.0.0.1:4200 http://localhost:61051 ws://localhost:4200 ws://127.0.0.1:4200;",
+                "img-src 'self' data:;",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:4200 http://127.0.0.1:4200;",
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
+                "font-src 'self' https://fonts.gstatic.com;"
+            );
+            http.headers(headers -> headers.contentSecurityPolicy(cspConfig -> cspConfig.policyDirectives(csp)));
+        }
 
         return http.build();
     }
