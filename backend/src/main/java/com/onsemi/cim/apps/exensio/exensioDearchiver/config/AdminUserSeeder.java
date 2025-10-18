@@ -13,6 +13,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 @Configuration
 @DependsOnDatabaseInitialization
@@ -37,7 +38,8 @@ public class AdminUserSeeder implements ApplicationListener<ApplicationReadyEven
         }
     }
 
-    private void seedAdminUser() {
+    @Transactional
+    protected void seedAdminUser() {
         try {
             Integer count = jdbcTemplate.queryForObject(
                     "SELECT COUNT(1) FROM users WHERE username = ?",

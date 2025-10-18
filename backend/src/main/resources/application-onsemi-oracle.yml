@@ -11,6 +11,10 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-1.0.xml
+  jpa:
+    properties:
+      hibernate.dialect: org.hibernate.dialect.OracleLegacyDialect
+      hibernate.jdbc.time_zone: UTC
   datasource:
     # Use refdb.* properties below via placeholders so the canonical values live in refdb
     url: "jdbc:oracle:thin:@//${refdb.host}:${refdb.port}/${refdb.service}"
@@ -33,7 +37,7 @@ refdb:
   user: refdb
   password: "XBfjCq#$1542FFz"
   auth-bootstrap-enabled: true
-  bootstrap-admins: ""
+  bootstrap-admins: "admin"
   staging-table: SENDER_STAGE
   pool:
     max-size: 5

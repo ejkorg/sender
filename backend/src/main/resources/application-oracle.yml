@@ -3,8 +3,14 @@ server:
 
 spring:
   autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
+    exclude: []
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-1.0.xml
+  jpa:
+    properties:
+      hibernate.dialect: org.hibernate.dialect.OracleLegacyDialect
+      hibernate.jdbc.time_zone: UTC
 
 # Ensure we do NOT use the in-memory H2 external DB when connecting to a real Oracle DTP instance
 
@@ -26,7 +32,7 @@ refdb:
   password: ${REFDB_PASSWORD:XBfjCq#$1542FFz}
   staging-table: ${REFDB_STAGING_TABLE:SENDER_STAGE}
   auth-bootstrap-enabled: ${REFDB_AUTH_BOOTSTRAP_ENABLED:true}
-  bootstrap-admins: "${REFDB_BOOTSTRAP_ADMINS:}"
+  bootstrap-admins: "${REFDB_BOOTSTRAP_ADMINS:admin}"
   pool:
     max-size: ${REFDB_POOL_MAX:10}
     min-idle: ${REFDB_POOL_MIN_IDLE:1}

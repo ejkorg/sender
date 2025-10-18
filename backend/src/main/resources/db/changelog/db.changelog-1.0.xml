@@ -35,13 +35,13 @@
             <column name="username" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
-            <column name="expires_at" type="TIMESTAMP">
+            <column name="expires_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
                 <constraints nullable="false"/>
             </column>
-            <column name="revoked" type="BOOLEAN">
+            <column name="revoked" type="BOOLEAN" defaultValueBoolean="false">
                 <constraints nullable="false"/>
             </column>
-            <column name="created_at" type="TIMESTAMP">
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
                 <constraints nullable="false"/>
             </column>
         </createTable>
@@ -187,6 +187,16 @@
         <addColumn tableName="load_session_payload">
             <column name="next_attempt_at" type="TIMESTAMP" />
         </addColumn>
+    </changeSet>
+
+    <changeSet id="7a-refresh-tokens-oracle-timestamps" author="copilot">
+        <preConditions onFail="MARK_RAN" onError="HALT">
+            <dbms type="oracle"/>
+        </preConditions>
+        <modifyDataType tableName="refresh_tokens" columnName="expires_at" newDataType="TIMESTAMP(6) WITH TIME ZONE"/>
+        <modifyDataType tableName="refresh_tokens" columnName="created_at" newDataType="TIMESTAMP(6) WITH TIME ZONE"/>
+        <addDefaultValue tableName="refresh_tokens" columnName="expires_at" defaultValueComputed="SYSTIMESTAMP"/>
+        <addDefaultValue tableName="refresh_tokens" columnName="created_at" defaultValueComputed="SYSTIMESTAMP"/>
     </changeSet>
 
     <!-- Oracle-specific sequences and triggers for auto-increment behavior -->
