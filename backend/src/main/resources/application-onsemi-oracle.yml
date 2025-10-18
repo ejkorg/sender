@@ -13,7 +13,7 @@ spring:
     change-log: classpath:db/changelog/db.changelog-1.0.xml
   jpa:
     properties:
-      hibernate.dialect: org.hibernate.dialect.OracleLegacyDialect
+      hibernate.dialect: org.hibernate.dialect.OracleDialect
       hibernate.jdbc.time_zone: UTC
   datasource:
     # Use refdb.* properties below via placeholders so the canonical values live in refdb
