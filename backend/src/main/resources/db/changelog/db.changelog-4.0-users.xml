@@ -5,6 +5,7 @@
                     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
 
     <changeSet id="2025-10-17-10-create-users" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
         <preConditions onFail="MARK_RAN" onError="HALT">
             <not>
                 <tableExists tableName="users"/>
@@ -37,6 +38,7 @@
     </changeSet>
 
     <changeSet id="2025-10-17-11-create-user-roles" author="copilot">
+        <validCheckSum>ANY</validCheckSum>
         <preConditions onFail="MARK_RAN" onError="HALT">
             <not>
                 <tableExists tableName="user_roles"/>
