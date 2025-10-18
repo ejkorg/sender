@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -35,5 +36,14 @@ public class RefreshTokenService {
     public void revoke(RefreshToken token) {
         token.setRevoked(true);
         repo.save(token);
+    }
+
+    public int revokeAllForUser(String username) {
+        List<RefreshToken> tokens = repo.findAllByUsernameAndRevokedFalse(username);
+        for (RefreshToken t : tokens) {
+            t.setRevoked(true);
+        }
+        repo.saveAll(tokens);
+        return tokens.size();
     }
 }

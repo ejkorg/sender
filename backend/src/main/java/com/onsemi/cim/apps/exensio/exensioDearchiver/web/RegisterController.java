@@ -49,7 +49,8 @@ public class RegisterController {
         u.setEmail(req.getEmail());
         u.setPasswordHash(encoder.encode(req.getPassword()));
         u.getRoles().add("ROLE_USER");
-        u.setEnabled(true);
+        // require verification before login in production; enabled via /api/auth/verify
+        u.setEnabled(false);
         repo.save(u);
 
         // create verification token - in production we'd send this via email.

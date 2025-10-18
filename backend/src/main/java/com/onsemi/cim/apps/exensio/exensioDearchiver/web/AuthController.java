@@ -18,10 +18,13 @@ import org.springframework.web.bind.annotation.CookieValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.service.AuthTokenService;
+import com.onsemi.cim.apps.exensio.exensioDearchiver.repository.AppUserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -32,11 +35,18 @@ public class AuthController {
     private final AuthenticationManager authManager;
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
+    private final AuthTokenService authTokenService;
+    private final AppUserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, RefreshTokenService refreshTokenService) {
+    public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, RefreshTokenService refreshTokenService,
+                          AuthTokenService authTokenService, AppUserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
         this.refreshTokenService = refreshTokenService;
+        this.authTokenService = authTokenService;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // --- verification / reset endpoints ---
@@ -45,8 +55,6 @@ public class AuthController {
         String token = body.get("token");
         if (token == null || token.isBlank()) return ResponseEntity.badRequest().build();
         // lookup verification token
-        var authTokenService = getAuthTokenService();
-        if (authTokenService == null) return ResponseEntity.status(500).build();
         var found = authTokenService.findVerificationToken(token);
         if (found.isEmpty()) return ResponseEntity.status(404).build();
         String username = found.get().getUsername();
@@ -59,8 +67,6 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> requestReset(@RequestBody Map<String, String> body) {
         String username = body.get("username");
         if (username == null || username.isBlank()) return ResponseEntity.badRequest().build();
-        var authTokenService = getAuthTokenService();
-        if (authTokenService == null) return ResponseEntity.status(500).build();
         var token = authTokenService.createPasswordResetToken(username);
         // in production we'd email the reset token; return for dev
         return ResponseEntity.ok(Map.of("resetToken", token.getToken()));
@@ -71,50 +77,36 @@ public class AuthController {
         String token = body.get("token");
         String newPassword = body.get("password");
         if (token == null || token.isBlank() || newPassword == null || newPassword.length() < 8) return ResponseEntity.badRequest().build();
-        var authTokenService = getAuthTokenService();
-        if (authTokenService == null) return ResponseEntity.status(500).build();
         var found = authTokenService.findPasswordResetToken(token);
         if (found.isEmpty()) return ResponseEntity.status(404).build();
         String username = found.get().getUsername();
         // update user password
         updatePassword(username, newPassword);
+        // revoke all refresh tokens to force re-login on all devices
+        try {
+            refreshTokenService.revokeAllForUser(username);
+        } catch (Exception ignored) {}
         return ResponseEntity.ok(Map.of("message", "password reset"));
     }
 
-    // helper wiring via application context lookup to avoid constructor churn in this quick change
-    private org.springframework.context.ApplicationContext getAppContext() {
-        try {
-            return org.springframework.web.context.ContextLoader.getCurrentWebApplicationContext();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private AuthTokenService getAuthTokenService() {
-        var ctx = getAppContext();
-        if (ctx == null) return null;
-        return ctx.getBean(AuthTokenService.class);
-    }
-
     private void enableUser(String username) {
-        var ctx = getAppContext();
-        if (ctx == null) return;
-        var repo = ctx.getBean(com.onsemi.cim.apps.exensio.exensioDearchiver.repository.AppUserRepository.class);
-        repo.findByUsername(username).ifPresent(u -> { u.setEnabled(true); repo.save(u); });
+        userRepository.findByUsername(username).ifPresent(u -> { u.setEnabled(true); userRepository.save(u); });
     }
 
     private void updatePassword(String username, String newPassword) {
-        var ctx = getAppContext();
-        if (ctx == null) return;
-        var repo = ctx.getBean(com.onsemi.cim.apps.exensio.exensioDearchiver.repository.AppUserRepository.class);
-        var encoder = ctx.getBean(org.springframework.security.crypto.password.PasswordEncoder.class);
-        repo.findByUsername(username).ifPresent(u -> { u.setPasswordHash(encoder.encode(newPassword)); repo.save(u); });
+        userRepository.findByUsername(username).ifPresent(u -> { u.setPasswordHash(passwordEncoder.encode(newPassword)); userRepository.save(u); });
     }
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody AuthRequest req, HttpServletResponse resp) {
-        Authentication a = authManager.authenticate(new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword()));
-        String accessToken = jwtUtil.generateToken(req.getUsername());
+        Authentication a;
+        try {
+            a = authManager.authenticate(new UsernamePasswordAuthenticationToken(req.getUsername(), req.getPassword()));
+        } catch (Exception e) {
+            return ResponseEntity.status(401).build();
+        }
+        java.util.List<String> roles = a.getAuthorities().stream().map(granted -> granted.getAuthority()).toList();
+        String accessToken = jwtUtil.generateToken(req.getUsername(), roles);
 
         // create refresh token entity and set cookie
     RefreshToken rt = new RefreshToken();
@@ -158,7 +150,11 @@ public class AuthController {
         resp.addCookie(cookie);
 
         Map<String, String> body = new HashMap<>();
-        body.put("accessToken", jwtUtil.generateToken(rt.getUsername()));
+        // On refresh we do not have Authentication; rebuild roles from DB
+        java.util.List<String> roles = userRepository.findByUsername(rt.getUsername())
+            .map(u -> new java.util.ArrayList<String>(u.getRoles()))
+            .orElse(new java.util.ArrayList<>());
+        body.put("accessToken", jwtUtil.generateToken(rt.getUsername(), roles));
         return ResponseEntity.ok(body);
     }
 
@@ -173,5 +169,14 @@ public class AuthController {
         cookie.setPath("/");
         resp.addCookie(cookie);
         return ResponseEntity.ok().build();
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/me")
+    public ResponseEntity<Map<String, Object>> me(org.springframework.security.core.Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) return ResponseEntity.status(401).build();
+        Map<String, Object> body = new HashMap<>();
+        body.put("username", authentication.getName());
+        body.put("roles", authentication.getAuthorities().stream().map(a -> a.getAuthority()).collect(Collectors.toList()));
+        return ResponseEntity.ok(body);
     }
 }

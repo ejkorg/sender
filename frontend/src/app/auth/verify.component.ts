@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -23,9 +23,14 @@ import { Router } from '@angular/router';
   </mat-card>
   `
 })
-export class VerifyComponent {
+export class VerifyComponent implements OnInit {
   token = '';
   constructor(private http: HttpClient, private snack: MatSnackBar, private router: Router) {}
+  ngOnInit(): void {
+    const params = new URLSearchParams(location.search);
+    const t = params.get('token');
+    if (t) { this.token = t; this.verify(); }
+  }
   verify() {
     if (!this.token) { this.snack.open('token required', 'Close', { duration: 3000 }); return; }
     this.http.post('/api/auth/verify', { token: this.token }).subscribe(

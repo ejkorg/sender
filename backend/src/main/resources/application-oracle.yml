@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 70007
 
 spring:
   autoconfigure:
@@ -25,6 +25,8 @@ refdb:
   user: ${REFDB_USER:refdb}
   password: ${REFDB_PASSWORD:XBfjCq#$1542FFz}
   staging-table: ${REFDB_STAGING_TABLE:SENDER_STAGE}
+  auth-bootstrap-enabled: ${REFDB_AUTH_BOOTSTRAP_ENABLED:true}
+  bootstrap-admins: "${REFDB_BOOTSTRAP_ADMINS:fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x}"
   pool:
     max-size: ${REFDB_POOL_MAX:10}
     min-idle: ${REFDB_POOL_MIN_IDLE:1}
@@ -45,3 +47,9 @@ external-db:
   cache:
     max-pools: ${DTP_CACHE_MAX_POOLS:50}
     expire-after-access-minutes: ${DTP_CACHE_EXPIRE_MIN:60}
+
+security:
+  ldap:
+    enabled: false
+  sso:
+    enabled: false

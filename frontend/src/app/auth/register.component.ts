@@ -61,9 +61,14 @@ export class RegisterComponent {
     }
 
     this.auth.register(this.username, this.email, this.password).subscribe(
-      _ => {
-        this.snack.open('Registered — check verification (dev)', 'Close', { duration: 4000 });
-        this.router.navigateByUrl('/login');
+      (res) => {
+        const token = (res as any)?.verificationToken as string | undefined;
+        this.snack.open('Registered — verify your account', 'Close', { duration: 4000 });
+        if (token) {
+          this.router.navigate(['/verify'], { queryParams: { token } });
+        } else {
+          this.router.navigateByUrl('/verify');
+        }
       },
       err => {
         this.snack.open('Registration failed: ' + (err?.error?.error || err?.message || 'unknown'), 'Close', { duration: 4000 });

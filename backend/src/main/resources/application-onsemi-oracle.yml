@@ -1,3 +1,6 @@
+server:
+  port: 70007
+
 spring:
   config:
     activate:
@@ -29,6 +32,8 @@ refdb:
   service: EXNDEV.onsemi.com
   user: refdb
   password: "XBfjCq#$1542FFz"
+  auth-bootstrap-enabled: true
+  bootstrap-admins: "fg8n8x,fg8h8x,zbqc3f,zbjzyv,fg8z8x"
   staging-table: SENDER_STAGE
   pool:
     max-size: 5
@@ -52,3 +57,10 @@ reloader:
   dbconn:
     yaml:
       path: classpath:dbconnections.yml
+
+
+security:
+  ldap:
+    enabled: false
+  sso:
+    enabled: false

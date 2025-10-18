@@ -18,9 +18,9 @@ export class AuthService {
   private refreshTimerSub: Subscription | null = null;
 
   constructor(private http: HttpClient) {
-    // On startup try to refresh (if refresh cookie present) to establish session
-    this.refresh().subscribe(success => {
-      // refresh() will populate session via setSession
+    // On startup try to refresh (if refresh cookie present) and then fetch current user info
+    this.refresh().subscribe(_ => {
+      this.getMe().subscribe();
     });
   }
 
@@ -84,6 +84,21 @@ export class AuthService {
     return this.accessToken;
   }
 
+  // Get current authenticated user from backend
+  getMe(): Observable<UserInfo | null> {
+    return this.http.get<any>('/api/auth/me').pipe(
+      map(res => {
+        if (res && res.username) {
+          const info: UserInfo = { username: res.username, roles: res.roles || [] };
+          this.userSubject.next(info);
+          return info;
+        }
+        return null;
+      }),
+      catchError(_ => of(null))
+    );
+  }
+
   // returns true if token exists and will expire within `ttlSeconds` seconds
   isTokenExpiringWithin(ttlSeconds: number): boolean {
     const token = this.getAccessToken();
@@ -101,6 +116,8 @@ export class AuthService {
         const token = res && res.accessToken ? res.accessToken : null;
         if (token) {
           this.setSession(token);
+          // also refresh user info from backend
+          this.getMe().subscribe();
           return true;
         }
         this.setSession(null);
@@ -138,6 +155,7 @@ export class AuthService {
           const token = res && res.accessToken ? res.accessToken : null;
           if (token) {
             this.setSession(token, username);
+            this.getMe().subscribe();
             observer.next(true);
             observer.complete();
           } else {
@@ -149,20 +167,13 @@ export class AuthService {
     });
   }
 
-  // Register a new user using backend register endpoint. On success, attempt login.
-  register(username: string, email: string | null, password: string): Observable<boolean> {
-    return new Observable<boolean>((observer) => {
-      this.http.post('/api/auth/register', { username, email, password }, { withCredentials: true }).subscribe(
-        (res: any) => {
-          // after registration, attempt login to obtain access token
-          this.login(username, password).subscribe(
-            ok => { observer.next(ok); observer.complete(); },
-            err => observer.error(err)
-          );
-        },
-        (err: any) => observer.error(err)
-      );
-    });
+  // Register a new user using backend register endpoint. Return verification token (dev) if provided.
+  register(username: string, email: string | null, password: string): Observable<{ verificationToken?: string }> {
+    return this.http.post<{ verificationToken?: string }>(
+      '/api/auth/register',
+      { username, email, password },
+      { withCredentials: true }
+    );
   }
 
   logout() {

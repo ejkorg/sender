@@ -20,13 +20,22 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.context.annotation.Profile;
+import java.util.Optional;
 
 import java.util.List;
+import com.onsemi.cim.apps.exensio.exensioDearchiver.service.AppUserDetailsService;
 
 @Configuration
 @EnableWebSecurity
 @org.springframework.boot.autoconfigure.condition.ConditionalOnExpression("!'${security.sso.enabled:false}'.equalsIgnoreCase('true') and !'${security.ldap.enabled:false}'.equalsIgnoreCase('true')")
 public class SecurityConfig {
+    private final com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil jwtUtil;
+
+    public SecurityConfig(com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil jwtUtil) {
+        this.jwtUtil = jwtUtil;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -35,13 +44,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/h2-console/**").permitAll()
                 .requestMatchers("/api/auth/register").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/internal/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
-            .httpBasic();
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         // Add JWT token filter to process Bearer tokens
-        http.addFilterBefore(new JwtAuthenticationFilter(new com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil()), BasicAuthenticationFilter.class);
+        http.addFilterBefore(new JwtAuthenticationFilter(jwtUtil), BasicAuthenticationFilter.class);
 
         // Allow H2 console frames
         http.headers().frameOptions().disable();
@@ -50,8 +60,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService users() {
-        // Keep an in-memory admin for dev convenience, but production authentication will use the DB-backed AppUserDetailsService
+    @Profile("!prod")
+    public UserDetailsService inMemoryUsers() {
+        // Keep an in-memory admin for dev convenience; main auth uses AppUserDetailsService
         UserDetails admin = User.withUsername("admin")
             .password(passwordEncoder().encode("admin123"))
             .roles("ADMIN")
@@ -60,15 +71,44 @@ public class SecurityConfig {
     }
 
     @Bean
+    public DaoAuthenticationProvider daoAuthProvider(AppUserDetailsService userDetailsService) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
 
     @Bean
-    public AuthenticationManager authenticationManager() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(users());
-        provider.setPasswordEncoder(passwordEncoder());
-        return authentication -> provider.authenticate(authentication);
+    public AuthenticationManager authenticationManager(AppUserDetailsService userDetailsService, Optional<InMemoryUserDetailsManager> maybeInMemory) {
+        // Primary provider: DB-backed service
+        DaoAuthenticationProvider daoProvider = new DaoAuthenticationProvider();
+        daoProvider.setUserDetailsService(userDetailsService);
+        daoProvider.setPasswordEncoder(passwordEncoder());
+
+        // In-memory provider for dev fallback (only if bean exists)
+        final DaoAuthenticationProvider memoryProvider = maybeInMemory
+            .map(uds -> {
+                DaoAuthenticationProvider p = new DaoAuthenticationProvider();
+                p.setUserDetailsService(uds);
+                p.setPasswordEncoder(passwordEncoder());
+                return p;
+            })
+            .orElse(null);
+
+        return authentication -> {
+            try {
+                return daoProvider.authenticate(authentication);
+            } catch (Exception e) {
+                if (memoryProvider != null) {
+                    return memoryProvider.authenticate(authentication);
+                }
+                throw e;
+            }
+        };
     }
 }
