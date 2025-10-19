@@ -2,9 +2,8 @@ import { CommonModule, formatDate } from '@angular/common';
 import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { IconComponent } from '../ui/icon.component';
 import { DuplicatePayloadInfo } from '../api/backend.service';
 
 export interface DuplicateWarningDialogData {
@@ -15,7 +14,7 @@ export interface DuplicateWarningDialogData {
 @Component({
   selector: 'app-duplicate-warning-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatListModule, MatTooltipModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatTooltipModule, IconComponent],
   templateUrl: './duplicate-warning-dialog.component.html',
   styleUrls: ['./duplicate-warning-dialog.component.css']
 })

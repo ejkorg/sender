@@ -102,7 +102,14 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
         configuration.setAllowCredentials(true);
-        configuration.setAllowedOrigins(java.util.List.of("http://localhost:4200", "http://127.0.0.1:4200"));
+        // Allow localhost dev and GitHub Codespaces preview origins (patterned)
+        // use allowed origin patterns so we can accept subdomains like
+        // "https://<random>-4200.app.github.dev" used by Codespaces preview URLs.
+        configuration.setAllowedOriginPatterns(java.util.List.of(
+            "http://localhost:4200",
+            "http://127.0.0.1:4200",
+            "https://*.app.github.dev"
+        ));
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();

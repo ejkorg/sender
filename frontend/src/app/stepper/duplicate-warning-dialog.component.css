@@ -63,6 +63,14 @@
   height: 18px;
   color: var(--onsemi-azure);
 }
+/* app-icon wrapper uses .material-icons or .icon-svg inside */
+.payload-meta .material-icons,
+.payload-meta .icon-svg {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--onsemi-azure);
+}
 
 .timestamp {
   color: rgba(0, 0, 0, 0.6);
@@ -87,11 +95,11 @@
   font-weight: 600;
 }
 
-mat-dialog-actions {
+.dialog-actions {
   padding: 16px 0 0;
 }
 
-button[mat-button] {
+button {
   border-radius: 999px;
   padding: 0 18px;
   height: 40px;
@@ -100,11 +108,10 @@ button[mat-button] {
   transition: background-color 140ms ease;
 }
 
-button[mat-button]:hover {
+button:hover {
   background: rgba(0, 58, 112, 0.08);
 }
-
-button[mat-flat-button] {
+button.primary {
   border-radius: 999px;
   padding: 0 24px;
   height: 44px;

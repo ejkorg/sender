@@ -69,6 +69,10 @@ tbody td {
   margin-right: 0;
 }
 
+.row-actions .icon-svg, .row-actions .material-icons {
+  margin-right: 0;
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }
@@ -96,10 +100,12 @@ tbody td {
   color: rgba(0, 0, 0, 0.6);
 }
 
-mat-dialog-actions {
+/* dialog actions container (non-Material) */
+.dialog-actions {
   padding-top: 12px;
 }
 
-button[mat-flat-button] mat-icon {
+button.primary .material-icons,
+button.primary .icon-svg {
   margin-right: 6px;
 }

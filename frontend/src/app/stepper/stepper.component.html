@@ -36,8 +36,8 @@
       <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 px-4">
         <div class="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl">
           <h2 class="text-lg font-semibold text-onsemi-charcoal">Duplicate payloads detected</h2>
-          <p class="mt-2 text-sm text-slate-600">{{ prompt.response.duplicatePayloads?.length || 0 }} payloads already exist. Continue to force staging?</p>
-          <div class="mt-6 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 px-4 py-3" *ngIf="prompt.response.duplicatePayloads?.length">
+          <p class="mt-2 text-sm text-slate-600">{{ prompt.response.duplicatePayloads.length || 0 }} payloads already exist. Continue to force staging?</p>
+          <div class="mt-6 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 px-4 py-3" *ngIf="prompt.response.duplicatePayloads.length">
             <table class="w-full text-left text-xs">
               <thead class="sticky top-0 bg-slate-100 text-slate-600">
                 <tr>
@@ -299,14 +299,14 @@
 
         <div *ngIf="stageResponse" class="space-y-4 rounded-2xl border border-onsemi-primary/20 bg-onsemi-ice/60 p-5">
           <div class="flex flex-wrap gap-6 text-sm text-onsemi-charcoal">
-            <p><strong>Staged:</strong> {{ stageResponse?.staged ?? 0 }}</p>
-            <p><strong>Duplicates:</strong> {{ stageResponse?.duplicates ?? 0 }}</p>
-            <p><strong>Dispatched:</strong> {{ stageResponse?.dispatched ?? 0 }}</p>
+            <p><strong>Staged:</strong> {{ stageResponse.staged ?? 0 }}</p>
+            <p><strong>Duplicates:</strong> {{ stageResponse.duplicates ?? 0 }}</p>
+            <p><strong>Dispatched:</strong> {{ stageResponse.dispatched ?? 0 }}</p>
           </div>
-          <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700" *ngIf="stageResponse?.requiresConfirmation">
+          <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700" *ngIf="stageResponse.requiresConfirmation">
             Dispatch pending confirmation. Re-run staging to proceed.
           </div>
-          <div *ngIf="stageResponse?.duplicatePayloads?.length" class="space-y-3">
+          <div *ngIf="stageResponse.duplicatePayloads.length" class="space-y-3">
             <div class="flex items-center justify-between">
               <p class="text-sm font-semibold text-onsemi-charcoal">Duplicate payloads ({{ stageResponse.duplicatePayloads.length }})</p>
               <button type="button" class="btn-secondary" (click)="copyDuplicatesToClipboard()">Copy duplicates</button>
@@ -346,7 +346,7 @@
               <div class="flex justify-between"><dt>Completed</dt><dd class="font-semibold text-onsemi-charcoal">{{ status.completed }}</dd></div>
               <div class="flex justify-between"><dt>Failed</dt><dd class="font-semibold text-onsemi-charcoal">{{ status.failed }}</dd></div>
             </dl>
-            <div class="mt-4 space-y-2" *ngIf="status.users?.length">
+            <div class="mt-4 space-y-2" *ngIf="status.users.length">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">User breakdown</p>
               <div class="space-y-2 text-xs text-slate-600">
                 <div *ngFor="let user of status.users" class="rounded-xl border border-slate-200 bg-slate-50 p-3">

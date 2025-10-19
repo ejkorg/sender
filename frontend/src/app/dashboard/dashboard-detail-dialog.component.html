@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>{{ data.title }}</h2>
+<h2 class="text-lg font-semibold" mat-dialog-title>{{ data.title }}</h2>
 
 <mat-dialog-content class="dialog-content">
   <p class="description" *ngIf="data.description">{{ data.description }}</p>
@@ -22,16 +22,16 @@
             <div class="row-actions">
               <ng-container *ngFor="let action of data.rowActions">
                 <button *ngIf="!isActionHidden(action, row)"
-                        mat-stroked-button
                         type="button"
-                        [color]="action.color || 'primary'"
-                        [disabled]="isActionDisabled(action, row)"
+                        class="inline-flex items-center gap-2 px-3 py-1 border rounded text-sm"
+                        [class.opacity-50]="isActionDisabled(action, row)"
+                        [attr.aria-disabled]="isActionDisabled(action, row)"
                         [matTooltip]="action.tooltip || ''"
                         [matTooltipDisabled]="!action.tooltip"
                         matTooltipPosition="above"
                         (click)="triggerAction(action, row)">
-                  <mat-icon *ngIf="isExecuting(row)" class="spin" aria-hidden="true">autorenew</mat-icon>
-                  <mat-icon *ngIf="!isExecuting(row) && action.icon" aria-hidden="true">{{ action.icon }}</mat-icon>
+                  <app-icon *ngIf="isExecuting(row)" name="autorenew" class="w-4 h-4 spin" ariaHidden="true"></app-icon>
+                  <app-icon *ngIf="!isExecuting(row) && action.icon" [name]="action.icon" class="w-4 h-4" ariaHidden="true"></app-icon>
                   <span>{{ action.label }}</span>
                 </button>
               </ng-container>
@@ -48,9 +48,9 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" (click)="close()">Close</button>
-  <button mat-flat-button color="primary" type="button" (click)="exportCsv()" [disabled]="!hasRows">
-    <mat-icon>download</mat-icon>
+  <button class="px-3 py-1" type="button" (click)="close()">Close</button>
+  <button class="px-3 py-1 bg-onsemi-primary text-white rounded inline-flex items-center gap-2" type="button" (click)="exportCsv()" [disabled]="!hasRows">
+    <app-icon name="download" class="w-4 h-4" ariaHidden="true"></app-icon>
     Export CSV
   </button>
 </mat-dialog-actions>

@@ -300,7 +300,8 @@ button.mat-mdc-button:disabled {
 	font-size: 0.85rem;
 }
 
-.duplicate-meta mat-icon {
+.duplicate-meta .material-icons,
+.duplicate-meta .icon-svg {
 	font-size: 18px;
 	width: 18px;
 	height: 18px;
@@ -350,7 +351,8 @@ button.mat-mdc-button:disabled {
 	font-weight: 600;
 }
 
-.warning-note mat-icon {
+.warning-note .material-icons,
+.warning-note .icon-svg {
 	color: #b35a00;
 }
 

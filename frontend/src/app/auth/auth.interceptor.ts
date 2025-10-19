@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector } from '@angular/core';
 import {
   HttpErrorResponse,
   HttpEvent,
@@ -15,7 +15,12 @@ export class AuthInterceptor implements HttpInterceptor {
   private refreshInProgress = false;
   private refreshSubject = new BehaviorSubject<string | null>(null);
 
-  constructor(private auth: AuthService) {}
+  constructor(private injector: Injector) {}
+
+  // lazily resolved to avoid circular DI: AuthInterceptor -> AuthService -> HttpClient -> interceptors
+  private get auth(): AuthService {
+    return this.injector.get(AuthService);
+  }
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     if (this.shouldBypass(req.url)) {

@@ -1,11 +1,11 @@
-import { AsyncPipe, NgClass, NgForOf } from '@angular/common';
+import { AsyncPipe, NgClass, NgForOf, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { ToastService } from './toast.service';
 
 @Component({
   selector: 'app-toast-container',
   standalone: true,
-  imports: [NgForOf, AsyncPipe, NgClass],
+  imports: [NgForOf, AsyncPipe, NgClass, NgIf],
   template: `
     <div class="pointer-events-none fixed inset-x-0 top-4 z-[999] flex justify-center px-4">
       <div class="flex w-full max-w-xl flex-col gap-3">

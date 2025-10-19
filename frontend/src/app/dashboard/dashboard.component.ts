@@ -2,7 +2,6 @@ import { CommonModule, formatDate } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -10,6 +9,11 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { firstValueFrom, Subscription, timer } from 'rxjs';
 import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
 import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
+import { IconComponent } from '../ui/icon.component';
+import { ButtonComponent } from '../ui/button.component';
+import { CardComponent } from '../ui/card.component';
+import { TableComponent } from '../ui/table.component';
+import { BadgeComponent } from '../ui/badge.component';
 
 interface DashboardAggregate {
   total: number;
@@ -69,7 +73,7 @@ interface GlobalDetailRow extends Record<string, string | number | null | undefi
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatDialogModule, MatSnackBarModule],
+  imports: [CommonModule, MatCardModule, MatButtonModule, MatProgressBarModule, MatTooltipModule, MatDialogModule, MatSnackBarModule, IconComponent, ButtonComponent, CardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
