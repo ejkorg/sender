@@ -4,8 +4,9 @@
 
 /* onsemi brand globals */
 :root {
-	--onsemi-green: #00953B;
-	--onsemi-teal: #00A3AD;
+	--onsemi-primary: #DA7F3A; /* onsemi orange */
+	--onsemi-primary-dark: #b0682f;
+	--onsemi-primary-light: #eaa87a;
 	--onsemi-charcoal: #101820;
 	--onsemi-ice: #F4FAF7;
 }
@@ -15,11 +16,14 @@ body {
 }
 
 a {
-	@apply text-onsemi-primary underline-offset-4 hover:underline;
+	/* use the new primary color */
+	color: var(--onsemi-primary);
+	@apply underline-offset-4 hover:underline;
 }
 
 .mat-toolbar {
-	@apply border-b-2 border-onsemi-primary bg-white text-onsemi-charcoal shadow-sm;
+	@apply border-b-2 bg-white text-onsemi-charcoal shadow-sm;
+	border-color: var(--onsemi-primary);
 }
 
 .mat-button,
@@ -29,17 +33,30 @@ a {
 }
 
 .mat-raised-button.mat-primary {
-	@apply bg-onsemi-primary text-white;
+	background-color: var(--onsemi-primary);
+	color: white;
 }
 
 .mat-raised-button.mat-accent {
-	@apply bg-onsemi-light text-onsemi-charcoal;
+	background-color: var(--onsemi-primary-light);
+	color: var(--onsemi-charcoal);
 }
 
 .btn-primary {
-	@apply inline-flex items-center justify-center rounded-md bg-onsemi-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-onsemi-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-onsemi-accent disabled:cursor-not-allowed disabled:opacity-50;
+	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+	background-color: var(--onsemi-primary);
+}
+
+.btn-primary:hover {
+	background-color: var(--onsemi-primary-dark);
 }
 
 .btn-secondary {
-	@apply inline-flex items-center justify-center rounded-md border border-onsemi-primary px-4 py-2 text-sm font-semibold text-onsemi-primary transition hover:bg-onsemi-light/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-onsemi-accent disabled:cursor-not-allowed disabled:opacity-50;
+	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+	border: 1px solid var(--onsemi-primary);
+	color: var(--onsemi-primary);
+}
+
+.btn-secondary:hover {
+	background-color: rgba(218,127,58,0.08);
 }

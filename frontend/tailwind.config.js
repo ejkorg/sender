@@ -6,10 +6,11 @@ module.exports = {
     extend: {
       colors: {
         onsemi: {
-          primary: '#00953B',
-          dark: '#00682A',
-          light: '#4DC471',
-          accent: '#00A3AD',
+          // onsemi branding — primary switched to onsemi orange
+          primary: '#DA7F3A',
+          dark: '#b0682f',
+          light: '#eaa87a',
+          accent: '#101820',
           charcoal: '#101820',
           ice: '#F4FAF7'
         }
