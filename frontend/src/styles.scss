@@ -1,57 +1,45 @@
-/* onsemi brand colors and UI overrides */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* onsemi brand globals */
 :root {
-	--onsemi-green: #00B140;
-	--onsemi-navy: #003A70;
-	--onsemi-yellow: #FFD100;
-	--onsemi-orange: #DA7F3A;
+	--onsemi-green: #00953B;
+	--onsemi-teal: #00A3AD;
+	--onsemi-charcoal: #101820;
+	--onsemi-ice: #F4FAF7;
 }
 
 body {
-	font-family: 'Inter', 'Roboto', Arial, sans-serif;
-	background: #fff;
-	color: var(--onsemi-navy);
+	@apply bg-white text-onsemi-charcoal font-sans;
+}
+
+a {
+	@apply text-onsemi-primary underline-offset-4 hover:underline;
 }
 
 .mat-toolbar {
-	background: #fff !important;
-	color: var(--onsemi-navy) !important;
-	border-bottom: 2px solid var(--onsemi-green);
-	box-shadow: 0 2px 8px #003a7012;
+	@apply border-b-2 border-onsemi-primary bg-white text-onsemi-charcoal shadow-sm;
 }
 
-.mat-button, .mat-raised-button, .mat-flat-button {
-	font-weight: 600;
-	border-radius: 4px;
+.mat-button,
+.mat-raised-button,
+.mat-flat-button {
+	@apply font-semibold;
 }
 
 .mat-raised-button.mat-primary {
-	background: var(--onsemi-green) !important;
-	color: #fff !important;
+	@apply bg-onsemi-primary text-white;
 }
 
 .mat-raised-button.mat-accent {
-	background: var(--onsemi-yellow) !important;
-	color: var(--onsemi-navy) !important;
+	@apply bg-onsemi-light text-onsemi-charcoal;
 }
 
-.mat-table {
-	background: #fff;
-	border-radius: 8px;
-	box-shadow: 0 2px 8px #003a7012;
+.btn-primary {
+	@apply inline-flex items-center justify-center rounded-md bg-onsemi-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-onsemi-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-onsemi-accent disabled:cursor-not-allowed disabled:opacity-50;
 }
 
-h2, h3, h4 {
-	color: var(--onsemi-navy);
-	font-weight: 700;
-}
-
-a, .mat-button {
-	color: var(--onsemi-green);
-}
-
-/* Add logo to toolbar */
-.mat-toolbar .onsemi-logo {
-	height: 32px;
-	margin-right: 16px;
-	vertical-align: middle;
+.btn-secondary {
+	@apply inline-flex items-center justify-center rounded-md border border-onsemi-primary px-4 py-2 text-sm font-semibold text-onsemi-primary transition hover:bg-onsemi-light/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-onsemi-accent disabled:cursor-not-allowed disabled:opacity-50;
 }

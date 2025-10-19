@@ -1,12 +1,24 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of, Subscription, timer } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { map, catchError } from 'rxjs/operators';
-import { HttpHeaders } from '@angular/common/http';
+import { BehaviorSubject, Observable, Subscription, timer, of, throwError } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { catchError, finalize, map, tap } from 'rxjs/operators';
 
 export interface UserInfo {
   username: string;
   roles?: string[];
+}
+
+interface LoginResponse {
+  accessToken: string;
+}
+
+interface RefreshResponse {
+  accessToken?: string;
+}
+
+interface RegisterResponse {
+  message: string;
+  verificationToken?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -16,11 +28,19 @@ export class AuthService {
   // access token kept in-memory to reduce XSS exposure
   private accessToken: string | null = null;
   private refreshTimerSub: Subscription | null = null;
+  private readonly baseUrl = '/api/auth';
 
   constructor(private http: HttpClient) {
     // On startup try to refresh (if refresh cookie present) and then fetch current user info
-    this.refresh().subscribe(_ => {
-      this.getMe().subscribe();
+    this.refresh().subscribe({
+      next: success => {
+        if (success) {
+          this.getMe().subscribe();
+        }
+      },
+      error: () => {
+        this.setSession(null);
+      }
     });
   }
 
@@ -86,7 +106,7 @@ export class AuthService {
 
   // Get current authenticated user from backend
   getMe(): Observable<UserInfo | null> {
-    return this.http.get<any>('/api/auth/me').pipe(
+    return this.http.get<any>(`${this.baseUrl}/me`, { withCredentials: true }).pipe(
       map(res => {
         if (res && res.username) {
           const info: UserInfo = { username: res.username, roles: res.roles || [] };
@@ -111,19 +131,20 @@ export class AuthService {
 
   // refresh the access token using the backend refresh endpoint (backend sets refresh cookie)
   refresh(): Observable<boolean> {
-    return this.http.post('/api/auth/refresh', null, { withCredentials: true }).pipe(
-      map((res: any) => {
+    return this.http.post<RefreshResponse>(`${this.baseUrl}/refresh`, null, { withCredentials: true }).pipe(
+      map(res => {
         const token = res && res.accessToken ? res.accessToken : null;
         if (token) {
           this.setSession(token);
-          // also refresh user info from backend
-          this.getMe().subscribe();
           return true;
         }
         this.setSession(null);
         return false;
       }),
-      catchError((_) => of(false))
+      catchError(() => {
+        this.setSession(null);
+        return of(false);
+      })
     );
   }
 
@@ -148,42 +169,59 @@ export class AuthService {
   }
 
   // Use the proper JWT login endpoint
-  login(username: string, password: string): Observable<boolean> {
+  login(username: string, password: string): Observable<void> {
     console.debug('[AuthService] login attempt', { username });
-    return new Observable<boolean>((observer) => {
-      this.http.post('/api/auth/login', { username, password }, { withCredentials: true }).subscribe(
-        (res: any) => {
-          console.debug('[AuthService] login succeeded', res);
-          const token = res && res.accessToken ? res.accessToken : null;
-          if (token) {
-            this.setSession(token, username);
-            this.getMe().subscribe();
-            observer.next(true);
-            observer.complete();
-          } else {
-            console.warn('[AuthService] login response missing accessToken', res);
-            observer.error(new Error('No access token in response'));
-          }
-        },
-        (err: any) => {
-          console.error('[AuthService] login failed', err);
-          observer.error(err);
+    return this.http.post<LoginResponse>(`${this.baseUrl}/login`, { username, password }, { withCredentials: true }).pipe(
+      tap(res => {
+        if (!res?.accessToken) {
+          throw new Error('No access token in response');
         }
-      );
-    });
+        this.setSession(res.accessToken, username);
+        this.getMe().subscribe();
+        console.debug('[AuthService] login succeeded');
+      }),
+      map(() => void 0),
+      catchError(err => {
+        console.error('[AuthService] login failed', err);
+        return throwError(() => err);
+      })
+    );
   }
 
   // Register a new user using backend register endpoint. Return verification token (dev) if provided.
-  register(username: string, email: string | null, password: string): Observable<{ verificationToken?: string }> {
-    return this.http.post<{ verificationToken?: string }>(
-      '/api/auth/register',
+  register(username: string, email: string | null, password: string): Observable<RegisterResponse> {
+    return this.http.post<RegisterResponse>(
+      `${this.baseUrl}/register`,
       { username, email, password },
       { withCredentials: true }
     );
   }
 
-  logout() {
-    this.setSession(null);
+  verifyAccount(token: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/verify`, { token }, { withCredentials: true }).pipe(
+      map(() => void 0)
+    );
+  }
+
+  requestPasswordReset(identifier: string): Observable<{ resetToken?: string }> {
+    return this.http.post<{ resetToken?: string }>(
+      `${this.baseUrl}/request-reset`,
+      { username: identifier },
+      { withCredentials: true }
+    );
+  }
+
+  resetPassword(token: string, password: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/reset-password`, { token, password }, { withCredentials: true }).pipe(
+      map(() => void 0)
+    );
+  }
+
+  logout(): void {
+    this.http.post<void>(`${this.baseUrl}/logout`, null, { withCredentials: true }).pipe(
+      catchError(() => of(void 0)),
+      finalize(() => this.setSession(null))
+    ).subscribe();
   }
 
   getAuthHeaders(): HttpHeaders | null {

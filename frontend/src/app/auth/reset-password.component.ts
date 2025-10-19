@@ -1,55 +1,124 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { HttpClient } from '@angular/common/http';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { NgForm } from '@angular/forms';
+import { AuthService } from './auth.service';
+import { ToastService } from '../ui/toast.service';
 
 @Component({
   selector: 'app-reset-password',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatCardModule, MatInputModule, MatButtonModule],
+  imports: [CommonModule, ReactiveFormsModule],
   template: `
-  <mat-card style="max-width:480px;margin:24px auto;padding:16px;">
-    <h3>Reset password</h3>
-    <form #rf="ngForm" (ngSubmit)="reset(rf)">
-      <mat-form-field style="width:100%">
-        <input matInput name="token" placeholder="Reset token" required [(ngModel)]="token" #tokenCtl="ngModel" />
-        <mat-error *ngIf="tokenCtl.invalid && tokenCtl.touched">Reset token is required</mat-error>
-      </mat-form-field>
-      <mat-form-field style="width:100%">
-        <input matInput name="password" placeholder="New password" required minlength="8" type="password" [(ngModel)]="password" #passwordCtl="ngModel" />
-        <mat-error *ngIf="passwordCtl.invalid && passwordCtl.touched">
-          <span *ngIf="passwordCtl.errors?.['required']">Password is required</span>
-          <span *ngIf="passwordCtl.errors?.['minlength']">Password must be at least 8 characters</span>
-        </mat-error>
-      </mat-form-field>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button mat-button type="submit" [disabled]="rf.invalid">Reset</button>
-        <button mat-button type="button" (click)="cancel()">Cancel</button>
-      </div>
-    </form>
-  </mat-card>
+    <div class="flex min-h-screen items-center justify-center bg-onsemi-ice px-4 py-16">
+      <section class="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-onsemi-primary/15">
+        <h1 class="text-xl font-semibold text-onsemi-charcoal">Reset password</h1>
+        <p class="mt-1 text-sm text-slate-600">Provide your reset token and choose a new password.</p>
+
+        <form [formGroup]="form" (ngSubmit)="submit()" class="mt-8 space-y-6">
+          <div>
+            <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="token">Reset token</label>
+            <input
+              id="token"
+              type="text"
+              formControlName="token"
+              required
+              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              [class.border-red-500]="tokenCtrl.invalid && tokenCtrl.touched"
+            />
+            <p class="mt-2 text-sm text-red-600" *ngIf="tokenCtrl.hasError('required') && tokenCtrl.touched">Reset token is required</p>
+          </div>
+
+          <div>
+            <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="password">New password</label>
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              autocomplete="new-password"
+              required
+              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              [class.border-red-500]="passwordCtrl.invalid && passwordCtrl.touched"
+            />
+            <p class="mt-2 text-sm text-red-600" *ngIf="passwordCtrl.hasError('required') && passwordCtrl.touched">Password is required</p>
+            <p class="mt-2 text-sm text-red-600" *ngIf="passwordCtrl.hasError('minlength') && passwordCtrl.touched">Password must be at least 8 characters</p>
+          </div>
+
+          <button type="submit" class="btn-primary w-full py-3 text-base" [disabled]="form.invalid || submitting">
+            <ng-container *ngIf="!submitting; else loading">Reset password</ng-container>
+          </button>
+          <ng-template #loading>
+            <div class="flex items-center justify-center gap-2">
+              <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              Updating…
+            </div>
+          </ng-template>
+        </form>
+
+        <div class="mt-8 text-center text-sm text-slate-600">
+          <button class="font-semibold text-onsemi-primary hover:underline" type="button" (click)="gotoLogin()">Back to sign in</button>
+        </div>
+      </section>
+    </div>
   `
 })
-export class ResetPasswordComponent {
-  token = '';
-  password = '';
-  constructor(private http: HttpClient, private snack: MatSnackBar, private router: Router) {}
-  reset(form?: NgForm) {
-    if (form && form.invalid) {
-      Object.values((form as any).controls || {}).forEach((c: any) => c.markAsTouched());
+export class ResetPasswordComponent implements OnDestroy {
+  submitting = false;
+
+  private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
+  private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
+  private redirectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  readonly form = this.fb.nonNullable.group({
+    token: ['', [Validators.required]],
+    password: ['', [Validators.required, Validators.minLength(8)]]
+  });
+
+  get tokenCtrl() {
+    return this.form.controls.token;
+  }
+
+  get passwordCtrl() {
+    return this.form.controls.password;
+  }
+
+  submit(): void {
+    if (this.form.invalid || this.submitting) {
+      this.form.markAllAsTouched();
       return;
     }
-    if (!form && (!this.token || this.password.length < 8)) { this.snack.open('token and password >=8 required', 'Close', { duration: 3000 }); return; }
-    this.http.post('/api/auth/reset-password', { token: this.token, password: this.password }).subscribe(
-      _ => { this.snack.open('Password reset', 'Close', { duration: 3000 }); this.router.navigateByUrl('/'); },
-      err => { this.snack.open('Reset failed', 'Close', { duration: 4000 }); }
-    );
+    const { token, password } = this.form.getRawValue();
+    this.submitting = true;
+    this.auth.resetPassword(token, password).subscribe({
+      next: () => {
+        this.submitting = false;
+        this.toast.success('Password updated. You can sign in with your new password.');
+        this.startRedirect('/login');
+      },
+      error: err => {
+        this.submitting = false;
+        const reason = err?.error?.error || err?.message || 'Reset failed';
+        this.toast.error(reason);
+      }
+    });
   }
-  cancel() { this.router.navigateByUrl('/'); }
+
+  gotoLogin(): void {
+    this.router.navigateByUrl('/login');
+  }
+
+  private startRedirect(url: string): void {
+    this.redirectTimer = setTimeout(() => {
+      this.router.navigateByUrl(url);
+    }, 1500);
+  }
+
+  ngOnDestroy(): void {
+    if (this.redirectTimer) {
+      clearTimeout(this.redirectTimer);
+      this.redirectTimer = null;
+    }
+  }
 }

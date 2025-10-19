@@ -1,7 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StepperSelectionEvent } from '@angular/cdk/stepper';
 import {
   BackendService,
   DiscoveryPreviewRequest,
@@ -15,34 +14,16 @@ import {
   StageRecordView,
   StageStatus
 } from '../api/backend.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { Clipboard } from '@angular/cdk/clipboard';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatCardModule } from '@angular/material/card';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatStepperModule } from '@angular/material/stepper';
-import { MatIconModule } from '@angular/material/icon';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatListModule } from '@angular/material/list';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
-import { DuplicateWarningDialogComponent } from './duplicate-warning-dialog.component';
+import { ToastService } from '../ui/toast.service';
 
 
 @Component({
   selector: 'app-stepper',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatStepperModule, MatIconModule, MatDatepickerModule, MatNativeDateModule, MatCheckboxModule, MatDialogModule, MatMenuModule],
-  templateUrl: './stepper.component.html',
-  styleUrls: ['./stepper.component.css']
+  imports: [CommonModule, FormsModule],
+  templateUrl: './stepper.component.html'
 })
 export class StepperComponent implements OnInit, OnDestroy {
   stepIndex = 0;
@@ -99,11 +80,10 @@ export class StepperComponent implements OnInit, OnDestroy {
   currentUser: string | null = null;
   private userSub?: Subscription;
   readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
+  duplicatePrompt: { response: StagePayloadResponseBody; fallbackCount: number } | null = null;
 
   constructor(private api: BackendService,
-              private snack: MatSnackBar,
-              private clipboard: Clipboard,
-              private dialog: MatDialog,
+              private toast: ToastService,
               private auth: AuthService) {}
 
   ngOnInit(): void {
@@ -227,6 +207,14 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.refreshTestPhasesIfReady();
   }
 
+  onStartDateChange(value: string) {
+    this.startDate = value ? new Date(`${value}T00:00:00`) : null;
+  }
+
+  onEndDateChange(value: string) {
+    this.endDate = value ? new Date(`${value}T00:00:00`) : null;
+  }
+
   private clearDiscoveryState() {
     this.resetPreview();
     this.stageResponse = null;
@@ -300,7 +288,7 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   doPreview(page: number = 0) {
     if (!this.canSearch()) {
-      this.snack.open('Select all required filters before searching.', 'Close', { duration: 3000 });
+      this.toast.error('Select all required filters before searching.');
       return;
     }
 
@@ -341,7 +329,7 @@ export class StepperComponent implements OnInit, OnDestroy {
       },
       error: (err: unknown) => {
         console.error('Preview failed', err);
-        this.snack.open('Discovery preview failed', 'Close', { duration: 4000 });
+        this.toast.error('Discovery preview failed');
         this.loading = false;
         this.previewLoading = false;
       },
@@ -357,13 +345,6 @@ export class StepperComponent implements OnInit, OnDestroy {
     if (index > 2) index = 2;
     this.stepIndex = index;
     if (index === 2) {
-      this.refreshMonitoring();
-    }
-  }
-
-  onStepperChange(event: StepperSelectionEvent) {
-    this.stepIndex = event.selectedIndex;
-    if (this.stepIndex === 2) {
       this.refreshMonitoring();
     }
   }
@@ -417,12 +398,12 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   stageSelected(force: boolean = false) {
     if (!this.selectedSite || !this.selectedSenderId) {
-      this.snack.open('Site and sender must be selected.', 'Close', { duration: 3000 });
+      this.toast.error('Site and sender must be selected.');
       return;
     }
     const payloads = this.collectSelectedPayloads();
     if (!payloads.length) {
-      this.snack.open('Select at least one payload to stage.', 'Close', { duration: 3000 });
+      this.toast.error('Select at least one payload to stage.');
       return;
     }
 
@@ -440,14 +421,14 @@ export class StepperComponent implements OnInit, OnDestroy {
       next: (response: StagePayloadResponseBody) => {
         if (response?.requiresConfirmation && !force) {
           this.staging = false;
-          this.promptDuplicateConfirmation(response);
+          this.openDuplicatePrompt(response, payloads.length);
           return;
         }
         this.finalizeStage(response, payloads.length);
       },
       error: (err: unknown) => {
         console.error('Staging failed', err);
-        this.snack.open('Failed staging payloads', 'Close', { duration: 4000 });
+        this.toast.error('Failed staging payloads');
         this.staging = false;
       },
       complete: () => {
@@ -461,27 +442,26 @@ export class StepperComponent implements OnInit, OnDestroy {
     const stagedCount = response?.staged ?? fallbackCount;
     const duplicateCount = response?.duplicates ?? 0;
     const duplicateNote = duplicateCount > 0 ? ` (${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'})` : '';
-    this.snack.open(`Staged ${stagedCount} payload${stagedCount === 1 ? '' : 's'}${duplicateNote}`, 'OK', { duration: 3500 });
+    this.toast.success(`Staged ${stagedCount} payload${stagedCount === 1 ? '' : 's'}${duplicateNote}`);
     this.stepIndex = 2;
     this.refreshMonitoring();
   }
 
-  private promptDuplicateConfirmation(response: StagePayloadResponseBody) {
-    const dialogRef = this.dialog.open(DuplicateWarningDialogComponent, {
-      width: '560px',
-      data: {
-        currentUser: this.currentUser,
-        duplicates: response?.duplicatePayloads ?? []
-      }
-    });
+  private openDuplicatePrompt(response: StagePayloadResponseBody, fallbackCount: number) {
+    this.duplicatePrompt = { response, fallbackCount };
+  }
 
-    dialogRef.afterClosed().subscribe(result => {
-      if (result === true) {
-        this.stageSelected(true);
-      } else {
-        this.snack.open('Staging cancelled. No changes applied.', 'Close', { duration: 3500 });
+  confirmDuplicate(force: boolean) {
+    const prompt = this.duplicatePrompt;
+    this.duplicatePrompt = null;
+    if (force) {
+      this.stageSelected(true);
+    } else {
+      this.toast.info('Staging cancelled. No changes applied.');
+      if (prompt) {
+        this.stageResponse = prompt.response;
       }
-    });
+    }
   }
 
   refreshMonitoring() {
@@ -524,7 +504,7 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   copyDuplicatesToClipboard() {
     if (!this.stageResponse?.duplicatePayloads?.length) {
-      this.snack.open('No duplicate payloads to copy.', 'OK', { duration: 2500 });
+      this.toast.info('No duplicate payloads to copy.');
       return;
     }
     const text = this.stageResponse.duplicatePayloads
@@ -545,17 +525,21 @@ export class StepperComponent implements OnInit, OnDestroy {
         return segments.join(' ');
       })
       .join('\n');
-    this.clipboard.copy(text);
-    this.snack.open('Duplicate payload IDs copied.', 'OK', { duration: 2500 });
+    navigator.clipboard.writeText(text).then(
+      () => this.toast.success('Duplicate payload IDs copied.'),
+      () => this.toast.error('Unable to copy duplicate payloads.')
+    );
   }
 
   copyPreviewSql() {
     if (!this.previewDebugSql) {
-      this.snack.open('No SQL to copy.', 'OK', { duration: 2500 });
+      this.toast.info('No SQL to copy.');
       return;
     }
-    this.clipboard.copy(this.previewDebugSql);
-    this.snack.open('Preview SQL copied.', 'OK', { duration: 2500 });
+    navigator.clipboard.writeText(this.previewDebugSql).then(
+      () => this.toast.success('Preview SQL copied.'),
+      () => this.toast.error('Unable to copy SQL.')
+    );
   }
 
   private resetPreview() {
@@ -599,7 +583,7 @@ export class StepperComponent implements OnInit, OnDestroy {
   exportPreviewCsv(selectedOnly: boolean = false) {
     const rows = selectedOnly ? this.collectSelectedPreviewRows() : [...this.previewRows];
     if (!rows.length) {
-      this.snack.open(selectedOnly ? 'No selected payloads to export.' : 'No preview rows to export.', 'Close', { duration: 3000 });
+      this.toast.info(selectedOnly ? 'No selected payloads to export.' : 'No preview rows to export.');
       return;
     }
 
@@ -624,7 +608,7 @@ export class StepperComponent implements OnInit, OnDestroy {
     link.click();
     window.URL.revokeObjectURL(url);
 
-    this.snack.open(`Exported ${rows.length} payload${rows.length === 1 ? '' : 's'} to CSV.`, 'OK', { duration: 3500 });
+    this.toast.success(`Exported ${rows.length} payload${rows.length === 1 ? '' : 's'} to CSV.`);
   }
 
   private collectSelectedPayloads(): Array<{ metadataId: string; dataId: string }> {
@@ -663,6 +647,7 @@ export class StepperComponent implements OnInit, OnDestroy {
         console.error('Failed loading stage status', err);
         this.stageStatus = [];
         this.statusLoading = false;
+        this.toast.error('Failed loading stage status');
       },
       complete: () => {
         this.statusLoading = false;
@@ -689,6 +674,7 @@ export class StepperComponent implements OnInit, OnDestroy {
         this.stageRecords = [];
         this.stageRecordsTotal = 0;
         this.stageRecordsLoading = false;
+        this.toast.error('Failed loading stage records');
       },
       complete: () => {
         this.stageRecordsLoading = false;

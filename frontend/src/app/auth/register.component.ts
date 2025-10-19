@@ -1,80 +1,152 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { AuthService } from './auth.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { NgForm } from '@angular/forms';
+import { AuthService } from './auth.service';
+import { ToastService } from '../ui/toast.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [CommonModule, ReactiveFormsModule],
   template: `
-  <mat-card style="max-width:480px;margin:24px auto;padding:16px;">
-    <h3>Create account</h3>
-    <form #f="ngForm" (ngSubmit)="register(f)">
-      <mat-form-field style="width:100%">
-        <input matInput name="username" required minlength="3" [(ngModel)]="username" #usernameCtrl="ngModel" placeholder="Username" />
-        <mat-error *ngIf="usernameCtrl.invalid && usernameCtrl.touched">
-          <span *ngIf="usernameCtrl.errors?.['required']">Username is required</span>
-          <span *ngIf="usernameCtrl.errors?.['minlength']">Username must be at least 3 characters</span>
-        </mat-error>
-      </mat-form-field>
-      <mat-form-field style="width:100%"><input matInput name="email" type="email" [(ngModel)]="email" #emailCtrl="ngModel" placeholder="Email (optional)" /></mat-form-field>
-      <mat-form-field style="width:100%">
-        <input matInput name="password" required minlength="8" type="password" [(ngModel)]="password" #passwordCtrl="ngModel" placeholder="Password" />
-        <mat-error *ngIf="passwordCtrl.invalid && passwordCtrl.touched">
-          <span *ngIf="passwordCtrl.errors?.['required']">Password is required</span>
-          <span *ngIf="passwordCtrl.errors?.['minlength']">Password must be at least 8 characters</span>
-        </mat-error>
-      </mat-form-field>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button mat-button type="submit" [disabled]="f.invalid">Create</button>
-        <button mat-button type="button" (click)="cancel()">Cancel</button>
-      </div>
-    </form>
-  </mat-card>
+    <div class="flex min-h-screen items-center justify-center bg-onsemi-ice px-4 py-16">
+      <section class="w-full max-w-xl rounded-2xl bg-white p-10 shadow-xl ring-1 ring-onsemi-primary/15">
+        <div class="mb-8 space-y-2 text-center">
+          <h1 class="text-2xl font-semibold text-onsemi-charcoal">Create your account</h1>
+          <p class="text-sm text-slate-600">Register to access the sender tools.</p>
+        </div>
+
+        <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-6">
+          <div>
+            <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              formControlName="username"
+              autocomplete="username"
+              required
+              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              [class.border-red-500]="usernameCtrl.invalid && usernameCtrl.touched"
+            />
+            <p class="mt-2 text-sm text-red-600" *ngIf="usernameCtrl.hasError('required') && usernameCtrl.touched">Username is required</p>
+            <p class="mt-2 text-sm text-red-600" *ngIf="usernameCtrl.hasError('minlength') && usernameCtrl.touched">Use at least 3 characters</p>
+          </div>
+
+          <div>
+            <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="email">Email (optional)</label>
+            <input
+              id="email"
+              type="email"
+              formControlName="email"
+              autocomplete="email"
+              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              [class.border-red-500]="emailCtrl.invalid && emailCtrl.touched"
+            />
+            <p class="mt-2 text-sm text-red-600" *ngIf="emailCtrl.hasError('email') && emailCtrl.touched">Provide a valid email address</p>
+          </div>
+
+          <div>
+            <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              formControlName="password"
+              autocomplete="new-password"
+              required
+              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              [class.border-red-500]="passwordCtrl.invalid && passwordCtrl.touched"
+            />
+            <p class="mt-2 text-sm text-red-600" *ngIf="passwordCtrl.hasError('required') && passwordCtrl.touched">Password is required</p>
+            <p class="mt-2 text-sm text-red-600" *ngIf="passwordCtrl.hasError('minlength') && passwordCtrl.touched">Password must be at least 8 characters</p>
+          </div>
+
+          <button type="submit" class="btn-primary w-full py-3 text-base" [disabled]="form.invalid || submitting">
+            <ng-container *ngIf="!submitting; else loading">Create account</ng-container>
+          </button>
+          <ng-template #loading>
+            <div class="flex items-center justify-center gap-2">
+              <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              Creating…
+            </div>
+          </ng-template>
+        </form>
+
+        <div class="mt-8 text-center text-sm text-slate-600">
+          Already have an account?
+          <button class="font-semibold text-onsemi-primary hover:underline" type="button" (click)="gotoLogin()">Sign in</button>
+        </div>
+      </section>
+    </div>
   `
 })
-export class RegisterComponent {
-  username = '';
-  email: string | null = null;
-  password = '';
+export class RegisterComponent implements OnDestroy {
+  submitting = false;
 
-  constructor(private auth: AuthService, private snack: MatSnackBar, private router: Router) {}
+  private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
+  private redirectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  register(form?: NgForm) {
-    if (form && form.invalid) {
-      // mark controls as touched to show inline validation messages
-      Object.values((form as any).controls || {}).forEach((c: any) => c.markAsTouched());
-      return;
-    }
+  readonly form = this.fb.nonNullable.group({
+    username: ['', [Validators.required, Validators.minLength(3)]],
+    email: ['', [Validators.email]],
+    password: ['', [Validators.required, Validators.minLength(8)]]
+  });
 
-    if (!form && (!this.username || this.password.length < 8)) {
-      this.snack.open('username required and password >= 8 chars', 'Close', { duration: 4000 });
-      return;
-    }
-
-    this.auth.register(this.username, this.email, this.password).subscribe(
-      (res) => {
-        const token = (res as any)?.verificationToken as string | undefined;
-        this.snack.open('Registered — verify your account', 'Close', { duration: 4000 });
-        if (token) {
-          this.router.navigate(['/verify'], { queryParams: { token } });
-        } else {
-          this.router.navigateByUrl('/verify');
-        }
-      },
-      err => {
-        this.snack.open('Registration failed: ' + (err?.error?.error || err?.message || 'unknown'), 'Close', { duration: 4000 });
-      }
-    );
+  get usernameCtrl() {
+    return this.form.controls.username;
   }
 
-  cancel() { this.router.navigateByUrl('/login'); }
+  get emailCtrl() {
+    return this.form.controls.email;
+  }
+
+  get passwordCtrl() {
+    return this.form.controls.password;
+  }
+
+  submit(): void {
+    if (this.form.invalid || this.submitting) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    const { username, email, password } = this.form.getRawValue();
+    this.submitting = true;
+    this.auth.register(username, email || null, password).subscribe({
+      next: res => {
+        this.submitting = false;
+        const token = res?.verificationToken;
+        this.toast.success('Registered — verify your account to continue.');
+        if (token) {
+          this.startRedirect(`/verify?token=${encodeURIComponent(token)}`);
+        } else {
+          this.startRedirect('/verify');
+        }
+      },
+      error: err => {
+        this.submitting = false;
+        const reason = err?.error?.error || err?.message || 'Registration failed';
+        this.toast.error(reason);
+      }
+    });
+  }
+
+  gotoLogin(): void {
+    this.router.navigateByUrl('/login');
+  }
+
+  private startRedirect(url: string): void {
+    this.redirectTimer = setTimeout(() => {
+      this.router.navigateByUrl(url);
+    }, 1200);
+  }
+
+  ngOnDestroy(): void {
+    if (this.redirectTimer) {
+      clearTimeout(this.redirectTimer);
+      this.redirectTimer = null;
+    }
+  }
 }
