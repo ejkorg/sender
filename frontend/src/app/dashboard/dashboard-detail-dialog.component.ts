@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, EventEmitter, Input, Output } from '@angular/core';
 import { IconComponent } from '../ui/icon.component';
+import { TooltipDirective } from '../ui/tooltip.directive';
 import { Observable, isObservable } from 'rxjs';
 
 export interface DashboardDetailColumn {
@@ -32,7 +33,7 @@ export interface DashboardDetailDialogData {
 @Component({
   selector: 'app-dashboard-detail-dialog',
   standalone: true,
-  imports: [CommonModule, IconComponent],
+  imports: [CommonModule, IconComponent, TooltipDirective],
   templateUrl: './dashboard-detail-dialog.component.html',
   styleUrls: ['./dashboard-detail-dialog.component.css']
 })

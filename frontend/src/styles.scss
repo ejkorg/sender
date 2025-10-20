@@ -15,9 +15,14 @@ body {
 	@apply bg-white text-onsemi-charcoal font-sans;
 }
 
+/* utility helper: use a darker color for small / secondary text to improve contrast.
+	Use the brand charcoal for sufficient WCAG contrast while keeping primary accents
+	for larger UI elements. */
+.text-onsemi-primary { color: var(--onsemi-charcoal); }
+
 a {
-	/* use the new primary color */
-	color: var(--onsemi-primary);
+	/* use a darker primary for links to meet contrast requirements */
+	color: var(--onsemi-primary-dark);
 	@apply underline-offset-4 hover:underline;
 }
 
@@ -36,7 +41,8 @@ a {
 .btn-secondary {
 	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
 	border: 1px solid var(--onsemi-primary);
-	color: var(--onsemi-primary);
+	/* use charcoal for the button text to meet contrast; keep the brand border */
+	color: var(--onsemi-charcoal);
 }
 
 .btn-secondary:hover {

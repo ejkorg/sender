@@ -18,7 +18,7 @@
         <table class="min-w-full text-sm">
           <thead class="bg-onsemi-ice text-onsemi-charcoal">
             <tr>
-              <th *ngFor="let column of data.columns" class="px-3 py-2 text-left" [attr.title]="column.label">{{ column.label }}</th>
+              <th *ngFor="let column of data.columns" class="px-3 py-2 text-left" [appTooltip]="column.label">{{ column.label }}</th>
               <th *ngIf="hasRowActions" class="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -28,12 +28,12 @@
               <td *ngIf="hasRowActions" class="px-3 py-2 text-right">
                 <div class="flex justify-end gap-2">
                   <ng-container *ngFor="let action of data.rowActions">
-                    <button *ngIf="!isActionHidden(action, row)"
+                        <button *ngIf="!isActionHidden(action, row)"
                             type="button"
                             class="inline-flex items-center gap-2 px-3 py-1 border rounded text-sm"
                             [class.opacity-50]="isActionDisabled(action, row)"
                             [attr.aria-disabled]="isActionDisabled(action, row)"
-                            [attr.title]="action.tooltip || ''"
+                          [appTooltip]="action.tooltip || ''"
                             (click)="triggerAction(action, row)">
                       <app-icon *ngIf="isExecuting(row)" name="autorenew" class="w-4 h-4 spin" ariaHidden="true"></app-icon>
                       <app-icon *ngIf="!isExecuting(row) && action.icon" [name]="action.icon" class="w-4 h-4" ariaHidden="true"></app-icon>
