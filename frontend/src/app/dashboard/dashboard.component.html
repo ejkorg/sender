@@ -159,22 +159,22 @@
 
           <div class="sender-section">
             <h3>Sender focus</h3>
-            <div class="sender-row clickable" *ngFor="let sender of site.senders" role="button" tabindex="0"
-                 (click)="openSenderDetail(site, sender)" (keydown.enter)="openSenderDetail(site, sender)" matTooltip="View user activity">
-              <div class="sender-id">
-                <app-icon name="router" [class]="'sender-icon' + (sender.alert ? ' alert' : '')" ariaHidden="true"></app-icon>
-                <span>Sender {{ sender.senderLabel }}</span>
-              </div>
-              <div class="sender-metrics">
-                <span class="badge" [class.highlight]="sender.ready > 0" title="Ready">R {{ sender.ready }}</span>
-                <span class="badge" title="Enqueued">E {{ sender.enqueued }}</span>
-                <span class="badge warn" [class.attention]="sender.failed > 0" title="Failed">F {{ sender.failed }}</span>
-                <span class="badge muted" title="Completed">C {{ sender.completed }}</span>
-              </div>
-              <div class="sender-backlog" [class.attention]="sender.backlog > 0">
-                Backlog {{ sender.backlog }}
-              </div>
-            </div>
+                  <div *ngFor="let sender of site.senders" class="sender-row clickable" role="button" tabindex="0"
+                       (click)="openSenderDetail(site, sender)" (keydown.enter)="openSenderDetail(site, sender)" [appTooltip]="'View user activity'">
+                    <div class="sender-id">
+                      <app-icon name="router" [class]="'sender-icon' + (sender.alert ? ' alert' : '')" ariaHidden="true"></app-icon>
+                      <span>Sender {{ sender.senderLabel }}</span>
+                    </div>
+                    <div class="sender-metrics">
+                      <span class="badge" [class.highlight]="sender.ready > 0" title="Ready">R {{ sender.ready }}</span>
+                      <span class="badge" title="Enqueued">E {{ sender.enqueued }}</span>
+                      <span class="badge warn" [class.attention]="sender.failed > 0" title="Failed">F {{ sender.failed }}</span>
+                      <span class="badge muted" title="Completed">C {{ sender.completed }}</span>
+                    </div>
+                    <div class="sender-backlog" [class.attention]="sender.backlog > 0">
+                      Backlog {{ sender.backlog }}
+                    </div>
+                  </div>
           </div>
         </div>
         <div class="card-actions p-4 bg-transparent text-right">

@@ -12,6 +12,7 @@ import { ButtonComponent } from '../ui/button.component';
 import { CardComponent } from '../ui/card.component';
 import { TableComponent } from '../ui/table.component';
 import { BadgeComponent } from '../ui/badge.component';
+import { TooltipDirective } from '../ui/tooltip.directive';
 
 interface DashboardAggregate {
   total: number;
@@ -71,7 +72,7 @@ interface GlobalDetailRow extends Record<string, string | number | null | undefi
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, IconComponent, ButtonComponent, CardComponent],
+  imports: [CommonModule, IconComponent, ButtonComponent, CardComponent, TooltipDirective],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
