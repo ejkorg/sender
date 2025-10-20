@@ -9,6 +9,10 @@
         <app-icon name="refresh" class="mr-2" ariaHidden="true"></app-icon>
         Refresh
       </button>
+      <button type="button" class="ml-3" (click)="openSenderLookup()">
+        <app-icon name="search" class="mr-2" ariaHidden="true"></app-icon>
+        Lookup senders
+      </button>
       <span class="timestamp" [title]="lastUpdated ? (lastUpdated | date: uiDateFormat) : 'No data yet'">
         Updated: {{ formatUpdated() }}
       </span>

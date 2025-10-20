@@ -24,8 +24,8 @@ import { ToastService } from '../ui/toast.service';
 @Component({
   selector: 'app-stepper',
   standalone: true,
-  // include dialog component for dynamic creation
-  imports: [CommonModule, FormsModule, DuplicateWarningDialogComponent],
+  // Note: DuplicateWarningDialogComponent is created dynamically via ModalService
+  imports: [CommonModule, FormsModule],
   templateUrl: './stepper.component.html'
 })
 export class StepperComponent implements OnInit, OnDestroy {

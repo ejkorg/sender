@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, Renderer2, ViewChild, ViewContainerRef } from '@angular/core';
 import { ModalService } from './modal.service';
 import { Subscription } from 'rxjs';
 
@@ -22,7 +22,10 @@ export class ModalHostComponent implements OnInit, OnDestroy {
   private sub?: Subscription;
   private currentId: string | null = null;
 
-  constructor(private modal: ModalService, private cdr: ChangeDetectorRef) {}
+  // saved element to restore focus after modal closes
+  private previouslyFocused: HTMLElement | null = null;
+
+  constructor(private modal: ModalService, private cdr: ChangeDetectorRef, private renderer: Renderer2) {}
 
   ngOnInit(): void {
     // register our host view container with the modal service
@@ -33,17 +36,27 @@ export class ModalHostComponent implements OnInit, OnDestroy {
     }
 
     this.sub = this.modal.opened$.subscribe(inst => {
+      // clear existing content then render new instance when caller attaches
       this.vc.clear();
       this.currentId = inst?.id ?? null;
-      if (inst && inst.componentRef === null) {
-        // host will wait for attachRef from caller if they're doing dynamic creation
-      }
       this.active = !!inst;
       this.cdr.markForCheck();
+
       if (this.active) {
-        // focus trap: focus host container
+        // save currently focused element so we can restore later
+        try {
+          this.previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        } catch {
+          this.previouslyFocused = null;
+        }
+
+        // small delay to let the component attach; then focus the first focusable element
+        setTimeout(() => this.focusFirstFocusable(), 0);
+      } else {
+        // modal closed: restore focus
         setTimeout(() => {
-          try { (this.vc.element.nativeElement as HTMLElement).focus(); } catch {}
+          try { this.previouslyFocused?.focus(); } catch {}
+          this.previouslyFocused = null;
         }, 0);
       }
     });
@@ -59,10 +72,56 @@ export class ModalHostComponent implements OnInit, OnDestroy {
     }
   }
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    if (this.currentId) {
-      this.modal.close(this.currentId);
+  @HostListener('document:keydown', ['$event'])
+  onKeydown(ev: KeyboardEvent): void {
+    if (!this.active) return;
+    // ESC closes
+    if (ev.key === 'Escape' || ev.key === 'Esc') {
+      ev.preventDefault();
+      if (this.currentId) this.modal.close(this.currentId);
+      return;
     }
+
+    // trap tab navigation
+    if (ev.key === 'Tab') {
+      this.handleTab(ev);
+    }
+  }
+
+  private focusFirstFocusable(): void {
+    try {
+      const root = this.vc.element.nativeElement as HTMLElement;
+      if (!root) return;
+      // find first focusable element inside the container
+      const focusable = root.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])");
+      if (focusable && focusable.length) {
+        focusable[0].focus();
+        return;
+      }
+      // fallback: focus the host container
+      try { root.focus(); } catch {}
+    } catch {}
+  }
+
+  private handleTab(ev: KeyboardEvent): void {
+    try {
+      const root = this.vc.element.nativeElement as HTMLElement;
+      if (!root) return;
+      const focusable = Array.from(root.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])")).filter(el => el.offsetParent !== null);
+      if (!focusable.length) {
+        ev.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (!ev.shiftKey && active === last) {
+        ev.preventDefault();
+        first.focus();
+      } else if (ev.shiftKey && active === first) {
+        ev.preventDefault();
+        last.focus();
+      }
+    } catch {}
   }
 }

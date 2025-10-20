@@ -6,6 +6,7 @@ import { firstValueFrom, Subscription, timer } from 'rxjs';
 import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
 import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
 import { ModalService } from '../ui/modal.service';
+import { SenderLookupDialogComponent } from '../sender-lookup.dialog';
 import { IconComponent } from '../ui/icon.component';
 import { ButtonComponent } from '../ui/button.component';
 import { CardComponent } from '../ui/card.component';
@@ -129,6 +130,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // dialog handled by ModalService
 
   constructor(private api: BackendService, private toast: ToastService, private modal: ModalService) {}
+
+  async openSenderLookup(site?: string) {
+    try {
+      const items = await firstValueFrom(this.api.lookupSenders({ site: site ?? 'default' }).pipe());
+      const result = await this.modal.openComponent(SenderLookupDialogComponent as any, { items } as any);
+      if (result) {
+        // user selected an item — show toast (caller can implement full wiring later)
+        this.toast.info(`Selected sender: ${JSON.stringify(result)}`);
+      }
+    } catch (err) {
+      console.error('Sender lookup failed', err);
+      this.toast.error('Sender lookup failed');
+    }
+  }
 
   ngOnInit(): void {
     this.refresh();
