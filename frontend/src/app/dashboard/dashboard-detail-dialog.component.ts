@@ -1,6 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { ChangeDetectorRef, Component, EventEmitter, Input, Output } from '@angular/core';
 import { IconComponent } from '../ui/icon.component';
 import { Observable, isObservable } from 'rxjs';
 
@@ -40,11 +39,10 @@ export interface DashboardDetailDialogData {
 export class DashboardDetailDialogComponent {
   private executing = new Set<string>();
 
-  constructor(
-    @Inject(MAT_DIALOG_DATA) public data: DashboardDetailDialogData,
-    private dialogRef: MatDialogRef<DashboardDetailDialogComponent>,
-    private cdr: ChangeDetectorRef
-  ) {}
+  @Input() data!: DashboardDetailDialogData;
+  @Output() close = new EventEmitter<void>();
+
+  constructor(private cdr: ChangeDetectorRef) {}
 
   get hasRows(): boolean {
     return (this.data?.rows?.length ?? 0) > 0;
@@ -138,8 +136,8 @@ export class DashboardDetailDialogComponent {
     window.URL.revokeObjectURL(url);
   }
 
-  close(): void {
-    this.dialogRef.close();
+  onClose(): void {
+    this.close.emit();
   }
 
   private escapeCsv(value: string): string {

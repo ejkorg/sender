@@ -299,9 +299,9 @@
 
         <div *ngIf="stageResponse" class="space-y-4 rounded-2xl border border-onsemi-primary/20 bg-onsemi-ice/60 p-5">
           <div class="flex flex-wrap gap-6 text-sm text-onsemi-charcoal">
-            <p><strong>Staged:</strong> {{ stageResponse.staged ?? 0 }}</p>
-            <p><strong>Duplicates:</strong> {{ stageResponse.duplicates ?? 0 }}</p>
-            <p><strong>Dispatched:</strong> {{ stageResponse.dispatched ?? 0 }}</p>
+            <p><strong>Staged:</strong> {{ stageResponse.staged }}</p>
+            <p><strong>Duplicates:</strong> {{ stageResponse.duplicates }}</p>
+            <p><strong>Dispatched:</strong> {{ stageResponse.dispatched }}</p>
           </div>
           <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700" *ngIf="stageResponse.requiresConfirmation">
             Dispatch pending confirmation. Re-run staging to proceed.

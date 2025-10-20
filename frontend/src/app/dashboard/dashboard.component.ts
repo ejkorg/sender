@@ -1,6 +1,6 @@
 import { CommonModule, formatDate } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+// removed MatDialogModule as we migrated to inline dialog components
 import { ToastService } from '../ui/toast.service';
 import { firstValueFrom, Subscription, timer } from 'rxjs';
 import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
@@ -69,7 +69,7 @@ interface GlobalDetailRow extends Record<string, string | number | null | undefi
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, IconComponent, ButtonComponent, CardComponent],
+  imports: [CommonModule, IconComponent, ButtonComponent, CardComponent, DashboardDetailDialogComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -125,7 +125,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
-  constructor(private api: BackendService, private dialog: MatDialog, private toast: ToastService) {}
+  // local inline dialog data when showing details
+  dialogData: DashboardDetailDialogData | null = null;
+
+  constructor(private api: BackendService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.refresh();
@@ -459,11 +462,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private openDetailDialog(data: DashboardDetailDialogData): void {
-    this.dialog.open(DashboardDetailDialogComponent, {
-      width: '720px',
-      maxHeight: '80vh',
-      data
-    });
+    this.dialogData = data;
   }
 
   private async enqueueReady(row: GlobalDetailRow): Promise<void> {

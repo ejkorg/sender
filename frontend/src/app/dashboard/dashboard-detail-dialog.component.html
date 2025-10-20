@@ -2,9 +2,9 @@
   <header class="flex items-center justify-between">
     <h2 class="text-lg font-semibold">{{ data.title }}</h2>
     <div class="flex gap-2">
-      <button class="px-3 py-1 text-sm" type="button" (click)="close()">Close</button>
+      <button class="px-3 py-1 text-sm" type="button" (click)="onClose()">Close</button>
       <button class="px-3 py-1 bg-onsemi-primary text-white rounded inline-flex items-center gap-2" type="button" (click)="exportCsv()" [disabled]="!hasRows">
-        <app-icon name="download" class="w-4 h-4" ariaHidden="true"></app-icon>
+        <app-icon name="download" class="w-4 h-4" aria-hidden="true"></app-icon>
         Export CSV
       </button>
     </div>

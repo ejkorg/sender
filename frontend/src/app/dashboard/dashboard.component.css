@@ -95,16 +95,17 @@
 }
 
 /* breathing room inside cards */
-.global-card mat-card-title,
-.site-card mat-card-title,
-.graph-card mat-card-title {
+/* normalize card title/content selectors (no Material) */
+.global-card .card-title,
+.site-card .card-title,
+.graph-card .card-title {
   margin-left: 16px;
   margin-right: 16px;
 }
 
-.global-card mat-card-content,
-.site-card mat-card-content,
-.graph-card mat-card-content {
+.global-card .card-content,
+.site-card .card-content,
+.graph-card .card-content {
   padding: 16px;
 }
 
@@ -169,24 +170,24 @@
   background: linear-gradient(180deg, rgba(0, 58, 112, 0.06) 0%, rgba(255, 255, 255, 0.95) 100%);
 }
 
-.graph-card mat-card-title,
-.graph-card mat-card-subtitle {
+.graph-card .card-title,
+.graph-card .card-subtitle {
   margin-left: 20px;
   margin-right: 20px;
 }
 
-.graph-card mat-card-title {
+.graph-card .card-title {
   margin-top: 20px;
   font-weight: 700;
 }
 
-.graph-card mat-card-subtitle {
+.graph-card .card-subtitle {
   margin-top: 4px;
   margin-bottom: 8px;
   color: rgba(0, 0, 0, 0.62);
 }
 
-.graph-card mat-card-content {
+.graph-card .card-content {
   padding: 0 20px 20px;
   display: flex;
   flex-direction: column;
@@ -382,15 +383,13 @@
   background-color: rgba(196, 28, 36, 0.82);
 }
 
-.site-card .card-actions, /* allow non-Material card-actions container */
-.site-card mat-card-actions {
+.site-card .card-actions {
   padding: 12px 16px;
   display: flex;
   justify-content: flex-end;
   background: transparent;
 }
-.site-card .card-actions button,
-.site-card mat-card-actions button {
+.site-card .card-actions button {
   background: var(--brand);
   color: var(--brand-contrast);
   border-radius: 12px;
@@ -400,7 +399,7 @@
   transition: transform 140ms ease, box-shadow 140ms ease, opacity 120ms ease;
 }
 
-.site-card mat-card-actions button:hover:not(:disabled) {
+.site-card .card-actions button:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 12px 24px rgba(176, 107, 51, 0.22);
   opacity: 0.98;
@@ -444,8 +443,8 @@
   word-break: break-word;
 }
 
-/* Allow material tooltip to wrap long labels nicely */
-.mat-tooltip {
+/* Tooltip helper for our native title usage */
+.tooltip-wrap {
   white-space: normal !important;
   max-width: 34rem !important;
   word-break: break-word !important;

@@ -1,67 +1,21 @@
+// onsemi-theme.scss — minimal theme variables replacing Angular Material theming
 
-@use '@angular/material' as mat;
-
-$onsemi-primary: mat.define-palette(mat.$green-palette, 500, 300, 900);
-$onsemi-accent: mat.define-palette(mat.$yellow-palette, 600, 300, 900);
-$onsemi-warn: mat.define-palette(mat.$red-palette);
-
-$onsemi-theme: mat.define-light-theme((
-  color: (
-    primary: $onsemi-primary,
-    accent: $onsemi-accent,
-    warn: $onsemi-warn,
-  ),
-  typography: mat.define-typography-config(),
-  density: 0
-));
-
-@include mat.all-component-themes($onsemi-theme);
+$onsemi-primary: #00B140; // green
+$onsemi-accent: #FFD100;  // yellow
+$onsemi-warn: #D32F2F;    // red
+$onsemi-ice: #F6FBF6;
+$onsemi-charcoal: #003a70;
 
 body {
   font-family: 'Inter', 'Roboto', Arial, sans-serif;
   background: #fff;
-  color: #003a70;
+  color: $onsemi-charcoal;
 }
 
-.mat-toolbar {
-  background: #fff !important;
-  color: #003a70 !important;
-  border-bottom: 2px solid #00B140;
-}
+/* Convenience helpers for legacy styles that referenced Material selectors */
+.onsemi-primary { color: $onsemi-primary; }
+.onsemi-bg-primary { background-color: $onsemi-primary; }
+.onsemi-ice { background-color: $onsemi-ice; }
 
-.mat-button, .mat-raised-button, .mat-flat-button {
-  font-weight: 600;
-  border-radius: 4px;
-}
-
-.mat-raised-button.mat-primary {
-  background: #00B140 !important;
-  color: #fff !important;
-}
-
-.mat-raised-button.mat-accent {
-  background: #FFD100 !important;
-  color: #003a70 !important;
-}
-
-.mat-table {
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px #003a7012;
-}
-
-h2, h3, h4 {
-  color: #003a70;
-  font-weight: 700;
-}
-
-a, .mat-button {
-  color: #00B140;
-}
-
-/* Add logo to toolbar */
-.mat-toolbar .onsemi-logo {
-  height: 32px;
-  margin-right: 16px;
-  vertical-align: middle;
-}
+/* Logo placement helper */
+.onsemi-logo { height: 32px; margin-right: 16px; vertical-align: middle; }

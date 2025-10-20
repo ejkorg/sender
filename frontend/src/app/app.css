@@ -16,10 +16,7 @@
   box-shadow: none;
 }
 
-.app-tabs ::ng-deep .mat-mdc-tab-body-wrapper {
-  background: transparent;
-  padding-top: 16px;
-}
+/* Previously adjusted material tab body wrapper; no longer needed after migration */
 
 .tab-content {
   padding: 8px 0 0;

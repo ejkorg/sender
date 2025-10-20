@@ -21,26 +21,8 @@ a {
 	@apply underline-offset-4 hover:underline;
 }
 
-.mat-toolbar {
-	@apply border-b-2 bg-white text-onsemi-charcoal shadow-sm;
-	border-color: var(--onsemi-primary);
-}
-
-.mat-button,
-.mat-raised-button,
-.mat-flat-button {
-	@apply font-semibold;
-}
-
-.mat-raised-button.mat-primary {
-	background-color: var(--onsemi-primary);
-	color: white;
-}
-
-.mat-raised-button.mat-accent {
-	background-color: var(--onsemi-primary-light);
-	color: var(--onsemi-charcoal);
-}
+/* Removed Angular Material selectors — using Tailwind utility classes and our
+   .btn-primary / .btn-secondary helpers instead. */
 
 .btn-primary {
 	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;

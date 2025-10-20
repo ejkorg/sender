@@ -29,6 +29,13 @@
     </app-card>
   </section>
 
+  <!-- Inline modal for details -->
+  <div *ngIf="dialogData" class="fixed inset-0 z-50 flex items-start justify-center p-6 bg-slate-900/50">
+    <div class="w-full max-w-3xl">
+      <app-dashboard-detail-dialog [data]="dialogData" (close)="dialogData = null"></app-dashboard-detail-dialog>
+    </div>
+  </div>
+
   <section *ngIf="!errorMessage && !hasData" class="empty-state">
     <app-card class="empty-card" variant="flat">
       <h3 class="text-lg font-semibold">No staged payloads detected</h3>

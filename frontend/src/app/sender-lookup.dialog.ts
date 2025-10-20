@@ -1,26 +1,38 @@
-import { Component, Inject } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-sender-lookup-dialog',
+  selector: 'app-sender-lookup',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <h2>Select Sender</h2>
-    <div *ngFor="let row of data" style="padding:8px; display:flex; justify-content:space-between; align-items:center;">
-      <div>{{row.name}}</div>
-      <button (click)="select(row)">Select</button>
+    <div class="rounded-2xl bg-white p-4 shadow-md">
+      <h2 class="text-lg font-semibold mb-3">Select Sender</h2>
+      <div *ngIf="items?.length; else empty">
+        <div *ngFor="let row of items" class="flex items-center justify-between p-2 border-b last:border-b-0">
+          <div class="text-sm">{{ row.name }}</div>
+          <button class="btn-primary text-sm px-3 py-1" (click)="onSelect(row)">Select</button>
+        </div>
+      </div>
+      <ng-template #empty>
+        <div class="text-sm text-slate-600">No senders found.</div>
+      </ng-template>
+      <div class="mt-4 text-right">
+        <button class="btn-secondary px-3 py-1" (click)="onClose()">Close</button>
+      </div>
     </div>
-    <div style="margin-top:12px; text-align:right;"><button (click)="close()">Close</button></div>
   `
 })
 export class SenderLookupDialogComponent {
-  constructor(public dialogRef: MatDialogRef<SenderLookupDialogComponent>, @Inject(MAT_DIALOG_DATA) public data: any) {}
+  @Input() items: Array<{ idSender?: number; name?: string }> | null = [];
+  @Output() select = new EventEmitter<any | null>();
+  @Output() closed = new EventEmitter<void>();
 
-  select(item: any) {
-    this.dialogRef.close(item);
+  onSelect(item: any) {
+    this.select.emit(item);
   }
 
-  close() { this.dialogRef.close(null); }
+  onClose() {
+    this.closed.emit();
+  }
 }
