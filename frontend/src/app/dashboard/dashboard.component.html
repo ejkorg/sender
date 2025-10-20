@@ -50,32 +50,32 @@
       <h3 class="text-lg font-semibold">System snapshot</h3>
       <div>
         <div class="global-grid">
-          <div class="global-metric interactive" role="button" tabindex="0" title="View active sender detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View active sender detail'"
                (click)="openGlobalDetail('activeSenders')" (keydown.enter)="openGlobalDetail('activeSenders')">
             <span class="metric-value">{{ globalSummary.activeSenders }}</span>
             <span class="metric-label">Active Senders</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" title="View ready payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View ready payload detail'"
                (click)="openGlobalDetail('ready')" (keydown.enter)="openGlobalDetail('ready')">
             <span class="metric-value highlight">{{ globalSummary.ready }}</span>
             <span class="metric-label">Ready to Dispatch</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" title="View enqueued payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View enqueued payload detail'"
                (click)="openGlobalDetail('enqueued')" (keydown.enter)="openGlobalDetail('enqueued')">
             <span class="metric-value">{{ globalSummary.enqueued }}</span>
             <span class="metric-label">Enqueued</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" title="View failed payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View failed payload detail'"
                (click)="openGlobalDetail('failed')" (keydown.enter)="openGlobalDetail('failed')">
             <span class="metric-value warn" [class.attention]="globalSummary.failed > 0">{{ globalSummary.failed }}</span>
             <span class="metric-label">Failed</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" title="View completed payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View completed payload detail'"
                (click)="openGlobalDetail('completed')" (keydown.enter)="openGlobalDetail('completed')">
             <span class="metric-value">{{ globalSummary.completed }}</span>
             <span class="metric-label">Completed</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" title="View backlog detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View backlog detail'"
                (click)="openGlobalDetail('backlog')" (keydown.enter)="openGlobalDetail('backlog')">
             <span class="metric-value">{{ globalSummary.backlog }}</span>
             <span class="metric-label">Backlog</span>
@@ -96,8 +96,8 @@
           <span class="legend-item failed">Failed</span>
         </div>
         <div class="graph-list">
-          <div class="graph-row clickable" *ngFor="let series of backlogSeries" role="button" tabindex="0"
-            (click)="openBacklogDetail(series)" (keydown.enter)="openBacklogDetail(series)" title="View sender breakdown">
+            <div class="graph-row clickable" *ngFor="let series of backlogSeries" role="button" tabindex="0"
+            (click)="openBacklogDetail(series)" (keydown.enter)="openBacklogDetail(series)" [appTooltip]="'View sender breakdown'">
             <div class="graph-label" [title]="series.label">{{ series.label }}</div>
             <div class="graph-bar">
               <div class="bar-segment ready" *ngIf="series.ready" [style.width]="barWidth(series.ready, series.total)" [title]="segmentTooltip('Ready', series.ready, series.total)">
@@ -166,10 +166,10 @@
                       <span>Sender {{ sender.senderLabel }}</span>
                     </div>
                     <div class="sender-metrics">
-                      <span class="badge" [class.highlight]="sender.ready > 0" title="Ready">R {{ sender.ready }}</span>
-                      <span class="badge" title="Enqueued">E {{ sender.enqueued }}</span>
-                      <span class="badge warn" [class.attention]="sender.failed > 0" title="Failed">F {{ sender.failed }}</span>
-                      <span class="badge muted" title="Completed">C {{ sender.completed }}</span>
+                      <span class="badge" [class.highlight]="sender.ready > 0" [appTooltip]="'Ready'">R {{ sender.ready }}</span>
+                      <span class="badge" [appTooltip]="'Enqueued'">E {{ sender.enqueued }}</span>
+                      <span class="badge warn" [class.attention]="sender.failed > 0" [appTooltip]="'Failed'">F {{ sender.failed }}</span>
+                      <span class="badge muted" [appTooltip]="'Completed'">C {{ sender.completed }}</span>
                     </div>
                     <div class="sender-backlog" [class.attention]="sender.backlog > 0">
                       Backlog {{ sender.backlog }}

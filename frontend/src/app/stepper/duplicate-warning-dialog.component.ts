@@ -1,6 +1,7 @@
 import { CommonModule, formatDate } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { IconComponent } from '../ui/icon.component';
+import { TooltipDirective } from '../ui/tooltip.directive';
 import { DuplicatePayloadInfo } from '../api/backend.service';
 
 export interface DuplicateWarningDialogData {
@@ -11,7 +12,7 @@ export interface DuplicateWarningDialogData {
 @Component({
   selector: 'app-duplicate-warning-dialog',
   standalone: true,
-  imports: [CommonModule, IconComponent],
+  imports: [CommonModule, IconComponent, TooltipDirective],
   templateUrl: './duplicate-warning-dialog.component.html',
   styleUrls: ['./duplicate-warning-dialog.component.css']
 })
