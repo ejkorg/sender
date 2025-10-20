@@ -105,24 +105,29 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(401).build();
         }
-        java.util.List<String> roles = a.getAuthorities().stream().map(granted -> granted.getAuthority()).toList();
-        String accessToken = jwtUtil.generateToken(req.getUsername(), roles);
+        try {
+            java.util.List<String> roles = a.getAuthorities().stream().map(granted -> granted.getAuthority()).toList();
+            String accessToken = jwtUtil.generateToken(req.getUsername(), roles);
 
-        // create refresh token entity and set cookie
-    RefreshToken rt = new RefreshToken();
-    rt.setToken("refresh:" + System.currentTimeMillis());
-    rt.setUsername(req.getUsername());
-    rt.setExpiresAt(java.time.Instant.now().plusSeconds(60 * 60 * 24 * 7)); // 7 days
-    refreshTokenService.save(rt);
+            // create refresh token entity and set cookie
+            RefreshToken rt = new RefreshToken();
+            rt.setToken("refresh:" + System.currentTimeMillis());
+            rt.setUsername(req.getUsername());
+            rt.setExpiresAt(java.time.Instant.now().plusSeconds(60 * 60 * 24 * 7)); // 7 days
+            refreshTokenService.save(rt);
 
-    jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refresh_token", rt.getToken());
-    cookie.setHttpOnly(true);
-    cookie.setPath("/");
-    resp.addCookie(cookie);
+            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refresh_token", rt.getToken());
+            cookie.setHttpOnly(true);
+            cookie.setPath("/");
+            resp.addCookie(cookie);
 
-        Map<String, String> body = new HashMap<>();
-        body.put("accessToken", accessToken);
-        return ResponseEntity.ok(body);
+            Map<String, String> body = new HashMap<>();
+            body.put("accessToken", accessToken);
+            return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            logger.error("[AuthController.login] unexpected error while creating tokens for user={}", req.getUsername(), e);
+            return ResponseEntity.status(500).body(Map.of("error", "internal server error"));
+        }
     }
 
     @PostMapping("/refresh")
@@ -135,27 +140,31 @@ public class AuthController {
             logger.trace("[AuthController.refresh] no matching refresh token found for='{}'", incoming);
             return ResponseEntity.status(401).build();
         }
+        try {
+            // rotate
+            refreshTokenService.revoke(stored.get());
+            RefreshToken rt = new RefreshToken();
+            rt.setToken("refresh:" + System.currentTimeMillis());
+            rt.setUsername(stored.get().getUsername());
+            rt.setExpiresAt(java.time.Instant.now().plusSeconds(60 * 60 * 24 * 7));
+            refreshTokenService.save(rt);
 
-    // rotate
-    refreshTokenService.revoke(stored.get());
-    RefreshToken rt = new RefreshToken();
-    rt.setToken("refresh:" + System.currentTimeMillis());
-    rt.setUsername(stored.get().getUsername());
-    rt.setExpiresAt(java.time.Instant.now().plusSeconds(60 * 60 * 24 * 7));
-    refreshTokenService.save(rt);
+            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refresh_token", rt.getToken());
+            cookie.setHttpOnly(true);
+            cookie.setPath("/");
+            resp.addCookie(cookie);
 
-        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refresh_token", rt.getToken());
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        resp.addCookie(cookie);
-
-        Map<String, String> body = new HashMap<>();
-        // On refresh we do not have Authentication; rebuild roles from DB
-        java.util.List<String> roles = userRepository.findByUsername(rt.getUsername())
-            .map(u -> new java.util.ArrayList<String>(u.getRoles()))
-            .orElse(new java.util.ArrayList<>());
-        body.put("accessToken", jwtUtil.generateToken(rt.getUsername(), roles));
-        return ResponseEntity.ok(body);
+            Map<String, String> body = new HashMap<>();
+            // On refresh we do not have Authentication; rebuild roles from DB
+            java.util.List<String> roles = userRepository.findByUsername(rt.getUsername())
+                .map(u -> new java.util.ArrayList<String>(u.getRoles()))
+                .orElse(new java.util.ArrayList<>());
+            body.put("accessToken", jwtUtil.generateToken(rt.getUsername(), roles));
+            return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            logger.error("[AuthController.refresh] unexpected error rotating refresh token for='{}'", incoming, e);
+            return ResponseEntity.status(500).body(Map.of("error", "internal server error"));
+        }
     }
 
     @PostMapping("/logout")
