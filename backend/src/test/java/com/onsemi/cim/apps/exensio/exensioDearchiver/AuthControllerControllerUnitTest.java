@@ -30,8 +30,9 @@ public class AuthControllerControllerUnitTest {
         AuthTokenService ats = Mockito.mock(AuthTokenService.class);
         AppUserRepository repo = Mockito.mock(AppUserRepository.class);
         PasswordEncoder encoder = Mockito.mock(PasswordEncoder.class);
+        com.onsemi.cim.apps.exensio.exensioDearchiver.service.MailService mail = Mockito.mock(com.onsemi.cim.apps.exensio.exensioDearchiver.service.MailService.class);
 
-        AuthController ctrl = new AuthController(am, jwt, rts, ats, repo, encoder);
+        AuthController ctrl = new AuthController(am, jwt, rts, ats, repo, encoder, mail, true);
 
         AuthRequest req = new AuthRequest();
         req.setUsername("no_such_user");

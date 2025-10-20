@@ -18,7 +18,8 @@ public class AppUser {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false, unique = true)
+    // Email is optional for some workflows; allow null in DB but keep unique constraint for non-null values
+    @Column(nullable = true, unique = true)
     private String email;
 
     @Column(name = "password_hash", nullable = false)

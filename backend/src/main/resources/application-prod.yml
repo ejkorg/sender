@@ -1,4 +1,38 @@
-external-db:
+###
+# Production configuration notes.
+# Copy this file to your production environment and set the secrets via environment variables
+# or use your configuration management system. DO NOT commit real credentials to source control.
+###
+
+# Disable returning verification/reset tokens in API responses in prod
+reloader:
+  auth:
+    return-tokens-in-response: false
+
+# JWT settings - provide a secure 256+ bit secret (base64 or 32+ bytes). Example (do NOT use this):
+  jwt:
+    # Example placeholder; override with a strong secret in production
+    secret: "${RELOADER_JWT_SECRET:change-me-to-strong-256-bit-secret-or-base64}"
+    access-ttl-seconds: 900
+
+# Mail (SMTP) configuration - set these via environment variables or a secret store
+spring:
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:25}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS:true}
+
+# Notes:
+# - Ensure environment provides RELOADER_JWT_SECRET with a base64 encoded 256-bit value or a 32+ byte string.
+# - In production, reloader.auth.return-tokens-in-response is false; password reset tokens are delivered by email only.
+# - Use a secrets manager (Vault, AWS Secrets Manager, Kubernetes secrets, etc.) to inject SMTP credentials and JWT secret.external-db:
   hikari:
     maximum-pool-size: 20
     minimum-idle: 2

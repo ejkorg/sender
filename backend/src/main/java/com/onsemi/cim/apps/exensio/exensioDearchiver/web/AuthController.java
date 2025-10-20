@@ -38,15 +38,21 @@ public class AuthController {
     private final AuthTokenService authTokenService;
     private final AppUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.onsemi.cim.apps.exensio.exensioDearchiver.service.MailService mailService;
+    private final boolean returnTokensInResponse;
 
     public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, RefreshTokenService refreshTokenService,
-                          AuthTokenService authTokenService, AppUserRepository userRepository, PasswordEncoder passwordEncoder) {
+                          AuthTokenService authTokenService, AppUserRepository userRepository, PasswordEncoder passwordEncoder,
+                          com.onsemi.cim.apps.exensio.exensioDearchiver.service.MailService mailService,
+                          @org.springframework.beans.factory.annotation.Value("${reloader.auth.return-tokens-in-response:true}") boolean returnTokensInResponse) {
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
         this.refreshTokenService = refreshTokenService;
         this.authTokenService = authTokenService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.mailService = mailService;
+        this.returnTokensInResponse = returnTokensInResponse;
     }
 
     // --- verification / reset endpoints ---
@@ -67,9 +73,26 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> requestReset(@RequestBody Map<String, String> body) {
         String username = body.get("username");
         if (username == null || username.isBlank()) return ResponseEntity.badRequest().build();
+        var userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) return ResponseEntity.status(404).build();
         var token = authTokenService.createPasswordResetToken(username);
-        // in production we'd email the reset token; return for dev
-        return ResponseEntity.ok(Map.of("resetToken", token.getToken()));
+        // attempt to send email if user has an email address configured
+        try {
+            String to = userOpt.get().getEmail();
+            if (to != null && !to.isBlank()) {
+                String subject = "Password reset request";
+                String bodyText = "Use this token to reset your password: " + token.getToken();
+                mailService.send(to, subject, bodyText);
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to send reset email for user={}", username, e);
+        }
+        // return token in response only when explicitly enabled (tests/dev). In prod this should be disabled.
+        if (this.returnTokensInResponse) {
+            return ResponseEntity.ok(Map.of("resetToken", token.getToken()));
+        } else {
+            return ResponseEntity.ok(Map.of("message", "reset requested"));
+        }
     }
 
     @PostMapping("/reset-password")

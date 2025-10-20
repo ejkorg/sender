@@ -114,7 +114,8 @@ export class RegisterComponent implements OnDestroy {
     }
     const { username, email, password } = this.form.getRawValue();
     this.submitting = true;
-    this.auth.register(username, email || null, password).subscribe({
+    const sendEmail = email && email.trim() !== '' ? email.trim() : null;
+    this.auth.register(username, sendEmail, password).subscribe({
       next: res => {
         this.submitting = false;
         const token = res?.verificationToken;

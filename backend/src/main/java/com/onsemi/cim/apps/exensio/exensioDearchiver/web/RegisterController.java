@@ -17,6 +17,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/auth")
 public class RegisterController {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RegisterController.class);
 
     private final AppUserRepository repo;
     private final PasswordEncoder encoder;
@@ -31,6 +32,7 @@ public class RegisterController {
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@RequestBody RegisterRequest req) {
+        logger.info("[RegisterController.register] registration attempt username={}", req.getUsername());
         if (req.getUsername() == null || req.getUsername().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "username required"));
         }
@@ -40,13 +42,15 @@ public class RegisterController {
         if (repo.findByUsername(req.getUsername()).isPresent()) {
             return ResponseEntity.status(409).body(Map.of("error", "username already exists"));
         }
-        if (req.getEmail() != null && repo.findByEmail(req.getEmail()).isPresent()) {
+        String email = req.getEmail() == null ? null : req.getEmail().trim();
+        if (email != null && email.isBlank()) email = null;
+        if (email != null && repo.findByEmail(email).isPresent()) {
             return ResponseEntity.status(409).body(Map.of("error", "email already exists"));
         }
 
         AppUser u = new AppUser();
         u.setUsername(req.getUsername());
-        u.setEmail(req.getEmail());
+        u.setEmail(email);
         u.setPasswordHash(encoder.encode(req.getPassword()));
         u.getRoles().add("ROLE_USER");
         // require verification before login in production; enabled via /api/auth/verify

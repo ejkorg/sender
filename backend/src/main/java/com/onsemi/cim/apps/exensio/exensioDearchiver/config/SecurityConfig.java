@@ -15,6 +15,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtAuthenticationFilter;
+import com.onsemi.cim.apps.exensio.exensioDearchiver.security.RestAccessDeniedHandler;
+import com.onsemi.cim.apps.exensio.exensioDearchiver.security.RestAuthenticationEntryPoint;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -43,6 +45,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf().disable() // tests don't provide CSRF token
+            .httpBasic()
+            .and()
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/h2-console/**").permitAll()
@@ -55,6 +59,12 @@ public class SecurityConfig {
 
         // Add JWT token filter to process Bearer tokens
         http.addFilterBefore(new JwtAuthenticationFilter(jwtUtil), BasicAuthenticationFilter.class);
+
+        // Use REST handlers for auth failures and access denied so clients receive JSON
+        http.exceptionHandling(eh -> eh
+            .authenticationEntryPoint(new RestAuthenticationEntryPoint())
+            .accessDeniedHandler(new RestAccessDeniedHandler())
+        );
 
         // Allow H2 console frames
         http.headers().frameOptions().disable();

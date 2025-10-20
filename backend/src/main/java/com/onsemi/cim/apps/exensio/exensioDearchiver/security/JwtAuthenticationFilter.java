@@ -33,6 +33,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .collect(Collectors.toList());
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, token, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
+            } else {
+                // If a Bearer header was present but the token is invalid, throw an AuthenticationException
+                throw new org.springframework.security.core.AuthenticationException("Invalid or expired token") {};
             }
         }
         filterChain.doFilter(request, response);
