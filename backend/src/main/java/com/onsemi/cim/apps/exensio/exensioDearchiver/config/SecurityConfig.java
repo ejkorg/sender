@@ -62,9 +62,9 @@ public class SecurityConfig {
         if (relaxedCsp) {
             final String csp = String.join(" ",
                 "default-src 'self';",
-                "connect-src 'self' http://localhost:4200 http://127.0.0.1:4200 http://localhost:61051 ws://localhost:4200 ws://127.0.0.1:4200;",
+                "connect-src 'self' http://localhost:4200 http://127.0.0.1:4200 http://localhost:8080 http://127.0.0.1:8080 http://localhost:61051 ws://localhost:4200 ws://127.0.0.1:4200;",
                 "img-src 'self' data:;",
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:4200 http://127.0.0.1:4200;",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:4200 http://127.0.0.1:4200 http://localhost:8080 http://127.0.0.1:8080;",
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
                 "font-src 'self' https://fonts.gstatic.com;"
             );
@@ -108,6 +108,8 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(java.util.List.of(
             "http://localhost:4200",
             "http://127.0.0.1:4200",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
             "https://*.app.github.dev"
         ));
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
