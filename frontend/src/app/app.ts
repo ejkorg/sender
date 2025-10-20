@@ -13,6 +13,7 @@ import { StepperComponent } from './stepper/stepper.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { AdminDashboardComponent } from './admin-dashboard.component';
 import { ToastContainerComponent } from './ui/toast-container.component';
+import { ModalHostComponent } from './ui/modal-host.component';
 import { ToastService } from './ui/toast.service';
 
 @Component({
@@ -28,13 +29,14 @@ import { ToastService } from './ui/toast.service';
     DashboardComponent,
     AdminDashboardComponent,
     RouterModule,
-    ToastContainerComponent
+    ToastContainerComponent,
+    ModalHostComponent
   ],
   templateUrl: './app.html',
   styleUrls: ['./app.css']
 })
 export class App {
-  // basic local tab state to replace mat-tab-group
+  // basic local tab state to replace the previous tab control
   tabIndex = 0;
   constructor(public auth: AuthService, private toast: ToastService) {}
 

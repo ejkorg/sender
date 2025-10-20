@@ -1,6 +1,5 @@
 import { CommonModule, formatDate } from '@angular/common';
-import { Component, Inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { IconComponent } from '../ui/icon.component';
 import { DuplicatePayloadInfo } from '../api/backend.service';
 
@@ -12,29 +11,30 @@ export interface DuplicateWarningDialogData {
 @Component({
   selector: 'app-duplicate-warning-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, IconComponent],
+  imports: [CommonModule, IconComponent],
   templateUrl: './duplicate-warning-dialog.component.html',
   styleUrls: ['./duplicate-warning-dialog.component.css']
 })
 export class DuplicateWarningDialogComponent {
-  readonly duplicatesToShow: DuplicatePayloadInfo[];
+  @Input() data!: DuplicateWarningDialogData;
+  @Output() close = new EventEmitter<boolean | null>();
+
   readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: DuplicateWarningDialogData,
-              private dialogRef: MatDialogRef<DuplicateWarningDialogComponent>) {
-    this.duplicatesToShow = (data.duplicates || []).slice(0, 20);
+  get duplicatesToShow(): DuplicatePayloadInfo[] {
+    return (this.data?.duplicates || []).slice(0, 20);
   }
 
   get otherUserCount(): number {
-    return (this.data.duplicates || []).filter(dup => this.isDifferentUser(dup)).length;
+    return (this.data?.duplicates || []).filter(dup => this.isDifferentUser(dup)).length;
   }
 
   continue(): void {
-    this.dialogRef.close(true);
+    this.close.emit(true);
   }
 
   cancel(): void {
-    this.dialogRef.close(false);
+    this.close.emit(false);
   }
 
   displayUser(user: string | null | undefined): string {
@@ -65,7 +65,7 @@ export class DuplicateWarningDialogComponent {
       return false;
     }
     const previous = this.displayUser(dup.lastRequestedBy ?? dup.stagedBy);
-    const current = this.displayUser(this.data.currentUser ?? '');
+    const current = this.displayUser(this.data?.currentUser ?? '');
     return previous.toLowerCase() !== current.toLowerCase();
   }
 }
