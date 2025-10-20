@@ -1,8 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { IconComponent } from '../ui/icon.component';
 import { Observable, isObservable } from 'rxjs';
 
@@ -35,7 +33,7 @@ export interface DashboardDetailDialogData {
 @Component({
   selector: 'app-dashboard-detail-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatTooltipModule, IconComponent],
+  imports: [CommonModule, IconComponent],
   templateUrl: './dashboard-detail-dialog.component.html',
   styleUrls: ['./dashboard-detail-dialog.component.css']
 })

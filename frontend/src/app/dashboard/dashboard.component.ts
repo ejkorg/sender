@@ -1,11 +1,7 @@
 import { CommonModule, formatDate } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { ToastService } from '../ui/toast.service';
 import { firstValueFrom, Subscription, timer } from 'rxjs';
 import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
 import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
@@ -73,7 +69,7 @@ interface GlobalDetailRow extends Record<string, string | number | null | undefi
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatProgressBarModule, MatTooltipModule, MatDialogModule, MatSnackBarModule, IconComponent, ButtonComponent, CardComponent],
+  imports: [CommonModule, MatDialogModule, IconComponent, ButtonComponent, CardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -129,7 +125,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
-  constructor(private api: BackendService, private dialog: MatDialog, private snack: MatSnackBar) {}
+  constructor(private api: BackendService, private dialog: MatDialog, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.refresh();
@@ -474,7 +470,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const senderId = this.normalizeSenderId(row.senderId);
     const site = row.site;
     if (!site || senderId === null) {
-      this.snack.open('Unable to determine site or sender for enqueue request.', 'Close', { duration: 4000 });
+      this.toast.error('Unable to determine site or sender for enqueue request.');
       return;
     }
     const readyCount = Number(row.ready ?? 0);
@@ -483,17 +479,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
   const response: DispatchResponse = await firstValueFrom(this.api.dispatchSender(senderId, { site, senderId, limit }));
   const dispatched = response.dispatched ?? 0;
       if (dispatched > 0) {
-        this.snack.open(`Enqueued ${dispatched} payload${dispatched === 1 ? '' : 's'} for ${row.sender}`, undefined, { duration: 3500 });
+        this.toast.success(`Enqueued ${dispatched} payload${dispatched === 1 ? '' : 's'} for ${row.sender}`);
         row.ready = Math.max(0, (row.ready ?? 0) - dispatched);
         row.backlog = Math.max(0, (row.backlog ?? 0) - dispatched);
         row.enqueued = (row.enqueued ?? 0) + dispatched;
       } else {
-        this.snack.open(`No payloads enqueued for ${row.sender}`, 'Close', { duration: 4000 });
+        this.toast.info(`No payloads enqueued for ${row.sender}`);
       }
       this.refresh(false);
     } catch (err) {
       console.error(`Failed to enqueue ready payloads for ${site} sender ${senderId}`, err);
-      this.snack.open(`Failed to enqueue ${row.sender}. See console for details.`, 'Close', { duration: 5000 });
+      this.toast.error(`Failed to enqueue ${row.sender}. See console for details.`);
     }
   }
 

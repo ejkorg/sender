@@ -11,9 +11,9 @@
   <ul class="duplicate-list">
     <li *ngFor="let dup of duplicatesToShow" class="list-item">
       <div class="payload">
-        <div class="payload-ids">
-          <span class="payload-id" matTooltip="Metadata ID">{{ dup.metadataId }}</span>
-          <span class="payload-id" matTooltip="Data ID">{{ dup.dataId }}</span>
+          <div class="payload-ids">
+          <span class="payload-id" title="Metadata ID">{{ dup.metadataId }}</span>
+          <span class="payload-id" title="Data ID">{{ dup.dataId }}</span>
         </div>
         <div class="payload-meta">
           <app-icon name="person" ariaHidden="true"></app-icon>

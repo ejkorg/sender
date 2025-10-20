@@ -1,56 +1,55 @@
-<h2 class="text-lg font-semibold" mat-dialog-title>{{ data.title }}</h2>
+<div class="p-4">
+  <header class="flex items-center justify-between">
+    <h2 class="text-lg font-semibold">{{ data.title }}</h2>
+    <div class="flex gap-2">
+      <button class="px-3 py-1 text-sm" type="button" (click)="close()">Close</button>
+      <button class="px-3 py-1 bg-onsemi-primary text-white rounded inline-flex items-center gap-2" type="button" (click)="exportCsv()" [disabled]="!hasRows">
+        <app-icon name="download" class="w-4 h-4" ariaHidden="true"></app-icon>
+        Export CSV
+      </button>
+    </div>
+  </header>
 
-<mat-dialog-content class="dialog-content">
-  <p class="description" *ngIf="data.description">{{ data.description }}</p>
+  <div class="mt-3">
+    <p class="description text-sm text-slate-600" *ngIf="data.description">{{ data.description }}</p>
 
-  <div class="table-wrapper" *ngIf="hasRows; else emptyState">
-    <table>
-      <thead>
-        <tr>
-          <th *ngFor="let column of data.columns" [class.align-end]="column.align === 'end'" [class.align-center]="column.align === 'center'">
-            {{ column.label }}
-          </th>
-          <th *ngIf="hasRowActions" class="align-end actions-header">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let row of data.rows">
-          <td *ngFor="let column of data.columns" [class.align-end]="column.align === 'end'" [class.align-center]="column.align === 'center'">
-            {{ formatCell(row[column.key]) }}
-          </td>
-          <td *ngIf="hasRowActions" class="actions-cell">
-            <div class="row-actions">
-              <ng-container *ngFor="let action of data.rowActions">
-                <button *ngIf="!isActionHidden(action, row)"
-                        type="button"
-                        class="inline-flex items-center gap-2 px-3 py-1 border rounded text-sm"
-                        [class.opacity-50]="isActionDisabled(action, row)"
-                        [attr.aria-disabled]="isActionDisabled(action, row)"
-                        [matTooltip]="action.tooltip || ''"
-                        [matTooltipDisabled]="!action.tooltip"
-                        matTooltipPosition="above"
-                        (click)="triggerAction(action, row)">
-                  <app-icon *ngIf="isExecuting(row)" name="autorenew" class="w-4 h-4 spin" ariaHidden="true"></app-icon>
-                  <app-icon *ngIf="!isExecuting(row) && action.icon" [name]="action.icon" class="w-4 h-4" ariaHidden="true"></app-icon>
-                  <span>{{ action.label }}</span>
-                </button>
-              </ng-container>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="table-wrapper mt-4" *ngIf="hasRows; else emptyState">
+      <div class="overflow-auto rounded-lg border bg-white">
+        <table class="min-w-full text-sm">
+          <thead class="bg-onsemi-ice text-onsemi-charcoal">
+            <tr>
+              <th *ngFor="let column of data.columns" class="px-3 py-2 text-left" [attr.title]="column.label">{{ column.label }}</th>
+              <th *ngIf="hasRowActions" class="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            <tr *ngFor="let row of data.rows" class="odd:bg-white even:bg-slate-50">
+              <td *ngFor="let column of data.columns" class="px-3 py-2">{{ formatCell(row[column.key]) }}</td>
+              <td *ngIf="hasRowActions" class="px-3 py-2 text-right">
+                <div class="flex justify-end gap-2">
+                  <ng-container *ngFor="let action of data.rowActions">
+                    <button *ngIf="!isActionHidden(action, row)"
+                            type="button"
+                            class="inline-flex items-center gap-2 px-3 py-1 border rounded text-sm"
+                            [class.opacity-50]="isActionDisabled(action, row)"
+                            [attr.aria-disabled]="isActionDisabled(action, row)"
+                            [attr.title]="action.tooltip || ''"
+                            (click)="triggerAction(action, row)">
+                      <app-icon *ngIf="isExecuting(row)" name="autorenew" class="w-4 h-4 spin" ariaHidden="true"></app-icon>
+                      <app-icon *ngIf="!isExecuting(row) && action.icon" [name]="action.icon" class="w-4 h-4" ariaHidden="true"></app-icon>
+                      <span>{{ action.label }}</span>
+                    </button>
+                  </ng-container>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <ng-template #emptyState>
+      <p class="empty text-sm text-slate-600">No data available for this selection.</p>
+    </ng-template>
   </div>
-
-  <ng-template #emptyState>
-    <p class="empty">No data available for this selection.</p>
-  </ng-template>
-</mat-dialog-content>
-
-<mat-dialog-actions align="end">
-  <button class="px-3 py-1" type="button" (click)="close()">Close</button>
-  <button class="px-3 py-1 bg-onsemi-primary text-white rounded inline-flex items-center gap-2" type="button" (click)="exportCsv()" [disabled]="!hasRows">
-    <app-icon name="download" class="w-4 h-4" ariaHidden="true"></app-icon>
-    Export CSV
-  </button>
-</mat-dialog-actions>
+</div>

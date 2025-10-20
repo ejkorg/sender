@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { ToastService } from './ui/toast.service';
 import { ButtonComponent } from './ui/button.component';
 import { FormsModule } from '@angular/forms';
 
@@ -51,7 +51,7 @@ export class AdminDashboardComponent implements OnInit {
   users: any[] = [];
   displayedColumns = ['username', 'email', 'enabled', 'role_user', 'role_admin', 'actions'];
 
-  constructor(private http: HttpClient, private snack: MatSnackBar) {}
+  constructor(private http: HttpClient, private toast: ToastService) {}
 
   ngOnInit() {
     this.loadUsers();
