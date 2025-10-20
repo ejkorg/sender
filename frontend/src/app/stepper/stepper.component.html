@@ -32,40 +32,7 @@
       </button>
     </nav>
 
-    <ng-container *ngIf="duplicatePrompt as prompt">
-      <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 px-4">
-        <div class="w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl">
-          <h2 class="text-lg font-semibold text-onsemi-charcoal">Duplicate payloads detected</h2>
-          <p class="mt-2 text-sm text-slate-600">{{ prompt.response.duplicatePayloads.length || 0 }} payloads already exist. Continue to force staging?</p>
-          <div class="mt-6 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 px-4 py-3" *ngIf="prompt.response.duplicatePayloads.length">
-            <table class="w-full text-left text-xs">
-              <thead class="sticky top-0 bg-slate-100 text-slate-600">
-                <tr>
-                  <th class="py-2">Metadata</th>
-                  <th class="py-2">Data</th>
-                  <th class="py-2">Requested By</th>
-                  <th class="py-2">Last Requested</th>
-                  <th class="py-2">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let dup of prompt.response.duplicatePayloads" class="border-b border-slate-200/70">
-                  <td class="py-2 font-semibold text-onsemi-charcoal">{{ dup.metadataId }}</td>
-                  <td class="py-2 text-slate-700">{{ dup.dataId }}</td>
-                  <td class="py-2 text-slate-700">{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</td>
-                  <td class="py-2 text-slate-600">{{ dup.lastRequestedAt ? (dup.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
-                  <td class="py-2 text-slate-600">{{ dup.previousStatus || '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="mt-6 flex justify-end gap-3">
-            <button type="button" class="btn-secondary" (click)="confirmDuplicate(false)">Cancel</button>
-            <button type="button" class="btn-primary" (click)="confirmDuplicate(true)">Force staging</button>
-          </div>
-        </div>
-      </div>
-    </ng-container>
+    <!-- Duplicate prompt shown via ModalService.openComponent -->
 
     <ng-container [ngSwitch]="stepIndex">
       <section *ngSwitchCase="0" class="space-y-8">

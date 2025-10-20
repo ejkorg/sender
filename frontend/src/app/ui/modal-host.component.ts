@@ -25,6 +25,13 @@ export class ModalHostComponent implements OnInit, OnDestroy {
   constructor(private modal: ModalService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    // register our host view container with the modal service
+    try {
+      this.modal.registerHost(this.vc);
+    } catch (err) {
+      // ignore
+    }
+
     this.sub = this.modal.opened$.subscribe(inst => {
       this.vc.clear();
       this.currentId = inst?.id ?? null;

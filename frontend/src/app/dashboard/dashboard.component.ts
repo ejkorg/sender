@@ -5,6 +5,7 @@ import { ToastService } from '../ui/toast.service';
 import { firstValueFrom, Subscription, timer } from 'rxjs';
 import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
 import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
+import { ModalService } from '../ui/modal.service';
 import { IconComponent } from '../ui/icon.component';
 import { ButtonComponent } from '../ui/button.component';
 import { CardComponent } from '../ui/card.component';
@@ -69,7 +70,7 @@ interface GlobalDetailRow extends Record<string, string | number | null | undefi
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, IconComponent, ButtonComponent, CardComponent, DashboardDetailDialogComponent],
+  imports: [CommonModule, IconComponent, ButtonComponent, CardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -125,10 +126,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
-  // local inline dialog data when showing details
-  dialogData: DashboardDetailDialogData | null = null;
+  // dialog handled by ModalService
 
-  constructor(private api: BackendService, private toast: ToastService) {}
+  constructor(private api: BackendService, private toast: ToastService, private modal: ModalService) {}
 
   ngOnInit(): void {
     this.refresh();
@@ -461,8 +461,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private openDetailDialog(data: DashboardDetailDialogData): void {
-    this.dialogData = data;
+  private async openDetailDialog(data: DashboardDetailDialogData): Promise<void> {
+    try {
+      await this.modal.openComponent(DashboardDetailDialogComponent, { data });
+    } catch (err) {
+      console.error('Failed to open detail dialog', err);
+    }
   }
 
   private async enqueueReady(row: GlobalDetailRow): Promise<void> {

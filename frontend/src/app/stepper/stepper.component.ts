@@ -14,15 +14,18 @@ import {
   StageRecordView,
   StageStatus
 } from '../api/backend.service';
+import { DuplicateWarningDialogComponent } from './duplicate-warning-dialog.component';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { ModalService } from '../ui/modal.service';
 import { ToastService } from '../ui/toast.service';
 
 
 @Component({
   selector: 'app-stepper',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  // include dialog component for dynamic creation
+  imports: [CommonModule, FormsModule, DuplicateWarningDialogComponent],
   templateUrl: './stepper.component.html'
 })
 export class StepperComponent implements OnInit, OnDestroy {
@@ -80,11 +83,12 @@ export class StepperComponent implements OnInit, OnDestroy {
   currentUser: string | null = null;
   private userSub?: Subscription;
   readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
-  duplicatePrompt: { response: StagePayloadResponseBody; fallbackCount: number } | null = null;
+  // duplicate prompt handled by ModalService
 
   constructor(private api: BackendService,
               private toast: ToastService,
-              private auth: AuthService) {}
+              private auth: AuthService,
+              private modal: ModalService) {}
 
   ngOnInit(): void {
     this.loadSites();
@@ -447,20 +451,20 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.refreshMonitoring();
   }
 
-  private openDuplicatePrompt(response: StagePayloadResponseBody, fallbackCount: number) {
-    this.duplicatePrompt = { response, fallbackCount };
-  }
-
-  confirmDuplicate(force: boolean) {
-    const prompt = this.duplicatePrompt;
-    this.duplicatePrompt = null;
-    if (force) {
-      this.stageSelected(true);
-    } else {
-      this.toast.info('Staging cancelled. No changes applied.');
-      if (prompt) {
-        this.stageResponse = prompt.response;
+  private async openDuplicatePrompt(response: StagePayloadResponseBody, fallbackCount: number): Promise<void> {
+    try {
+      const result = await this.modal.openComponent(DuplicateWarningDialogComponent as any, { data: { currentUser: this.currentUser, duplicates: response.duplicatePayloads } as any });
+      if (result) {
+        // force staging
+        this.stageSelected(true);
+      } else {
+        this.toast.info('Staging cancelled. No changes applied.');
+        this.stageResponse = response;
       }
+    } catch (err) {
+      console.error('Duplicate prompt failed', err);
+      // fallback to inline behavior
+      this.stageResponse = response;
     }
   }
 
