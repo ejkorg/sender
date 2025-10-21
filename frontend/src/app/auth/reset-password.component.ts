@@ -1,4 +1,4 @@
-import { Component, OnDestroy, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -62,7 +62,7 @@ import { ToastService } from '../ui/toast.service';
     </div>
   `
 })
-export class ResetPasswordComponent implements OnDestroy {
+export class ResetPasswordComponent implements OnInit, OnDestroy {
   submitting = false;
 
   private readonly fb = inject(FormBuilder);
@@ -119,6 +119,18 @@ export class ResetPasswordComponent implements OnDestroy {
     if (this.redirectTimer) {
       clearTimeout(this.redirectTimer);
       this.redirectTimer = null;
+    }
+  }
+
+  ngOnInit(): void {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const t = params.get('token');
+      if (t) {
+        this.form.controls.token.setValue(t);
+      }
+    } catch (e) {
+      // ignore
     }
   }
 }

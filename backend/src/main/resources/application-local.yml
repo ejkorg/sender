@@ -29,3 +29,8 @@ security:
     enabled: false
   sso:
     enabled: false
+
+# Local dev override for link generation (change port if your frontend runs elsewhere)
+app:
+  mail:
+    reset-url-base: "http://localhost:5173/reset-password"

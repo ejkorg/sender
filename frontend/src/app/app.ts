@@ -41,7 +41,17 @@ import { ModalHostComponent } from './ui/modal-host.component';
 export class App {
   // basic local tab state to replace the previous tab control
   tabIndex = 0;
-  constructor(public auth: AuthService, private router: Router) {}
+  constructor(public auth: AuthService) {}
+  // show reset UI when URL path is /reset-password or token query is present
+  get showReset(): boolean {
+    try {
+      const p = window.location.pathname || '';
+      const q = new URLSearchParams(window.location.search || '');
+      return p === '/reset-password' || q.has('token');
+    } catch (e) {
+      return false;
+    }
+  }
 
   setTab(idx: number) {
     this.tabIndex = idx;

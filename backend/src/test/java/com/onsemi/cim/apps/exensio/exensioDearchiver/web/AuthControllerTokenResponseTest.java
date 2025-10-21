@@ -40,7 +40,7 @@ public class AuthControllerTokenResponseTest {
         when(ats.createPasswordResetToken("testuser")).thenReturn(prt);
 
         // construct controller with returnTokensInResponse = false
-        AuthController ctrl = new AuthController(am, jwt, rts, ats, repo, encoder, mail, false);
+        AuthController ctrl = new AuthController(am, jwt, rts, ats, repo, encoder, mail, "", false);
 
         var resp = ctrl.requestReset(Map.of("username", "testuser"));
         assertEquals(200, resp.getStatusCodeValue());

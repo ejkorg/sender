@@ -40,10 +40,12 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final com.onsemi.cim.apps.exensio.exensioDearchiver.service.MailService mailService;
     private final boolean returnTokensInResponse;
+    private final String resetUrlBase;
 
     public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, RefreshTokenService refreshTokenService,
                           AuthTokenService authTokenService, AppUserRepository userRepository, PasswordEncoder passwordEncoder,
                           com.onsemi.cim.apps.exensio.exensioDearchiver.service.MailService mailService,
+                          @org.springframework.beans.factory.annotation.Value("${app.mail.reset-url-base:}") String resetUrlBase,
                           @org.springframework.beans.factory.annotation.Value("${reloader.auth.return-tokens-in-response:true}") boolean returnTokensInResponse) {
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
@@ -52,6 +54,7 @@ public class AuthController {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.mailService = mailService;
+        this.resetUrlBase = resetUrlBase == null ? "" : resetUrlBase;
         this.returnTokensInResponse = returnTokensInResponse;
     }
 
@@ -84,10 +87,21 @@ public class AuthController {
         // attempt to send email if user has an email address configured
         try {
             String to = userOpt.get().getEmail();
-            if (to != null && !to.isBlank()) {
+            if (to == null || to.isBlank()) {
+                logger.info("Password reset requested for user='{}' but no email is configured; skipping send", username);
+            } else {
+                logger.info("Password reset requested for user='{}' email='{}' - attempting to send reset email", username, to);
                 String subject = "Password reset request";
-                String bodyText = "Use this token to reset your password: " + token.getToken();
+                String bodyText;
+                if (this.resetUrlBase != null && !this.resetUrlBase.isBlank()) {
+                    // append token as query parameter
+                    String sep = this.resetUrlBase.contains("?") ? "&" : "?";
+                    bodyText = "Reset your password using the following link:\n" + this.resetUrlBase + sep + "token=" + token.getToken();
+                } else {
+                    bodyText = "Use this token to reset your password: " + token.getToken();
+                }
                 mailService.send(to, subject, bodyText);
+                logger.info("MailService.send invoked for user='{}' email='{}'", username, to);
             }
         } catch (Exception e) {
             logger.warn("Failed to send reset email for user={}", username, e);

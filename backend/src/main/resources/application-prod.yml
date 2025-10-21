@@ -29,6 +29,11 @@ spring:
           starttls:
             enable: ${SMTP_STARTTLS:true}
 
+# Production reset link base should be set via environment variable
+app:
+  mail:
+    reset-url-base: ${APP_MAIL_RESET_URL_BASE:}
+
 # Notes:
 # - Ensure environment provides RELOADER_JWT_SECRET with a base64 encoded 256-bit value or a 32+ byte string.
 # - In production, reloader.auth.return-tokens-in-response is false; password reset tokens are delivered by email only.

@@ -86,3 +86,5 @@ security:
 app:
   mail:
     from: "no-reply@onsemi.com"
+    reset-url-base: "http://localhost:4200/reset-password"
+# Dev note: in the 'test' profile the app returns reset/verification tokens in HTTP responses

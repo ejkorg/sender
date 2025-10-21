@@ -26,6 +26,13 @@ reloader:
     yaml:
       path: classpath:dbconnections.yml
 
+# Default mail settings (can be overridden per-profile or via env vars)
+app:
+  mail:
+    from: "no-reply@onsemi.com"
+    # default reset URL for local development; override in production
+    reset-url-base: "http://localhost:5173/reset-password"
+
 # Optional: Dev-only local authorization bootstrap (use Liquibase in prod)
 #refdb:
 #  auth-bootstrap-enabled: true
