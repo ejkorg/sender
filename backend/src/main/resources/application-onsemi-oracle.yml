@@ -29,15 +29,15 @@ spring:
       validation-timeout: 5000
   mail:
     host: mailhost.onsemi.com      # your SMTP host (e.g. smtp.sendgrid.net)
-    port: 25                  # common SMTP port with STARTTLS
-    username: "${MAIL_USERNAME:}"
-    password: "${MAIL_PASSWORD:}"
+    port: 25                      # internal SMTP relay, no auth/STARTTLS
+    username: ""
+    password: ""
     properties:
       mail:
         smtp:
-          auth: true
+          auth: false
           starttls:
-            enable: true
+            enable: false
 
 # Oracle application DB used for staging and dispatch in the onsemi environment.
 refdb:

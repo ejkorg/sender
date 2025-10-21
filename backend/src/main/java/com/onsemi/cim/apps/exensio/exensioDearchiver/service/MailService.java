@@ -3,6 +3,7 @@ package com.onsemi.cim.apps.exensio.exensioDearchiver.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.Nullable;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -14,9 +15,12 @@ import org.springframework.stereotype.Service;
 public class MailService {
     private final Logger log = LoggerFactory.getLogger(MailService.class);
     private final JavaMailSender mailSender;
+    private final String fromAddress;
 
-    public MailService(@Autowired(required = false) @Nullable JavaMailSender mailSender) {
+    public MailService(@Autowired(required = false) @Nullable JavaMailSender mailSender,
+                       @Value("${app.mail.from:no-reply@onsemi.com}") String fromAddress) {
         this.mailSender = mailSender;
+        this.fromAddress = fromAddress;
     }
 
     public void send(String to, String subject, String body) {
@@ -26,6 +30,7 @@ public class MailService {
         }
         try {
             SimpleMailMessage msg = new SimpleMailMessage();
+            if (fromAddress != null && !fromAddress.isBlank()) msg.setFrom(fromAddress);
             msg.setTo(to);
             msg.setSubject(subject);
             msg.setText(body);
@@ -47,6 +52,7 @@ public class MailService {
         try {
             MimeMessage mime = ((JavaMailSender) mailSender).createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mime, true);
+            if (fromAddress != null && !fromAddress.isBlank()) helper.setFrom(fromAddress);
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(body, false);
