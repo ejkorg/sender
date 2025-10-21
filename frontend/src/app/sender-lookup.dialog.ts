@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="rounded-2xl bg-white p-4 shadow-md">
+    <div class="rounded-2xl bg-surface p-4 shadow-md">
       <h2 class="text-lg font-semibold mb-3">Select Sender</h2>
       <div *ngIf="items?.length; else empty">
         <div *ngFor="let row of items" class="flex items-center justify-between p-2 border-b last:border-b-0">

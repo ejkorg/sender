@@ -23,7 +23,7 @@ import { AuthCardComponent } from './auth-card.component';
               type="text"
               formControlName="token"
               required
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="tokenCtrl.invalid && tokenCtrl.touched"
             />
             <p class="mt-2 text-sm text-red-600" *ngIf="tokenCtrl.hasError('required') && tokenCtrl.touched">Reset token is required</p>
@@ -37,7 +37,7 @@ import { AuthCardComponent } from './auth-card.component';
               formControlName="password"
               autocomplete="new-password"
               required
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="passwordCtrl.invalid && passwordCtrl.touched"
             />
             <p class="mt-2 text-sm text-red-600" *ngIf="passwordCtrl.hasError('required') && passwordCtrl.touched">Password is required</p>

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
+import { Component, Input, HostBinding } from '@angular/core';
 
 @Component({
   selector: 'app-card',
@@ -13,9 +13,13 @@ import { Component, Input } from '@angular/core';
 })
 export class CardComponent {
   @Input() variant: 'elevated' | 'flat' = 'elevated';
+  @HostBinding('class') hostClass = 'app-card';
+  @HostBinding('attr.variant') get hostVariant() { return this.variant; }
+
+  // container classes used inside the host section
   get containerClasses(): string {
-    const base = 'rounded-2xl p-6';
-    const variantCls = this.variant === 'elevated' ? 'shadow-md bg-white border' : 'bg-transparent';
-    return [base, variantCls].join(' ');
+    const base = 'rounded-2xl p-6 app-card__container';
+    const variantClass = this.variant === 'elevated' ? 'app-card__elevated' : 'app-card__flat';
+    return [base, variantClass].join(' ');
   }
 }

@@ -7,7 +7,7 @@ import { Component, Input } from '@angular/core';
   imports: [CommonModule],
   template: `
     <div class="overflow-auto">
-      <table class="min-w-full bg-white" [ngClass]="tableClass">
+      <table class="min-w-full" [ngClass]="tableClass">
         <ng-content></ng-content>
       </table>
     </div>

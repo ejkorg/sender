@@ -4,24 +4,30 @@
 
 /* onsemi brand globals */
 :root {
-	--onsemi-primary: #DA7F3A; /* onsemi orange */
-	--onsemi-primary-dark: #b0682f;
-	--onsemi-primary-light: #eaa87a;
-	--onsemi-charcoal: #101820;
-	--onsemi-navy: #003a70;
-	--onsemi-ice: #F4FAF7;
+	--onsemi-primary: #0B67FF; /* Andromeda blue */
+	--onsemi-primary-dark: #0955CC;
+	--onsemi-primary-light: #6FB0FF;
+	--onsemi-charcoal: #0F1724;
+	--onsemi-navy: #003A70;
+	--onsemi-ice: #F4FBFF;
+}
+
+/* badge / small UI tokens */
+:root {
+	--badge-bg: rgba(15,23,36,0.04);
+	--badge-muted-bg: #f8fafc;
 }
 
 /* Andromeda theme overrides (applied when [data-theme="andromeda"]) */
 [data-theme="andromeda"] {
-	--onsemi-primary: #0b67ff; /* blue accent for Andromeda variant */
-	--onsemi-primary-dark: #0955cc;
-	--onsemi-primary-light: #6fb0ff;
-	--onsemi-charcoal: #0f1724; /* darker text for contrast */
-	--onsemi-navy: #003a70;
-	--onsemi-ice: #f4fbff;
-	--bg-gradient-start: rgba(238,247,255,0.9);
-	--bg-gradient-end: rgba(250,253,255,1);
+	--onsemi-primary: #0B67FF;
+	--onsemi-primary-dark: #0955CC;
+	--onsemi-primary-light: #6FB0FF;
+	--onsemi-charcoal: #0F1724;
+	--onsemi-navy: #003A70;
+	--onsemi-ice: #F4FBFF;
+	--bg-gradient-start: rgba(238,247,255,0.95);
+	--bg-gradient-end: rgba(245,250,255,1);
 }
 
 /* Default theme background variables */
@@ -57,24 +63,30 @@ a {
    .btn-primary / .btn-secondary helpers instead. */
 
 .btn-primary {
-	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
-	background: linear-gradient(135deg, #003a70 0%, #00a3e0 100%);
-	box-shadow: 0 8px 20px rgba(0,58,112,0.12);
+	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform transition-colors ease-out duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+	background: linear-gradient(135deg, var(--onsemi-primary) 0%, var(--onsemi-primary-light) 100%);
+	box-shadow: 0 10px 28px rgba(11,103,255,0.10);
 }
 
 .btn-primary:hover {
-	transform: translateY(-1px);
+	transform: translateY(-2px) scale(1.01);
 }
 
 .btn-secondary {
 	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
-	border: 1px solid var(--onsemi-primary);
-	/* use charcoal for the button text to meet contrast; keep the brand border */
+	border: 1px solid rgba(15,23,36,0.06);
+	/* subtle secondary styling */
 	color: var(--onsemi-charcoal);
+	background: rgba(11,103,255,0.03);
 }
 
 .btn-secondary:hover {
-	background-color: rgba(218,127,58,0.08);
+		background-color: rgba(11,103,255,0.08);
+}
+
+/* Form control focus styling using theme primary */
+input:focus, textarea:focus, select:focus {
+	box-shadow: 0 0 0 4px var(--onsemi-primary-light, rgba(11,103,255,0.12));
 }
 
 /* theme toggle specific styling to match header compactness */
@@ -87,6 +99,98 @@ a {
 
 .theme-toggle:hover {
 	background-color: rgba(3,105,182,0.06);
+}
+
+/* App card and content styles */
+.app-card {
+	display: block;
+	background: #fff;
+	border-radius: 12px;
+	transition: box-shadow 180ms ease, transform 160ms ease;
+	border: 1px solid rgba(15,23,36,0.04);
+}
+
+/* inner container variants so CSS can style inner content consistently */
+.app-card__container { background: transparent; }
+.app-card__elevated { box-shadow: 0 18px 40px rgba(11,103,255,0.07); }
+.app-card__elevated:hover { transform: translateY(-6px); box-shadow: 0 28px 60px rgba(11,103,255,0.10); }
+.app-card__flat { box-shadow: none; border: 1px dashed rgba(15,23,36,0.03); }
+
+/* elevated variant uses a stronger shadow */
+.app-card[variant="elevated"], .app-card.elevated {
+	box-shadow: 0 18px 40px rgba(11,103,255,0.07);
+}
+
+.app-card[variant="elevated"]:hover, .app-card.elevated:hover {
+	transform: translateY(-6px);
+	box-shadow: 0 28px 60px rgba(11,103,255,0.10);
+}
+
+/* flat variant reduces elevation */
+.app-card[variant="flat"], .app-card.flat {
+	box-shadow: none;
+	border: 1px dashed rgba(15,23,36,0.03);
+}
+
+/* Clickable rows and list items */
+.clickable, .interactive {
+	transition: background-color 120ms ease, transform 120ms ease;
+}
+.clickable:hover, .interactive:hover {
+	background-color: rgba(11,103,255,0.03);
+	transform: translateY(-2px);
+}
+
+/* Sender row and graph row styling */
+.sender-row, .graph-row {
+	padding: 12px;
+	border-radius: 8px;
+}
+.sender-row.clickable:hover, .graph-row.clickable:hover {
+	background: linear-gradient(90deg, rgba(11,103,255,0.03), rgba(11,103,255,0.02));
+}
+
+/* Table styles: zebra striping and hover */
+table {
+	width: 100%;
+	border-collapse: collapse;
+}
+table thead th {
+	text-align: left;
+	padding: 12px 10px;
+	font-weight: 600;
+	color: var(--onsemi-charcoal);
+	border-bottom: 1px solid rgba(15,23,36,0.06);
+}
+table tbody td {
+	padding: 12px 10px;
+	border-bottom: 1px solid rgba(15,23,36,0.04);
+}
+table tbody tr:nth-child(odd) {
+	background-color: var(--table-zebra, rgba(11,103,255,0.01));
+}
+table tbody tr:hover {
+	background-color: var(--table-row-hover, rgba(11,103,255,0.03));
+}
+
+/* Badge tweaks */
+.badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 999px;
+	background: var(--badge-bg);
+	color: var(--onsemi-charcoal);
+	font-size: 0.85rem;
+}
+.badge.highlight {
+	background: linear-gradient(90deg, var(--onsemi-primary), var(--onsemi-primary-light));
+	color: white;
+}
+.badge.warn {
+	background: linear-gradient(90deg, #ff6b6b, #ff8a8a);
+	color: white;
 }
 
 .theme-toggle:focus {
@@ -106,3 +210,8 @@ a {
 	white-space: nowrap !important;
 	border: 0 !important;
 }
+
+/* Surface utility classes to centralize background color and make theme overrides easy */
+.bg-surface { background: var(--surface-bg, #fff); }
+.bg-surface-95 { background: rgba(255,255,255,0.95); }
+.bg-surface-70 { background: rgba(255,255,255,0.7); }

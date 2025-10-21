@@ -26,7 +26,7 @@ import { AuthCardComponent } from './auth-card.component';
               formControlName="username"
               autocomplete="username"
               required
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="usernameCtrl.invalid && usernameCtrl.touched"
             />
             <p class="mt-2 text-sm text-red-600" *ngIf="usernameCtrl.hasError('required') && usernameCtrl.touched">Username is required</p>

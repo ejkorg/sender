@@ -10,14 +10,25 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" />
   <script>
     // Apply persisted theme as early as possible to avoid flash-of-unstyled-content.
-    try {
-      var t = localStorage.getItem('app-theme');
-      if (t === 'andromeda') {
-        document.documentElement.setAttribute('data-theme', 'andromeda');
+    // Prefer a server-set cookie `app-theme` (if present). Fall back to localStorage.
+    (function() {
+      try {
+        var theme = null;
+        // read cookie if available
+        var match = document.cookie.match(/(?:^|; )app-theme=([^;]+)/);
+        if (match && match[1]) {
+          theme = decodeURIComponent(match[1]);
+        }
+        if (!theme) {
+          theme = localStorage.getItem('app-theme');
+        }
+        if (theme === 'andromeda') {
+          document.documentElement.setAttribute('data-theme', 'andromeda');
+        }
+      } catch (e) {
+        /* ignore errors accessing cookies/localStorage */
       }
-    } catch (e) {
-      /* ignore localStorage errors */
-    }
+    })();
   </script>
 </head>
 <body>

@@ -24,7 +24,7 @@ interface UserSummary {
       <h2 class="text-xl font-semibold text-onsemi-charcoal">User Role Management</h2>
       <app-button variant="secondary" (click)="exportUsersCsv()" [disabled]="!users.length">Export CSV</app-button>
     </div>
-    <div class="overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-auto rounded-2xl border border-slate-200 bg-surface shadow-sm">
       <table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-onsemi-ice text-onsemi-charcoal">
           <tr>
@@ -37,7 +37,7 @@ interface UserSummary {
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <tr *ngFor="let user of users" class="bg-white">
+          <tr *ngFor="let user of users" class="bg-surface">
             <td class="px-4 py-3 font-medium text-onsemi-charcoal">{{ user.username }}</td>
             <td class="px-4 py-3 text-slate-700">{{ user.email }}</td>
             <td class="px-4 py-3 text-slate-700">{{ user.enabled ? 'Yes' : 'No' }}</td>

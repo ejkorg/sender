@@ -15,10 +15,10 @@ export class BadgeComponent {
   get classes(): string {
     const base = 'inline-flex items-center justify-center rounded-full px-3 py-1 font-semibold text-sm';
     const variantMap: Record<string,string> = {
-      default: 'bg-gray-100 text-onsemi-charcoal',
-      highlight: 'bg-onsemi-primary/20 text-onsemi-charcoal',
-      warn: 'bg-red-100 text-red-600',
-      muted: 'bg-gray-50 text-gray-600'
+      default: 'bg-[color:var(--badge-bg,rgba(15,23,36,0.04))] text-[color:var(--onsemi-charcoal)]',
+      highlight: 'bg-[linear-gradient(90deg,var(--onsemi-primary),var(--onsemi-primary-light))] text-white',
+      warn: 'bg-[linear-gradient(90deg,#ff6b6b,#ff8a8a)] text-white',
+      muted: 'bg-[color:var(--badge-muted-bg,#f8fafc)] text-gray-600'
     };
     return [base, variantMap[this.variant] || variantMap['default']].join(' ');
   }

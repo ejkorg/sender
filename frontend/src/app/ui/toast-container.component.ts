@@ -33,7 +33,7 @@ export class ToastContainerComponent {
       case 'error':
         return 'border-red-200 bg-red-50/95 text-red-900 backdrop-blur-sm';
       default:
-        return 'border-slate-200 bg-white/95 text-slate-900 backdrop-blur-sm';
+        return 'border-slate-200 bg-surface-95 text-slate-900 backdrop-blur-sm';
     }
   }
 

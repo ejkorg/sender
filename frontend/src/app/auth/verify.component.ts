@@ -11,7 +11,7 @@ import { ToastService } from '../ui/toast.service';
   imports: [CommonModule, ReactiveFormsModule],
   template: `
     <div class="flex min-h-screen items-center justify-center bg-onsemi-ice px-4 py-16">
-      <section class="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-onsemi-primary/15">
+      <section class="w-full max-w-md rounded-2xl bg-surface p-8 shadow-xl ring-1 ring-onsemi-primary/15">
         <h1 class="text-xl font-semibold text-onsemi-charcoal">Verify account</h1>
         <p class="mt-1 text-sm text-slate-600">Paste the verification token from your email to activate your account.</p>
 

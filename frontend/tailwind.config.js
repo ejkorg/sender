@@ -6,13 +6,13 @@ module.exports = {
     extend: {
       colors: {
         onsemi: {
-          // onsemi branding — primary switched to onsemi orange
-          primary: '#DA7F3A',
-          dark: '#b0682f',
-          light: '#eaa87a',
-          accent: '#003a70',
-          charcoal: '#003a70',
-          ice: '#F4FAF7'
+          // Andromeda-inspired blues for site theme
+          primary: '#0B67FF',
+          dark: '#0955CC',
+          light: '#6FB0FF',
+          accent: '#003A70',
+          charcoal: '#0F1724',
+          ice: '#F4FBFF'
         }
       },
       fontFamily: {

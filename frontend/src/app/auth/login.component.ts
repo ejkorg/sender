@@ -28,7 +28,7 @@ import { AuthCardComponent } from './auth-card.component';
               formControlName="username"
               autocomplete="username"
               required
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="usernameControl.invalid && usernameControl.touched"
               [class.focus\:ring-red-200]="usernameControl.invalid && usernameControl.touched"
             />
@@ -44,7 +44,7 @@ import { AuthCardComponent } from './auth-card.component';
               formControlName="password"
               autocomplete="current-password"
               required
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="passwordControl.invalid && passwordControl.touched"
               [class.focus\:ring-red-200]="passwordControl.invalid && passwordControl.touched"
             />
