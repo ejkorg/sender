@@ -5,6 +5,7 @@ import { RegisterComponent } from './auth/register.component';
 import { VerifyComponent } from './auth/verify.component';
 import { RequestResetComponent } from './auth/request-reset.component';
 import { ResetPasswordComponent } from './auth/reset-password.component';
+import { LoginComponent } from './auth/login.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { AuthService } from './auth/auth.service';
 
@@ -17,6 +18,7 @@ export const appRoutes: Routes = [
       return auth.isAdmin() ? true : ['/'];
     }]
   },
+  { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'verify', component: VerifyComponent },
   { path: 'request-reset', component: RequestResetComponent },

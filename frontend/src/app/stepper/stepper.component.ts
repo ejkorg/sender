@@ -19,6 +19,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { ModalService } from '../ui/modal.service';
 import { ToastService } from '../ui/toast.service';
+import { CsvExportService } from '../ui/csv-export.service';
 
 
 @Component({
@@ -88,7 +89,8 @@ export class StepperComponent implements OnInit, OnDestroy {
   constructor(private api: BackendService,
               private toast: ToastService,
               private auth: AuthService,
-              private modal: ModalService) {}
+              private modal: ModalService,
+              private csv: CsvExportService) {}
 
   ngOnInit(): void {
     this.loadSites();
@@ -591,7 +593,6 @@ export class StepperComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const headers = ['Metadata ID', 'Data ID', 'Lot', 'End Time'];
     const csvRows = rows.map(row => [
       row.metadataId ?? '',
       row.dataId ?? '',
@@ -599,20 +600,81 @@ export class StepperComponent implements OnInit, OnDestroy {
       this.formatDateTime(row.endTime)
     ]);
 
-    const csv = [headers, ...csvRows]
-      .map(cols => cols.map(value => this.escapeCsv(value)).join(','))
-      .join('\n');
+    const fileName = `discovery_${selectedOnly ? 'selected' : 'page'}`;
+    const exported = this.csv.download({
+      filename: fileName,
+      headers: ['Metadata ID', 'Data ID', 'Lot', 'End Time'],
+      rows: csvRows
+    });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const timestamp = formatDate(new Date(), 'yyyyMMdd_HHmmss', 'en-US');
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `discovery_${selectedOnly ? 'selected' : 'page'}_${timestamp}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    if (exported) {
+      this.toast.success(`Exported ${rows.length} payload${rows.length === 1 ? '' : 's'} to CSV.`);
+    } else {
+      this.toast.error('Unable to create CSV export.');
+    }
+  }
 
-    this.toast.success(`Exported ${rows.length} payload${rows.length === 1 ? '' : 's'} to CSV.`);
+  exportStageRecordsCsv(): void {
+    if (!this.stageRecords.length) {
+      this.toast.info('No staged records to export.');
+      return;
+    }
+
+    const rows = this.stageRecords.map(record => [
+      record.site ?? '',
+      record.senderId ?? '',
+      record.metadataId ?? '',
+      record.dataId ?? '',
+      record.status ?? '',
+      record.lastRequestedBy ?? record.stagedBy ?? '',
+      this.formatDateTime(record.lastRequestedAt),
+      this.formatDateTime(record.updatedAt),
+      this.formatDateTime(record.processedAt ?? null),
+      record.errorMessage ?? ''
+    ]);
+
+    const exported = this.csv.download({
+      filename: 'stage-records',
+      headers: ['Site', 'Sender ID', 'Metadata ID', 'Data ID', 'Status', 'Owner', 'Last Requested At', 'Updated At', 'Processed At', 'Error'],
+      rows
+    });
+
+    if (exported) {
+      this.toast.success(`Exported ${rows.length} record${rows.length === 1 ? '' : 's'} to CSV.`);
+    } else {
+      this.toast.error('Unable to create staged records export.');
+    }
+  }
+
+  exportDuplicateCsv(): void {
+    const duplicates = this.stageResponse?.duplicatePayloads ?? [];
+    if (!duplicates.length) {
+      this.toast.info('No duplicate payloads to export.');
+      return;
+    }
+
+    const rows = duplicates.map(dup => [
+      dup.metadataId ?? '',
+      dup.dataId ?? '',
+      dup.previousStatus ?? '',
+      dup.lastRequestedBy ?? '',
+      this.formatDateTime(dup.lastRequestedAt),
+      dup.stagedBy ?? '',
+      this.formatDateTime(dup.stagedAt),
+      this.formatDateTime(dup.processedAt)
+    ]);
+
+    const exported = this.csv.download({
+      filename: 'duplicate-payloads',
+      headers: ['Metadata ID', 'Data ID', 'Previous Status', 'Last Requested By', 'Last Requested At', 'Staged By', 'Staged At', 'Processed At'],
+      rows
+    });
+
+    if (exported) {
+      this.toast.success(`Exported ${rows.length} duplicate payload${rows.length === 1 ? '' : 's'} to CSV.`);
+    } else {
+      this.toast.error('Unable to create duplicate payload export.');
+    }
   }
 
   private collectSelectedPayloads(): Array<{ metadataId: string; dataId: string }> {
@@ -729,11 +791,5 @@ export class StepperComponent implements OnInit, OnDestroy {
       return String(value ?? '');
     }
     return formatDate(date, this.uiDateFormat, 'en-US');
-  }
-
-  private escapeCsv(value: unknown): string {
-    const str = String(value ?? '');
-    const escaped = str.replace(/"/g, '""');
-    return `"${escaped}"`;
   }
 }

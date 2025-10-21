@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { AuthService } from './auth/auth.service';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { RegisterComponent } from './auth/register.component';
 import { VerifyComponent } from './auth/verify.component';
 import { RequestResetComponent } from './auth/request-reset.component';
@@ -14,7 +14,6 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { AdminDashboardComponent } from './admin-dashboard.component';
 import { ToastContainerComponent } from './ui/toast-container.component';
 import { ModalHostComponent } from './ui/modal-host.component';
-import { ToastService } from './ui/toast.service';
 
 @Component({
   selector: 'app-root',
@@ -25,6 +24,10 @@ import { ToastService } from './ui/toast.service';
   imports: [
     CommonModule,
     LoginComponent,
+    RegisterComponent,
+    RequestResetComponent,
+    ResetPasswordComponent,
+    VerifyComponent,
     StepperComponent,
     DashboardComponent,
     AdminDashboardComponent,
@@ -38,10 +41,27 @@ import { ToastService } from './ui/toast.service';
 export class App {
   // basic local tab state to replace the previous tab control
   tabIndex = 0;
-  constructor(public auth: AuthService, private toast: ToastService) {}
+  constructor(public auth: AuthService, private router: Router) {}
 
   setTab(idx: number) {
     this.tabIndex = idx;
+  }
+
+  get activePublicView(): 'login' | 'register' | 'verify' | 'request-reset' | 'reset-password' {
+    const url = this.router.url ?? '';
+    if (url.startsWith('/register')) {
+      return 'register';
+    }
+    if (url.startsWith('/verify')) {
+      return 'verify';
+    }
+    if (url.startsWith('/request-reset')) {
+      return 'request-reset';
+    }
+    if (url.startsWith('/reset-password')) {
+      return 'reset-password';
+    }
+    return 'login';
   }
 }
 

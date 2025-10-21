@@ -37,9 +37,20 @@
 
 <ng-template #loginView>
   <div class="app-shell p-6">
-    <div class="app-container mx-auto max-w-md login-prompt">
-      <p class="mb-4">Please sign in to manage resend requests.</p>
-      <app-login></app-login>
+    <div class="app-container mx-auto max-w-4xl login-prompt">
+      <ng-container [ngSwitch]="activePublicView">
+        <ng-container *ngSwitchCase="'login'">
+          <p class="mb-4 text-sm text-slate-600">Please sign in to manage resend requests.</p>
+          <app-login></app-login>
+        </ng-container>
+        <app-register *ngSwitchCase="'register'"></app-register>
+        <app-verify *ngSwitchCase="'verify'"></app-verify>
+        <app-request-reset *ngSwitchCase="'request-reset'"></app-request-reset>
+        <app-reset-password *ngSwitchCase="'reset-password'"></app-reset-password>
+        <ng-container *ngSwitchDefault>
+          <app-login></app-login>
+        </ng-container>
+      </ng-container>
     </div>
   </div>
 </ng-template>
