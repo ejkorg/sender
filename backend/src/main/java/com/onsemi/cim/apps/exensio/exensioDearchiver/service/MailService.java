@@ -31,7 +31,8 @@ public class MailService {
         try {
             // Create a multipart MIME message with both plain text and HTML parts.
             MimeMessage mime = ((JavaMailSender) mailSender).createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mime, false, "UTF-8");
+            // create helper in multipart mode so we can set both plain-text and HTML alternatives
+            MimeMessageHelper helper = new MimeMessageHelper(mime, true, "UTF-8");
             if (fromAddress != null && !fromAddress.isBlank()) helper.setFrom(fromAddress);
             helper.setTo(to);
             helper.setSubject(subject);
@@ -51,7 +52,8 @@ public class MailService {
             ((JavaMailSender) mailSender).send(mime);
             log.info("Sent mail to {} subject={}", to, subject);
         } catch (Exception ex) {
-            log.warn("Failed to send mail to {}: {}", to, ex.getMessage());
+            // Log the full stacktrace and a clear message to ease debugging of SMTP/formatting issues
+            log.warn("Failed to send mail to {} subject={}: {}", to, subject, ex.getMessage(), ex);
         }
     }
 
@@ -76,7 +78,7 @@ public class MailService {
             ((JavaMailSender) mailSender).send(mime);
             log.info("Sent mail with attachment to {} subject={}", to, subject);
         } catch (Exception ex) {
-            log.warn("Failed to send mail with attachment to {}: {}", to, ex.getMessage());
+            log.warn("Failed to send mail with attachment to {} subject={}: {}", to, subject, ex.getMessage(), ex);
             // try simple send as fallback
             send(to, subject, body + "\n\n(attachment failed: " + ex.getMessage() + ")");
         }
