@@ -3,23 +3,23 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
+import { AuthCardComponent } from './auth-card.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, AuthCardComponent],
   template: `
-    <div class="flex items-center justify-center bg-onsemi-ice px-4 auth-wrapper">
-      <section class="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-onsemi-primary/15">
-        <div class="mb-6 text-center">
-          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-onsemi-primary/10">
-            <span class="text-lg font-semibold uppercase tracking-wide text-onsemi-primary">ON</span>
-          </div>
-          <h1 class="text-2xl font-semibold text-onsemi-charcoal">Welcome back</h1>
-          <p class="mt-1 text-sm text-onsemi-charcoal/70">Manage resend requests and sender queues.</p>
+    <app-auth-card>
+      <div class="mb-6 text-center">
+        <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-onsemi-primary/10">
+          <span class="text-lg font-semibold uppercase tracking-wide text-onsemi-primary">ON</span>
         </div>
+        <h1 class="text-2xl font-semibold text-onsemi-charcoal">Welcome back</h1>
+        <p class="mt-1 text-sm text-onsemi-charcoal/70">Manage resend requests and sender queues.</p>
+      </div>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-6">
+      <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-6">
           <div>
             <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="username">Username</label>
             <input
@@ -75,8 +75,7 @@ import { AuthService } from './auth.service';
           <button class="btn-secondary justify-center" type="button" (click)="gotoRegister()">Create account</button>
           <button class="text-sm font-medium text-onsemi-primary hover:underline" type="button" (click)="gotoReset()">Forgot password?</button>
         </div>
-      </section>
-    </div>
+    </app-auth-card>
   `
 })
 export class LoginComponent implements OnDestroy {

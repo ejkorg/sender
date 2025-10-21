@@ -4,18 +4,18 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { ToastService } from '../ui/toast.service';
+import { AuthCardComponent } from './auth-card.component';
 
 @Component({
   selector: 'app-request-reset',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, AuthCardComponent],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-onsemi-ice px-4 py-16">
-      <section class="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-onsemi-primary/15">
-        <h1 class="text-xl font-semibold text-onsemi-charcoal">Request password reset</h1>
-        <p class="mt-1 text-sm text-slate-600">Enter your username or email and we will send reset instructions.</p>
+    <app-auth-card>
+      <h1 class="text-xl font-semibold text-onsemi-charcoal">Request password reset</h1>
+      <p class="mt-1 text-sm text-slate-600">Enter your username or email and we will send reset instructions.</p>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" class="mt-8 space-y-6">
+      <form [formGroup]="form" (ngSubmit)="submit()" class="mt-8 space-y-6">
           <div>
             <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="identifier">Username or email</label>
             <input
@@ -41,11 +41,10 @@ import { ToastService } from '../ui/toast.service';
           </ng-template>
         </form>
 
-        <div class="mt-8 text-center text-sm text-slate-600">
-          <button class="font-semibold text-onsemi-primary hover:underline" type="button" (click)="gotoLogin()">Back to sign in</button>
-        </div>
-      </section>
-    </div>
+      <div class="mt-8 text-center text-sm text-slate-600">
+        <button class="font-semibold text-onsemi-primary hover:underline" type="button" (click)="gotoLogin()">Back to sign in</button>
+      </div>
+    </app-auth-card>
   `
 })
 export class RequestResetComponent implements OnDestroy {

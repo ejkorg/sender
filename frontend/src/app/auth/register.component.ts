@@ -4,20 +4,20 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { ToastService } from '../ui/toast.service';
+import { AuthCardComponent } from './auth-card.component';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, AuthCardComponent],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-onsemi-ice px-4 py-16">
-      <section class="w-full max-w-xl rounded-2xl bg-white p-10 shadow-xl ring-1 ring-onsemi-primary/15">
-        <div class="mb-8 space-y-2 text-center">
-          <h1 class="text-2xl font-semibold text-onsemi-charcoal">Create your account</h1>
-          <p class="text-sm text-slate-600">Register to access the sender tools.</p>
-        </div>
+    <app-auth-card [maxWidth]="'xl'" [paddingClass]="'p-10'">
+      <div class="mb-8 space-y-2 text-center">
+        <h1 class="text-2xl font-semibold text-onsemi-charcoal">Create your account</h1>
+        <p class="text-sm text-slate-600">Register to access the sender tools.</p>
+      </div>
 
-        <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-6">
+      <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-6">
           <div>
             <label class="mb-2 block text-sm font-medium text-onsemi-charcoal" for="username">Username</label>
             <input
@@ -76,8 +76,7 @@ import { ToastService } from '../ui/toast.service';
           Already have an account?
           <button class="font-semibold text-onsemi-primary hover:underline" type="button" (click)="gotoLogin()">Sign in</button>
         </div>
-      </section>
-    </div>
+    </app-auth-card>
   `
 })
 export class RegisterComponent implements OnDestroy {
