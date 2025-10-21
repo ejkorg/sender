@@ -218,28 +218,59 @@ public class ExternalDbConfig {
     }
 
     public Map<String, Object> getConfigForSite(String site) {
-        return dbConnections.get(site);
+        return lookupConfig(site);
     }
 
     /**
      * Try resolving db config with environment qualifiers. Order: site-environment, site_environment, site.environment, site
      */
     public Map<String, Object> getConfigForSite(String site, String environment) {
+        if (site == null || site.isBlank()) {
+            return null;
+        }
+        String trimmedSite = site.trim();
+        java.util.LinkedHashSet<String> siteVariants = new java.util.LinkedHashSet<>();
+        siteVariants.add(trimmedSite);
+        siteVariants.add(trimmedSite.toLowerCase(java.util.Locale.ROOT));
+        siteVariants.add(trimmedSite.toUpperCase(java.util.Locale.ROOT));
+
         if (environment != null && !environment.isBlank()) {
-            String[] candidates = new String[]{String.format("%s-%s", site, environment), String.format("%s_%s", site, environment), String.format("%s.%s", site, environment), site};
-            for (String k : candidates) {
-                Map<String, Object> cfg = dbConnections.get(k);
-                if (cfg != null) return cfg;
+            String trimmedEnv = environment.trim();
+            java.util.LinkedHashSet<String> envVariants = new java.util.LinkedHashSet<>();
+            envVariants.add(trimmedEnv);
+            envVariants.add(trimmedEnv.toLowerCase(java.util.Locale.ROOT));
+            envVariants.add(trimmedEnv.toUpperCase(java.util.Locale.ROOT));
+
+            for (String siteVariant : siteVariants) {
+                for (String envVariant : envVariants) {
+                    java.util.List<String> candidates = java.util.List.of(
+                            String.format("%s-%s", siteVariant, envVariant),
+                            String.format("%s_%s", siteVariant, envVariant),
+                            String.format("%s.%s", siteVariant, envVariant)
+                    );
+                    for (String candidate : candidates) {
+                        Map<String, Object> cfg = lookupConfig(candidate);
+                        if (cfg != null) {
+                            return cfg;
+                        }
+                    }
+                }
             }
         }
-        return dbConnections.get(site);
+        for (String siteVariant : siteVariants) {
+            Map<String, Object> cfg = lookupConfig(siteVariant);
+            if (cfg != null) {
+                return cfg;
+            }
+        }
+        return null;
     }
 
     /**
      * Return the raw configuration map by key (the key used in dbconnections.json).
      */
     public Map<String, Object> getConfigByKey(String key) {
-        return dbConnections.get(key);
+        return lookupConfig(key);
     }
 
     /**
@@ -625,5 +656,23 @@ public class ExternalDbConfig {
         if (o == null) return fallback;
         if (o instanceof Number) return ((Number) o).longValue();
         try { return Long.parseLong(o.toString()); } catch (Exception e) { return fallback; }
+    }
+
+    private Map<String, Object> lookupConfig(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        Map<String, Object> exact = dbConnections.get(key);
+        if (exact != null) {
+            return exact;
+        }
+        String trimmed = key.trim();
+        for (Map.Entry<String, Map<String, Object>> entry : dbConnections.entrySet()) {
+            String candidateKey = entry.getKey();
+            if (candidateKey != null && candidateKey.equalsIgnoreCase(trimmed)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 }
