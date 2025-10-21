@@ -73,8 +73,13 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> requestReset(@RequestBody Map<String, String> body) {
         String username = body.get("username");
         if (username == null || username.isBlank()) return ResponseEntity.badRequest().build();
+
         var userOpt = userRepository.findByUsername(username);
-        if (userOpt.isEmpty()) return ResponseEntity.status(404).build();
+        if (userOpt.isEmpty()) {
+            logger.debug("Password reset requested for unknown user '{}'; returning generic success", username);
+            return ResponseEntity.ok(Map.of("message", "reset requested"));
+        }
+
         var token = authTokenService.createPasswordResetToken(username);
         // attempt to send email if user has an email address configured
         try {
