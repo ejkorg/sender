@@ -8,6 +8,17 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" />
+  <script>
+    // Apply persisted theme as early as possible to avoid flash-of-unstyled-content.
+    try {
+      var t = localStorage.getItem('app-theme');
+      if (t === 'andromeda') {
+        document.documentElement.setAttribute('data-theme', 'andromeda');
+      }
+    } catch (e) {
+      /* ignore localStorage errors */
+    }
+  </script>
 </head>
 <body>
   <app-root></app-root>

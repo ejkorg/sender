@@ -1,14 +1,20 @@
 .app-shell {
   display: flex;
   justify-content: center;
-  background: #f4f7fb;
+  background: linear-gradient(180deg, #f6f9fb 0%, #eef7ff 60%);
   min-height: calc(100vh - 64px);
-  padding: 32px 16px 48px;
+  padding: 20px 16px 36px;
 }
 
 .app-container {
   width: 100%;
   max-width: 1120px;
+}
+
+header.site-header {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(16,24,32,0.06);
 }
 
 .app-tabs {

@@ -7,6 +7,8 @@ import { VerifyComponent } from './auth/verify.component';
 import { RequestResetComponent } from './auth/request-reset.component';
 import { ResetPasswordComponent } from './auth/reset-password.component';
 import { LoginComponent } from './auth/login.component';
+import { ThemeToggleComponent } from './theme-toggle.component';
+import { ThemeService } from './theme.service';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { AuthInterceptor } from './auth/auth.interceptor';
 import { StepperComponent } from './stepper/stepper.component';
@@ -14,6 +16,7 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { AdminDashboardComponent } from './admin-dashboard.component';
 import { ToastContainerComponent } from './ui/toast-container.component';
 import { ModalHostComponent } from './ui/modal-host.component';
+import { IconComponent } from './ui/icon.component';
 
 @Component({
   selector: 'app-root',
@@ -32,6 +35,7 @@ import { ModalHostComponent } from './ui/modal-host.component';
     DashboardComponent,
     AdminDashboardComponent,
     RouterModule,
+    ThemeToggleComponent,
     ToastContainerComponent,
     ModalHostComponent
   ],
@@ -41,7 +45,10 @@ import { ModalHostComponent } from './ui/modal-host.component';
 export class App {
   // basic local tab state to replace the previous tab control
   tabIndex = 0;
-  constructor(public auth: AuthService) {}
+  constructor(public auth: AuthService, private router: Router, private theme: ThemeService) {
+    // apply persisted theme on startup
+    this.theme.init();
+  }
   // show reset UI when URL path is /reset-password or token query is present
   get showReset(): boolean {
     try {

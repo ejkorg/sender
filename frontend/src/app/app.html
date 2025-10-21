@@ -1,7 +1,8 @@
-<header class="flex items-center gap-4 bg-white border-b px-6 py-3 shadow-sm">
+<header class="flex items-center gap-4 bg-white border-b px-6 py-3 shadow-sm site-header">
   <img src="assets/onsemi_logo_full_color.svg" class="h-8" alt="onsemi logo" />
   <div class="font-semibold text-onsemi-charcoal">exensio dearchiver</div>
   <div class="flex-1"></div>
+  <app-theme-toggle></app-theme-toggle>
   <ng-container *ngIf="(auth.user$ | async) as u">
     <ng-container *ngIf="u?.username; else toolbarLogin">
       <div class="flex items-center gap-3">

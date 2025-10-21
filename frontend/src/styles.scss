@@ -8,17 +8,44 @@
 	--onsemi-primary-dark: #b0682f;
 	--onsemi-primary-light: #eaa87a;
 	--onsemi-charcoal: #101820;
+	--onsemi-navy: #003a70;
 	--onsemi-ice: #F4FAF7;
+}
+
+/* Andromeda theme overrides (applied when [data-theme="andromeda"]) */
+[data-theme="andromeda"] {
+	--onsemi-primary: #0b67ff; /* blue accent for Andromeda variant */
+	--onsemi-primary-dark: #0955cc;
+	--onsemi-primary-light: #6fb0ff;
+	--onsemi-charcoal: #0f1724; /* darker text for contrast */
+	--onsemi-navy: #003a70;
+	--onsemi-ice: #f4fbff;
+	--bg-gradient-start: rgba(238,247,255,0.9);
+	--bg-gradient-end: rgba(250,253,255,1);
+}
+
+/* Default theme background variables */
+:root {
+	--bg-gradient-start: rgba(246,249,251,0.9);
+	--bg-gradient-end: rgba(238,247,255,1);
 }
 
 body {
 	@apply bg-white text-onsemi-charcoal font-sans;
 }
 
+/* Andromeda-like background + auth wrapper */
+.auth-wrapper {
+	background: linear-gradient(180deg, rgba(238,247,255,0.8) 0%, rgba(247,250,255,1) 40%, rgba(243,248,255,1) 100%);
+	padding-top: 2rem;
+	padding-bottom: 2rem;
+	min-height: 60vh;
+}
+
 /* utility helper: use a darker color for small / secondary text to improve contrast.
 	Use the brand charcoal for sufficient WCAG contrast while keeping primary accents
 	for larger UI elements. */
-.text-onsemi-primary { color: var(--onsemi-charcoal); }
+.text-onsemi-primary { color: var(--onsemi-navy); }
 
 a {
 	/* use a darker primary for links to meet contrast requirements */
@@ -31,11 +58,12 @@ a {
 
 .btn-primary {
 	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
-	background-color: var(--onsemi-primary);
+	background: linear-gradient(135deg, #003a70 0%, #00a3e0 100%);
+	box-shadow: 0 8px 20px rgba(0,58,112,0.12);
 }
 
 .btn-primary:hover {
-	background-color: var(--onsemi-primary-dark);
+	transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -47,4 +75,34 @@ a {
 
 .btn-secondary:hover {
 	background-color: rgba(218,127,58,0.08);
+}
+
+/* theme toggle specific styling to match header compactness */
+.theme-toggle {
+	@apply inline-flex items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors;
+	background-color: transparent;
+	border: 1px solid rgba(16,24,32,0.06);
+	color: var(--onsemi-charcoal);
+}
+
+.theme-toggle:hover {
+	background-color: rgba(3,105,182,0.06);
+}
+
+.theme-toggle:focus {
+	outline: 2px solid var(--onsemi-primary);
+	outline-offset: 2px;
+}
+
+/* accessible hidden text helper */
+.sr-only {
+	position: absolute !important;
+	width: 1px !important;
+	height: 1px !important;
+	padding: 0 !important;
+	margin: -1px !important;
+	overflow: hidden !important;
+	clip: rect(0, 0, 0, 0) !important;
+	white-space: nowrap !important;
+	border: 0 !important;
 }

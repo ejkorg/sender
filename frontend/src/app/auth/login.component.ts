@@ -9,14 +9,14 @@ import { AuthService } from './auth.service';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   template: `
-    <div class="flex min-h-screen items-center justify-center bg-onsemi-ice px-4 py-16">
+    <div class="flex items-center justify-center bg-onsemi-ice px-4 auth-wrapper">
       <section class="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl ring-1 ring-onsemi-primary/15">
-        <div class="mb-8 space-y-2 text-center">
-          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-onsemi-primary/10">
-            <span class="text-lg font-semibold uppercase tracking-wide text-onsemi-primary">on</span>
+        <div class="mb-6 text-center">
+          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-onsemi-primary/10">
+            <span class="text-lg font-semibold uppercase tracking-wide text-onsemi-primary">ON</span>
           </div>
           <h1 class="text-2xl font-semibold text-onsemi-charcoal">Welcome back</h1>
-          <p class="text-sm text-slate-600">Sign in to manage sender queues.</p>
+          <p class="mt-1 text-sm text-onsemi-charcoal/70">Manage resend requests and sender queues.</p>
         </div>
 
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-6">
