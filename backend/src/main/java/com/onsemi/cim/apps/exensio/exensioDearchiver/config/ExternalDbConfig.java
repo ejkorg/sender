@@ -1,6 +1,8 @@
 package com.onsemi.cim.apps.exensio.exensioDearchiver.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.springframework.core.env.Environment;
@@ -39,6 +41,7 @@ import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory;
 
 @Component
 public class ExternalDbConfig {
+    private static final Logger log = LoggerFactory.getLogger(ExternalDbConfig.class);
 
     private final Map<String, Map<String, Object>> dbConnections;
     // cache of pooled DataSources keyed by resolved connection key (e.g. "EXTERNAL-qa")
@@ -352,6 +355,7 @@ public class ExternalDbConfig {
         String resolvedKey = environment != null && !environment.isBlank() ? key + "-" + environment : key;
         HikariDataSource ds = dsCache.get(resolvedKey);
         if (ds == null) {
+            log.debug("Creating Hikari pool for resolvedKey={} jdbcUrl={}", resolvedKey, jdbcUrl != null ? (jdbcUrl.length() > 100 ? jdbcUrl.substring(0, 100) + "..." : jdbcUrl) : "null");
             // Try to load per-connection hikari overrides if present
                 Map<String, Object> perConn = cfg; // alias
             HikariConfig cfgH = new HikariConfig();
@@ -459,6 +463,7 @@ public class ExternalDbConfig {
 
         Map<String, Object> cfg = getConfigForSite(site, environment);
         if (cfg == null) throw new SQLException("No DB configuration for site " + site);
+        log.debug("Resolved DB config for site={} environment={} to config keys present (host={})", site, environment, cfg.get("host"));
 
     String host = cfg.get("host") == null ? null : cfg.get("host").toString();
     String user = cfg.get("user") == null ? null : cfg.get("user").toString();
@@ -500,6 +505,7 @@ public class ExternalDbConfig {
         String resolvedKey = environment != null && !environment.isBlank() ? site + "-" + environment : site;
         HikariDataSource ds = dsCache.get(resolvedKey);
         if (ds == null) {
+            log.debug("Creating Hikari pool for resolvedKey={} jdbcUrl={}", resolvedKey, jdbcUrl != null ? (jdbcUrl.length() > 100 ? jdbcUrl.substring(0, 100) + "..." : jdbcUrl) : "null");
             Map<String, Object> perConn = cfg; // alias
             HikariConfig cfgH = new HikariConfig();
             cfgH.setJdbcUrl(jdbcUrl);

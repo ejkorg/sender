@@ -279,27 +279,41 @@ public class SenderController {
     @GetMapping("/external/locations")
     public ResponseEntity<java.util.List<String>> externalDistinctLocations(@RequestParam(required = false, name = "locationId") Long locationId,
                                                                               @RequestParam(required = false, name = "connectionKey") String connectionKey,
+                                                                              @RequestParam(required = false) String site,
                                                                               @RequestParam(required = false) String dataType,
                                                                               @RequestParam(required = false) String testerType,
                                                                               @RequestParam(required = false) String testPhase,
                                                                               @RequestParam(defaultValue = "qa") String environment) {
+        // Allow callers to pass 'site' as an alias for connectionKey for backwards compatibility
+        if ((connectionKey == null || connectionKey.isBlank()) && site != null && !site.isBlank()) {
+            connectionKey = site;
+        }
+
         try {
             java.sql.Connection conn = null;
+            String metricKey = null;
             if (locationId != null) {
                 com.onsemi.cim.apps.exensio.exensioDearchiver.entity.ExternalLocation loc = metadataImporterService.findLocationById(locationId);
                 if (loc == null) throw new IllegalArgumentException("locationId not found");
                 conn = metadataImporterService.resolveConnectionForLocation(loc, environment);
+                metricKey = "locationId=" + locationId;
             } else if (connectionKey != null && !connectionKey.isBlank()) {
                 conn = metadataImporterService.resolveConnectionForKey(connectionKey, environment);
+                metricKey = connectionKey;
             } else {
-                throw new IllegalArgumentException("locationId or connectionKey is required");
+                return ResponseEntity.badRequest().body(java.util.List.of());
             }
+
             try (java.sql.Connection c = conn) {
-                try { metricsService.increment("external.locations", locationId != null ? "locationId=" + locationId : connectionKey); } catch (Exception ignore) {}
+                try { metricsService.increment("external.locations", metricKey); } catch (Exception ignore) {}
                 java.util.List<String> out = metadataImporterService.findDistinctLocationsWithConnection(c, dataType, testerType, testPhase);
-                return ResponseEntity.ok(out);
+                return ResponseEntity.ok(out == null ? java.util.List.of() : out);
             }
+        } catch (IllegalArgumentException iae) {
+            log.warn("Invalid request for externalDistinctLocations: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(java.util.List.of());
         } catch (Exception ex) {
+            log.error("Failed fetching distinct locations for connectionKey/site {} env {}: {}", connectionKey != null ? connectionKey : site, environment, ex.getMessage(), ex);
             return ResponseEntity.status(500).body(java.util.List.of());
         }
     }
