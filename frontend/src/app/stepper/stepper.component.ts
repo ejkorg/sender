@@ -349,11 +349,34 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   onStartDateChange(value: string) {
-    this.startDate = value ? new Date(`${value}T00:00:00`) : null;
+    if (!value) {
+      this.startDate = null;
+      return;
+    }
+    // value is from datetime-local (local time like 'yyyy-MM-ddTHH:mm'), create Date using local time
+    // If seconds are missing, Date constructor will treat it as local without seconds.
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) {
+      // Fallback: try appending seconds
+      const tryWithSec = new Date(value + ':00');
+      this.startDate = isNaN(tryWithSec.getTime()) ? null : tryWithSec;
+    } else {
+      this.startDate = parsed;
+    }
   }
 
   onEndDateChange(value: string) {
-    this.endDate = value ? new Date(`${value}T00:00:00`) : null;
+    if (!value) {
+      this.endDate = null;
+      return;
+    }
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) {
+      const tryWithSec = new Date(value + ':00');
+      this.endDate = isNaN(tryWithSec.getTime()) ? null : tryWithSec;
+    } else {
+      this.endDate = parsed;
+    }
   }
 
   private clearDiscoveryState() {
@@ -917,14 +940,20 @@ export class StepperComponent implements OnInit, OnDestroy {
     if (!this.startDate) {
       return null;
     }
-    return `${formatDate(this.startDate, 'yyyy-MM-dd', 'en-US')} 00:00:00`;
+    // Preserve the time component if user provided it; otherwise default to start of day
+    const hasTime = this.startDate.getHours() !== 0 || this.startDate.getMinutes() !== 0 || this.startDate.getSeconds() !== 0;
+    const timePart = hasTime ? formatDate(this.startDate, 'HH:mm:ss', 'en-US') : '00:00:00';
+    return `${formatDate(this.startDate, 'yyyy-MM-dd', 'en-US')} ${timePart}`;
   }
 
   private formatEndDate(): string | null {
     if (!this.endDate) {
       return null;
     }
-    return `${formatDate(this.endDate, 'yyyy-MM-dd', 'en-US')} 23:59:59`;
+    // Preserve the time component if user provided it; otherwise default to end of day
+    const hasTime = this.endDate.getHours() !== 0 || this.endDate.getMinutes() !== 0 || this.endDate.getSeconds() !== 0;
+    const timePart = hasTime ? formatDate(this.endDate, 'HH:mm:ss', 'en-US') : '23:59:59';
+    return `${formatDate(this.endDate, 'yyyy-MM-dd', 'en-US')} ${timePart}`;
   }
 
   private formatDateTime(value: string | Date | null | undefined): string {

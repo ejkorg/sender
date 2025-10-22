@@ -22,32 +22,28 @@
           </div>
 
           <div class="flex flex-col gap-2">
-            <!-- Admins see date range; non-admin users see lot/wafer pairs -->
-              <ng-container *ngIf="currentUser && !isAdmin; else adminArea">
-              <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
-              <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
-              <div class="space-y-2">
-                <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
-                  <div>
-                    <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
-                    <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
-                  </div>
-                  <div>
-                    <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
-                  </div>
-                  <div class="flex items-center">
-                    <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
-                    <span class="text-xs text-slate-500">{{ i + 1 }}</span>
-                  </div>
+            <!-- Both admins and non-admins can use lot/wafer pairs. Admins also see date range below. -->
+            <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
+            <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
+            <div class="space-y-2">
+              <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
+                <div>
+                  <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                  <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
                 </div>
                 <div>
-                  <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= 5 || !isLastPairFilled()">+ Add another pair</button>
+                  <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                </div>
+                <div class="flex items-center">
+                  <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
+                  <span class="text-xs text-slate-500">{{ i + 1 }}</span>
                 </div>
               </div>
-            </ng-container>
-            <ng-template #adminArea>
-              <div class="text-sm text-slate-600">Admins may use date range and test phase to filter results.</div>
-            </ng-template>
+              <div>
+                <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= 5 || !isLastPairFilled()">+ Add another pair</button>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
 
@@ -126,16 +122,17 @@
           </div>
           <div class="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
             <ng-container *ngIf="isAdmin; else nonAdminDates">
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-semibold text-onsemi-charcoal" for="startDate">Start date</label>
-                <input id="startDate" type="date" [ngModel]="startDate ? (startDate | date:'yyyy-MM-dd') : ''" (ngModelChange)="onStartDateChange($event)" name="startDate"
-                       class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-              </div>
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-semibold text-onsemi-charcoal" for="endDate">End date</label>
-                <input id="endDate" type="date" [ngModel]="endDate ? (endDate | date:'yyyy-MM-dd') : ''" (ngModelChange)="onEndDateChange($event)" name="endDate"
-                       class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-              </div>
+                   <div class="flex flex-col gap-2">
+                  <label class="text-sm font-semibold text-onsemi-charcoal" for="startDate">Start (date & time)</label>
+                  <!-- datetime-local provides local date/time; bind to ISO-local value -->
+                  <input id="startDate" type="datetime-local" [ngModel]="startDate ? (startDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onStartDateChange($event)" name="startDate"
+                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-semibold text-onsemi-charcoal" for="endDate">End (date & time)</label>
+                  <input id="endDate" type="datetime-local" [ngModel]="endDate ? (endDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onEndDateChange($event)" name="endDate"
+                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                </div>
             </ng-container>
             <ng-template #nonAdminDates>
               <div class="col-span-2 text-sm text-slate-600">Non-admin users search by lot/wafer pairs only.</div>
@@ -306,7 +303,6 @@
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
 
         <div *ngIf="stageStatus.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
