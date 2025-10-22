@@ -55,7 +55,7 @@ public class JdbcExternalMetadataRepositoryIntegrationTest {
 
     @Test
     public void testFindMetadataReturnsAllMatchingRows() {
-        List<MetadataRow> rows = repository.findMetadata("TEST_SITE", "qa", LocalDateTime.of(2025,1,1,0,0), LocalDateTime.of(2025,12,31,23,59), "D1", "PH1", "T1", "LOC1", 100);
+        List<MetadataRow> rows = repository.findMetadata("TEST_SITE", "qa", LocalDateTime.of(2025,1,1,0,0), LocalDateTime.of(2025,12,31,23,59), "D1", "PH1", "T1", "LOC1", null, null, 100);
         assertThat(rows).hasSize(2);
         List<String> ids = new ArrayList<>();
         for (MetadataRow r : rows) ids.add(r.getId());
@@ -65,7 +65,7 @@ public class JdbcExternalMetadataRepositoryIntegrationTest {
     @Test
     public void testStreamMetadataRespectsLimit() {
         List<MetadataRow> collected = new ArrayList<>();
-        repository.streamMetadata("TEST_SITE", "qa", LocalDateTime.of(2025,1,1,0,0), LocalDateTime.of(2025,12,31,23,59), null, null, null, null, 2, collected::add);
+        repository.streamMetadata("TEST_SITE", "qa", LocalDateTime.of(2025,1,1,0,0), LocalDateTime.of(2025,12,31,23,59), null, null, null, null, null, null, 2, collected::add);
         assertThat(collected).hasSize(2);
     }
 

@@ -22,10 +22,10 @@
   <ng-container *ngIf="user?.username; else loginView">
     <div class="app-shell p-6">
       <div class="app-container mx-auto max-w-6xl">
-        <nav class="flex gap-3 mb-6">
-          <button class="btn-primary" [class.opacity-80]="tabIndex===0" (click)="setTab(0)">Dashboard</button>
-          <button class="btn-secondary" [class.opacity-80]="tabIndex===1" (click)="setTab(1)">Resender</button>
-          <button *ngIf="user?.roles?.includes('ROLE_ADMIN')" class="btn-secondary" [class.opacity-80]="tabIndex===2" (click)="setTab(2)">Admin</button>
+        <nav class="nav-tabs flex gap-3 mb-6" role="tablist">
+          <button class="nav-tab" role="tab" [attr.aria-selected]="tabIndex===0" [class.nav-tab--active]="tabIndex===0" (click)="setTab(0)">Dashboard</button>
+          <button class="nav-tab" role="tab" [attr.aria-selected]="tabIndex===1" [class.nav-tab--active]="tabIndex===1" (click)="setTab(1)">Resender</button>
+          <button *ngIf="user?.roles?.includes('ROLE_ADMIN')" class="nav-tab" role="tab" [attr.aria-selected]="tabIndex===2" [class.nav-tab--active]="tabIndex===2" (click)="setTab(2)">Admin</button>
         </nav>
 
         <div *ngIf="tabIndex === 0"><app-dashboard></app-dashboard></div>

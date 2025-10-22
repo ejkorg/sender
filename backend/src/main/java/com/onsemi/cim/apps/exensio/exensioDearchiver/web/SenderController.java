@@ -133,17 +133,19 @@ public class SenderController {
             , id, request.site(), request.location(), request.dataType(), request.testerType(), request.testPhase(), request.startDate(), request.endDate(), request.page(), request.size());
     }
         DiscoveryPreviewResponse response = metadataImporterService.previewMetadata(
-                request.site(),
-                request.environment(),
-                id,
-                request.startDate(),
-                request.endDate(),
-                request.testerType(),
-                request.dataType(),
-                request.testPhase(),
-                request.location(),
-                request.page(),
-                request.size());
+            request.site(),
+            request.environment(),
+            id,
+            request.startDate(),
+            request.endDate(),
+            request.lots(),
+            request.wafers(),
+            request.testerType(),
+            request.dataType(),
+            request.testPhase(),
+            request.location(),
+            request.page(),
+            request.size());
         if (log.isInfoEnabled()) {
             log.info("Preview response rows={} total={}", response.items().size(), response.total());
         }

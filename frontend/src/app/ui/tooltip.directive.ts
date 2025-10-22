@@ -28,6 +28,7 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
   private resizeHandler?: () => void;
   private touchStartHandler?: (e: TouchEvent) => void;
   private touchEndHandler?: (e: TouchEvent) => void;
+  private documentPointerDown?: (e: Event) => void;
 
   constructor(private host: ElementRef<HTMLElement>, private renderer: Renderer2, appRef: ApplicationRef, vcr: ViewContainerRef) {
     this.appRef = appRef;
@@ -131,6 +132,9 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
 
     this.tooltipEl = tip;
     document.body.appendChild(tip);
+    // hide tooltip if the user clicks/touches anywhere (avoids stuck tooltips when host triggers a dialog or navigation)
+    this.documentPointerDown = (_e: Event) => this.destroyTooltip();
+    document.addEventListener('pointerdown', this.documentPointerDown, true);
     // set aria-describedby on host
     try { this.renderer.setAttribute(host, 'aria-describedby', id); } catch {}
     // allow the browser a tick to measure and then position + show
@@ -147,6 +151,14 @@ export class TooltipDirective implements AfterViewInit, OnDestroy {
     try { this.renderer.removeAttribute(host, 'aria-describedby'); } catch {}
     // fade out then remove
     try { this.renderer.setStyle(this.tooltipEl, 'opacity', '0'); } catch {}
+    // remove the global pointerdown listener immediately so further clicks don't try to access the removed element
+    try {
+      if (this.documentPointerDown) {
+        document.removeEventListener('pointerdown', this.documentPointerDown, true);
+        this.documentPointerDown = undefined;
+      }
+    } catch {}
+
     setTimeout(() => {
       try { if (this.embeddedView) { this.appRef?.detachView(this.embeddedView); this.embeddedView = null; } } catch {}
       try { if (this.tooltipEl && this.tooltipEl.parentNode) this.tooltipEl.parentNode.removeChild(this.tooltipEl); } catch {}

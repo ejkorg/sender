@@ -35,6 +35,9 @@ export class StepperComponent implements OnInit, OnDestroy {
   sites: string[] = [];
   selectedSite: string | null = null;
   selectedEnvironment: string | null = 'qa';
+  lot: string | null = null;
+  wafer: string | null = null;
+  isAdmin = false;
 
   filterOptions: ReloadFilterOptions | null = null;
   filtersLoading = false;
@@ -96,6 +99,11 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.loadSites();
     this.userSub = this.auth.user$.subscribe(user => {
       this.currentUser = user?.username ?? null;
+      this.isAdmin = !!(user && Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN'));
+      // If user roles indicate normal user, keep environment unset
+      if (user && Array.isArray(user.roles) && user.roles.includes('ROLE_USER')) {
+        this.selectedEnvironment = null;
+      }
     });
   }
 
@@ -289,7 +297,12 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   canSearch(): boolean {
-    return !!(this.selectedSite && this.selectedLocation && this.selectedDataType && this.selectedTesterType && this.selectedSenderId != null);
+    // If lot/wafer provided (user role), allow searching by lot/wafer instead of date range/environment
+    const hasRequired = Boolean(this.selectedSite && this.selectedLocation && this.selectedDataType && this.selectedTesterType && this.selectedSenderId != null);
+    const hasLotWafer = Boolean(this.lot && this.wafer);
+    const hasDateRange = Boolean(this.startDate && this.endDate);
+    const hasEnv = Boolean(this.selectedEnvironment);
+    return hasRequired && (hasLotWafer || hasDateRange || hasEnv);
   }
 
   doPreview(page: number = 0) {
@@ -304,6 +317,8 @@ export class StepperComponent implements OnInit, OnDestroy {
       environment: this.selectedEnvironment || undefined,
       startDate: this.formatStartDate(),
       endDate: this.formatEndDate(),
+      lot: this.lot || undefined,
+      wafer: this.wafer || undefined,
       testerType: this.selectedTesterType || undefined,
       dataType: this.selectedDataType || undefined,
       testPhase: this.selectedTestPhase || undefined,

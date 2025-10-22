@@ -2,29 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-/* onsemi brand globals */
+/* onsemi brand globals - switched to Andromeda orange primary */
 :root {
-	--onsemi-primary: #0B67FF; /* Andromeda blue */
-	--onsemi-primary-dark: #0955CC;
-	--onsemi-primary-light: #6FB0FF;
+	--onsemi-primary: #FF8200; /* Andromeda orange */
+	--onsemi-primary-dark: #D25F00;
+	--onsemi-primary-light: #FFB66A;
 	--onsemi-charcoal: #0F1724;
 	--onsemi-navy: #003A70;
-	--onsemi-ice: #F4FBFF;
+	--onsemi-ice: #FFF8F2;
 }
 :root {
 	--surface-bg: #ffffff;
 	--btn-gradient: linear-gradient(135deg, var(--onsemi-primary) 0%, var(--onsemi-primary-light) 100%);
-	--btn-shadow: 0 10px 28px rgba(11,103,255,0.10);
-	--card-shadow: 0 18px 40px rgba(11,103,255,0.07);
-	--card-hover-shadow: 0 28px 60px rgba(11,103,255,0.10);
-	--table-zebra: rgba(11,103,255,0.01);
-	--table-row-hover: rgba(11,103,255,0.03);
+	--btn-shadow: 0 10px 28px rgba(255,130,0,0.10);
+	--card-shadow: 0 18px 40px rgba(255,130,0,0.07);
+	--card-hover-shadow: 0 28px 60px rgba(255,130,0,0.10);
+	--table-zebra: rgba(255,130,0,0.01);
+	--table-row-hover: rgba(255,130,0,0.03);
 	--badge-highlight-gradient: linear-gradient(90deg, var(--onsemi-primary), var(--onsemi-primary-light));
 	--badge-warn-gradient: linear-gradient(90deg, #ff6b6b, #ff8a8a);
 	--card-gradient: linear-gradient(180deg, var(--bg-gradient-start, rgba(246,249,251,0.9)) 0%, var(--bg-gradient-end, rgba(238,247,255,1)) 60%);
-	--header-gradient: radial-gradient(circle at 18% 26%, rgba(0, 163, 224, 0.28) 0%, rgba(0, 58, 112, 0.92) 55%);
-	--graph-gradient: linear-gradient(180deg, rgba(0, 58, 112, 0.06) 0%, rgba(255, 255, 255, 0.95) 100%);
-	--stepper-bg: linear-gradient(155deg, rgba(0, 163, 224, 0.1) 0%, #ffffff 55%);
+	--header-gradient: radial-gradient(circle at 18% 26%, rgba(255,130,0,0.22) 0%, rgba(51,24,0,0.92) 55%);
+	--graph-gradient: linear-gradient(180deg, rgba(255,130,0,0.06) 0%, rgba(255, 255, 255, 0.95) 100%);
+	--stepper-bg: linear-gradient(155deg, rgba(255,130,0,0.08) 0%, #ffffff 55%);
 	--btn-unelevated-gradient: linear-gradient(135deg, var(--onsemi-navy) 0%, var(--onsemi-azure) 100%);
 	--btn-unelevated-shadow: 0 12px 24px rgba(0,58,112,0.18);
 
@@ -43,7 +43,7 @@
 	--card-border: rgba(0,58,112,0.12);
 	--muted-white-bg: rgba(255,255,255,0.12);
 	--muted-white-border: rgba(255,255,255,0.18);
-	--header-action-hover-bg: rgba(0,163,224,0.3);
+	--header-action-hover-bg: rgba(255,130,0,0.24);
 	--header-action-shadow: 0 12px 24px rgba(0,0,0,0.18);
 	--interactive-shadow: 0 10px 20px rgba(0,58,112,0.16);
 	--interactive-border-color: rgba(218,127,58,0.32);
@@ -63,7 +63,7 @@
 	--table-head-bg: rgba(0,58,112,0.07);
 	--table-border: rgba(0,58,112,0.08);
 	--btn-icon-bg: rgba(0,58,112,0.06);
-	--btn-icon-bg-hover: rgba(0,163,224,0.18);
+	--btn-icon-bg-hover: rgba(255,130,0,0.18);
 	--debug-sql-bg: rgba(0,58,112,0.04);
 	--enqueue-card-bg: rgba(0,58,112,0.04);
 	--status-amber-bg: rgba(255,193,7,0.78);
@@ -73,13 +73,13 @@
 
 	/* Tail-sweep helper tokens */
 	--step-header-bg: rgba(0,58,112,0.05);
-	--step-header-hover-bg: rgba(0,163,224,0.18);
-	--step-header-hover-shadow: 0 14px 28px rgba(0,163,224,0.18);
+	--step-header-hover-bg: rgba(255,130,0,0.14);
+	--step-header-hover-shadow: 0 14px 28px rgba(255,130,0,0.14);
 	--btn-disabled-bg: rgba(0,58,112,0.16);
-	--btn-plain-hover-bg: rgba(0,163,224,0.12);
+	--btn-plain-hover-bg: rgba(255,130,0,0.12);
 	--soft-border: rgba(0,58,112,0.10);
 	--inset-white: inset 0 1px 0 rgba(255,255,255,0.45);
-	--payload-id-bg: rgba(0,163,224,0.16);
+	--payload-id-bg: rgba(255,130,0,0.16);
 }
 
 :root {
@@ -122,6 +122,43 @@
 :root {
 	--badge-bg: rgba(15,23,36,0.04);
 	--badge-muted-bg: #f8fafc;
+}
+
+/* Navigation / tab styles - professional underline indicator */
+.nav-tabs {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+}
+.nav-tab {
+	padding: 8px 10px;
+	font-weight: 600;
+	color: var(--text-muted-68);
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	position: relative;
+}
+.nav-tab:hover {
+	color: var(--onsemi-primary-dark);
+}
+.nav-tab::after {
+	content: '';
+	position: absolute;
+	left: 8px;
+	right: 8px;
+	bottom: -6px;
+	height: 2px;
+	background: transparent;
+	border-radius: 2px;
+	transition: background-color 160ms ease, transform 160ms ease;
+}
+.nav-tab--active {
+	color: var(--onsemi-primary);
+}
+.nav-tab--active::after {
+	background: var(--onsemi-primary);
+	transform: translateY(0);
 }
 
 /* Andromeda theme overrides (applied when [data-theme="andromeda"]) */
