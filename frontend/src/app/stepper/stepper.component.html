@@ -22,8 +22,8 @@
           </div>
 
           <div class="flex flex-col gap-2">
-            <!-- Admins see date range + environment; non-admin users see lot/wafer pairs -->
-            <ng-container *ngIf="currentUser && !isAdmin; else adminArea">
+            <!-- Admins see date range; non-admin users see lot/wafer pairs -->
+              <ng-container *ngIf="currentUser && !isAdmin; else adminArea">
               <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
               <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
               <div class="space-y-2">
@@ -46,12 +46,7 @@
               </div>
             </ng-container>
             <ng-template #adminArea>
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="environment">Environment</label>
-              <select id="environment" [(ngModel)]="selectedEnvironment" name="environment"
-                      class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-                <option value="qa">QA</option>
-                <option value="prod">Production</option>
-              </select>
+              <div class="text-sm text-slate-600">Admins may use date range and test phase to filter results.</div>
             </ng-template>
           </div>
         </div>

@@ -34,7 +34,6 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   sites: string[] = [];
   selectedSite: string | null = null;
-  selectedEnvironment: string | null = 'qa';
   // support up to 5 lot/wafer pairs
   lotWaferPairs: Array<{ lot?: string | null; wafer?: string | null }> = [{ lot: null, wafer: null }];
   isAdmin = false;
@@ -103,10 +102,7 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.userSub = this.auth.user$.subscribe(user => {
       this.currentUser = user?.username ?? null;
       this.isAdmin = !!(user && Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN'));
-      // If user roles indicate normal user, keep environment unset
-      if (user && Array.isArray(user.roles) && user.roles.includes('ROLE_USER')) {
-        this.selectedEnvironment = null;
-      }
+      // environment filter removed from stepper UI/logic
     });
   }
 
@@ -434,12 +430,11 @@ export class StepperComponent implements OnInit, OnDestroy {
     const hasLotWafer = this.lotWaferPairs.some(p => (p.lot && String(p.lot).trim().length > 0 && (p.wafer || true)));
     const hasLot = this.hasAtLeastOneLot();
     const hasDateRange = Boolean(this.startDate && this.endDate);
-    const hasEnv = Boolean(this.selectedEnvironment);
-    // For non-admins, require at least one lot; for admins, existing date/env logic remains
+    // For non-admins, require at least one lot; for admins, require either lot/wafer or a date range
     if (!this.isAdmin) {
       return hasRequired && hasLot;
     }
-    return hasRequired && (hasLotWafer || hasDateRange || hasEnv);
+    return hasRequired && (hasLotWafer || hasDateRange);
   }
 
   doPreview(page: number = 0) {
@@ -451,7 +446,6 @@ export class StepperComponent implements OnInit, OnDestroy {
     const site = this.selectedSite as string;
     const request: DiscoveryPreviewRequest = {
       site,
-      environment: this.selectedEnvironment || undefined,
       startDate: this.formatStartDate(),
       endDate: this.formatEndDate(),
       // send arrays of lots and wafers where positions correspond
@@ -568,7 +562,6 @@ export class StepperComponent implements OnInit, OnDestroy {
 
     const body: StagePayloadRequestBody = {
       site: this.selectedSite,
-      environment: this.selectedEnvironment || undefined,
       senderId: this.selectedSenderId,
       payloads,
       triggerDispatch: this.triggerDispatch,
@@ -657,7 +650,6 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.stageRecordsPage = 0;
     this.stageRecordsStatus = 'ALL';
     this.stageRecordsLoading = false;
-    this.selectedEnvironment = 'qa';
     this.triggerDispatch = false;
   }
 

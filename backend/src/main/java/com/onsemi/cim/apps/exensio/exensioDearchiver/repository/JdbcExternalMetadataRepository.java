@@ -223,7 +223,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                 sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
+        // For DISTINCT selection Oracle requires ORDER BY expressions to be in the select list.
+        // We only want distinct locations here so order only by location to avoid ORA-01791.
+        sql += " order by location";
 
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -260,7 +262,8 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                 sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
+        // Ordering for distinct data_type should only reference the selected column.
+        sql += " order by data_type";
 
         PreparedStatement ps = null; ResultSet rs = null;
         try {
@@ -283,7 +286,8 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                 sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
+        // Ordering for distinct tester_type should only reference the selected column.
+        sql += " order by tester_type";
 
         PreparedStatement ps = null; ResultSet rs = null;
         try { ps = c.prepareStatement(sql); int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString()); rs = ps.executeQuery(); List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null && !v.isBlank()) out.add(v); } return out; } catch (Exception ex) { log.error("Failed fetching distinct tester types from simple_client_setting: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct tester types query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
