@@ -36,6 +36,8 @@ export class StepperComponent implements OnInit, OnDestroy {
   selectedSite: string | null = null;
   // support up to 5 lot/wafer pairs
   lotWaferPairs: Array<{ lot?: string | null; wafer?: string | null }> = [{ lot: null, wafer: null }];
+  // configurable maximum number of lot/wafer pairs (default 5)
+  readonly maxLotWaferPairs = 5;
   isAdmin = false;
 
   filterOptions: ReloadFilterOptions | null = null;
@@ -160,7 +162,7 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   addLotWaferPair() {
-    if (this.lotWaferPairs.length >= 5) return;
+    if (this.lotWaferPairs.length >= this.maxLotWaferPairs) return;
     this.lotWaferPairs.push({ lot: null, wafer: null });
   }
 

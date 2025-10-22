@@ -1,4 +1,5 @@
-<section class="rounded-3xl bg-surface-95 p-8 shadow-2xl ring-1 ring-onsemi-primary/10">
+
+<div class="rounded-3xl bg-surface-95 p-8 shadow-2xl ring-1 ring-onsemi-primary/10">
   <div class="flex flex-col gap-8">
     <nav class="nav-tabs flex flex-wrap gap-3" role="tablist">
       <button type="button" class="nav-tab" role="tab" [attr.aria-selected]="stepIndex===0" [class.nav-tab--active]="stepIndex===0" (click)="goToStep(0)">1. Choose filters</button>
@@ -8,14 +9,14 @@
 
     <!-- Duplicate prompt shown via ModalService.openComponent -->
 
-    <ng-container [ngSwitch]="stepIndex">
-      <section *ngSwitchCase="0" class="space-y-8">
+    <div [ngSwitch]="stepIndex">
+      <div *ngSwitchCase="0" class="space-y-8">
         <div class="grid gap-6 md:grid-cols-2">
           <div class="flex flex-col gap-2">
-            <label class="text-sm font-semibold text-onsemi-charcoal" for="site">Site / Connection</label>
+            <label class="text-sm font-semibold text-onsemi-charcoal" for="site">Site / DTP instance</label>
             <select id="site" [(ngModel)]="selectedSite" name="site" (ngModelChange)="onSiteChange()"
                     class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-              <option [ngValue]="null">Select site</option>
+              <option [ngValue]="null">Select site/dtp instance</option>
               <option *ngFor="let s of sites" [ngValue]="s">{{ s }}</option>
             </select>
             <p class="text-xs text-slate-500" *ngIf="selectedSite && !senderOptions.length && !sendersLoading">No senders available for this connection.</p>
@@ -40,10 +41,9 @@
                 </div>
               </div>
               <div>
-                <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= 5 || !isLastPairFilled()">+ Add another pair</button>
+                <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= maxLotWaferPairs || !isLastPairFilled()">+ Add another pair</button>
               </div>
             </div>
-          </div>
           </div>
         </div>
 
@@ -159,9 +159,9 @@
             </div>
           </ng-template>
         </div>
-      </section>
+      </div>
 
-      <section *ngSwitchCase="1" class="space-y-6">
+      <div *ngSwitchCase="1" class="space-y-6">
         <ng-container *ngIf="previewLoaded; else noPreviewState">
           <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -248,9 +248,9 @@
             Preview results appear here after step 1.
           </div>
         </ng-template>
-      </section>
+      </div>
 
-      <section *ngSwitchCase="2" class="space-y-6">
+      <div *ngSwitchCase="2" class="space-y-6">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" class="btn-secondary" (click)="reset()">Start over</button>
           <button type="button" class="btn-primary" (click)="refreshMonitoring()" [disabled]="statusLoading || stageRecordsLoading">
@@ -323,39 +323,48 @@
                     <span class="font-semibold text-onsemi-charcoal">{{ user.username || 'unknown' }}</span>
                     <span class="text-slate-500">{{ user.lastRequestedAt ? (user.lastRequestedAt | date: uiDateFormat) : '—' }}</span>
                   </div>
-                  <div class="mt-2 flex flex-wrap gap-2">
-                    <span class="rounded-full bg-green-100 px-2 py-1 text-[11px] font-semibold text-green-700">R {{ user.ready }}</span>
-                    <span class="rounded-full bg-blue-100 px-2 py-1 text-[11px] font-semibold text-blue-700">E {{ user.enqueued }}</span>
-                    <span class="rounded-full bg-red-100 px-2 py-1 text-[11px] font-semibold text-red-700">F {{ user.failed }}</span>
-                    <span class="rounded-full bg-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700">C {{ user.completed }}</span>
+                  <div class="flex flex-col gap-2">
+                    <!-- Both admins and non-admins can use lot/wafer pairs. Admins also see date range below. -->
+                    <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
+                    <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
+                    <div class="space-y-2">
+                      <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
+                        <div>
+                          <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                          <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
+                        </div>
+                        <div>
+                          <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                        </div>
+                        <div class="flex items-center">
+                          <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
+                          <span class="text-xs text-slate-500">{{ i + 1 }}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= maxLotWaferPairs || !isLastPairFilled()">+ Add another pair</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label for="stageRecordsSize" class="text-sm text-slate-600">Page size</label>
+                    <select id="stageRecordsSize" [(ngModel)]="stageRecordsSize" name="stageRecordsSize" (ngModelChange)="changeStageRecordsSize($event)"
+                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                      <option *ngFor="let size of stageRecordsSizes" [value]="size">{{ size }}</option>
+                    </select>
+                  </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-        <p *ngIf="!stageStatus.length && !statusLoading" class="text-sm text-slate-600">No staging metrics available yet.</p>
 
-        <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:flex-wrap md:items-center md:justify-between">
-          <div class="flex items-center gap-3">
-            <label for="recordStatus" class="text-sm text-slate-600">Status filter</label>
-            <select id="recordStatus" [(ngModel)]="stageRecordsStatus" name="recordsStatus" (ngModelChange)="loadStageRecords(0)"
-                    class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-              <option value="ALL">All</option>
-              <option value="NEW">New</option>
-              <option value="ENQUEUED">Enqueued</option>
-              <option value="DONE">Done</option>
-              <option value="FAILED">Failed</option>
-            </select>
-          </div>
-          <div class="flex items-center gap-3">
-            <label for="recordPageSize" class="text-sm text-slate-600">Page size</label>
-            <select id="recordPageSize" [(ngModel)]="stageRecordsSize" name="recordPageSize" (ngModelChange)="changeStageRecordsSize($event)"
-                    class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+          <div class="flex items-center justify-end gap-2 md:ml-auto">
+            <label for="stageRecordsSize" class="text-sm text-slate-600 mr-3 hidden md:inline">Page size</label>
+            <select id="stageRecordsSize" [(ngModel)]="stageRecordsSize" name="stageRecordsSize" (ngModelChange)="changeStageRecordsSize($event)"
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 md:inline">
               <option *ngFor="let size of stageRecordsSizes" [value]="size">{{ size }}</option>
             </select>
-          </div>
-          <div class="flex items-center justify-end gap-2 md:ml-auto">
+
             <button type="button" class="btn-secondary" (click)="exportStageRecordsCsv()" [disabled]="!stageRecords.length">Export CSV</button>
           </div>
         </div>
@@ -398,7 +407,7 @@
           <span>Page {{ stageRecordsPage + 1 }} of {{ stageRecordsLastPage + 1 }}</span>
           <button type="button" class="btn-secondary" (click)="changeStageRecordsPage(1)" [disabled]="stageRecordsLoading || stageRecordsLastPage < 0 || stageRecordsPage >= stageRecordsLastPage">Next</button>
         </div>
-      </section>
-    </ng-container>
+      </div>
+    </div>
   </div>
-</section>
+</div>
