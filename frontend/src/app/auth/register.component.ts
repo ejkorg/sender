@@ -40,7 +40,7 @@ import { AuthCardComponent } from './auth-card.component';
               type="email"
               formControlName="email"
               autocomplete="email"
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="emailCtrl.invalid && emailCtrl.touched"
             />
             <p class="mt-2 text-sm text-red-600" *ngIf="emailCtrl.hasError('email') && emailCtrl.touched">Provide a valid email address</p>
@@ -54,7 +54,7 @@ import { AuthCardComponent } from './auth-card.component';
               formControlName="password"
               autocomplete="new-password"
               required
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="passwordCtrl.invalid && passwordCtrl.touched"
             />
             <p class="mt-2 text-sm text-red-600" *ngIf="passwordCtrl.hasError('required') && passwordCtrl.touched">Password is required</p>

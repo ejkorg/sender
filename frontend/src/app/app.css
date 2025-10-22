@@ -1,7 +1,7 @@
 .app-shell {
   display: flex;
   justify-content: center;
-  background: linear-gradient(180deg, var(--bg-gradient-start, #f6f9fb) 0%, var(--bg-gradient-end, #eef7ff) 60%);
+  background: var(--card-gradient);
   min-height: calc(100vh - 64px);
   padding: 20px 16px 36px;
 }
@@ -12,10 +12,10 @@
 }
 
 header.site-header {
-  background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.7));
+  background: var(--header-backdrop-gradient);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(15,23,36,0.06);
-  box-shadow: 0 2px 8px rgba(11,103,255,0.04);
+  border-bottom: 1px solid var(--muted-border-04);
+  box-shadow: var(--small-shadow);
 }
 
 .app-tabs {
@@ -37,6 +37,6 @@ header.site-header {
   text-align: center;
   padding: 32px;
   border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 18px 40px rgba(11,103,255,0.06);
+  background: var(--surface-bg);
+  box-shadow: var(--card-shadow);
 }

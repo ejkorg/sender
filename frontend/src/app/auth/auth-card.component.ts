@@ -7,7 +7,7 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   template: `
     <div class="flex items-center justify-center bg-onsemi-ice px-4 auth-wrapper">
-      <section [ngClass]="['w-full', maxWidthClass, 'rounded-2xl', 'bg-white', paddingClass, 'shadow-xl', 'ring-1', 'ring-onsemi-primary/15']">
+      <section [ngClass]="['w-full', maxWidthClass, 'rounded-2xl', 'bg-surface', paddingClass, 'shadow-xl', 'ring-1', 'ring-onsemi-primary/15']">
         <ng-content></ng-content>
       </section>
     </div>

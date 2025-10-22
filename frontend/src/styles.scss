@@ -11,6 +11,112 @@
 	--onsemi-navy: #003A70;
 	--onsemi-ice: #F4FBFF;
 }
+:root {
+	--surface-bg: #ffffff;
+	--btn-gradient: linear-gradient(135deg, var(--onsemi-primary) 0%, var(--onsemi-primary-light) 100%);
+	--btn-shadow: 0 10px 28px rgba(11,103,255,0.10);
+	--card-shadow: 0 18px 40px rgba(11,103,255,0.07);
+	--card-hover-shadow: 0 28px 60px rgba(11,103,255,0.10);
+	--table-zebra: rgba(11,103,255,0.01);
+	--table-row-hover: rgba(11,103,255,0.03);
+	--badge-highlight-gradient: linear-gradient(90deg, var(--onsemi-primary), var(--onsemi-primary-light));
+	--badge-warn-gradient: linear-gradient(90deg, #ff6b6b, #ff8a8a);
+	--card-gradient: linear-gradient(180deg, var(--bg-gradient-start, rgba(246,249,251,0.9)) 0%, var(--bg-gradient-end, rgba(238,247,255,1)) 60%);
+	--header-gradient: radial-gradient(circle at 18% 26%, rgba(0, 163, 224, 0.28) 0%, rgba(0, 58, 112, 0.92) 55%);
+	--graph-gradient: linear-gradient(180deg, rgba(0, 58, 112, 0.06) 0%, rgba(255, 255, 255, 0.95) 100%);
+	--stepper-bg: linear-gradient(155deg, rgba(0, 163, 224, 0.1) 0%, #ffffff 55%);
+	--btn-unelevated-gradient: linear-gradient(135deg, var(--onsemi-navy) 0%, var(--onsemi-azure) 100%);
+	--btn-unelevated-shadow: 0 12px 24px rgba(0,58,112,0.18);
+
+	/* additional tokenized gradients */
+	--auth-wrapper-gradient: linear-gradient(180deg, rgba(238,247,255,0.8) 0%, rgba(247,250,255,1) 40%, rgba(243,248,255,1) 100%);
+	--row-hover-gradient: linear-gradient(90deg, rgba(11,103,255,0.03), rgba(11,103,255,0.02));
+	--header-backdrop-gradient: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.7));
+	--error-card-gradient: linear-gradient(180deg, rgba(0, 58, 112, 0.05) 0%, rgba(255, 255, 255, 0.96) 100%);
+}
+
+/* Small tokens for residual rgba/shadow values used across components.
+	 These let us replace inline rgba(...) and box-shadow literals with theme tokens. */
+:root {
+	--header-shadow: 0 22px 44px rgba(0,58,112,0.28);
+	--card-shadow-strong: 0 20px 40px rgba(0,58,112,0.14);
+	--card-border: rgba(0,58,112,0.12);
+	--muted-white-bg: rgba(255,255,255,0.12);
+	--muted-white-border: rgba(255,255,255,0.18);
+	--header-action-hover-bg: rgba(0,163,224,0.3);
+	--header-action-shadow: 0 12px 24px rgba(0,0,0,0.18);
+	--interactive-shadow: 0 10px 20px rgba(0,58,112,0.16);
+	--interactive-border-color: rgba(218,127,58,0.32);
+	--text-muted-58: rgba(0,0,0,0.58);
+	--text-muted-62: rgba(0,0,0,0.62);
+	--legend-bg: rgba(255,255,255,0.72);
+	--legend-shadow: 0 6px 12px rgba(0,58,112,0.08);
+	--badge-muted-bg: rgba(0,58,112,0.06);
+	--badge-muted-color: rgba(0,0,0,0.54);
+	--warn-bg-strong: rgba(196,28,36,0.82);
+	--warn-bg: rgba(196,28,36,0.15);
+	--graph-row-bg: rgba(218,127,58,0.06);
+	--graph-bar-bg: rgba(0,58,112,0.06);
+	--graph-bar-border: rgba(0,58,112,0.1);
+	--bar-text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+	--loading-overlay-bg: rgba(242,247,251,0.82);
+	--table-head-bg: rgba(0,58,112,0.07);
+	--table-border: rgba(0,58,112,0.08);
+	--btn-icon-bg: rgba(0,58,112,0.06);
+	--btn-icon-bg-hover: rgba(0,163,224,0.18);
+	--debug-sql-bg: rgba(0,58,112,0.04);
+	--enqueue-card-bg: rgba(0,58,112,0.04);
+	--status-amber-bg: rgba(255,193,7,0.78);
+	--status-warn-bg: rgba(196,28,36,0.82);
+	--text-muted-72: rgba(0,0,0,0.72);
+	--legend-color: rgba(0,0,0,0.7);
+
+	/* Tail-sweep helper tokens */
+	--step-header-bg: rgba(0,58,112,0.05);
+	--step-header-hover-bg: rgba(0,163,224,0.18);
+	--step-header-hover-shadow: 0 14px 28px rgba(0,163,224,0.18);
+	--btn-disabled-bg: rgba(0,58,112,0.16);
+	--btn-plain-hover-bg: rgba(0,163,224,0.12);
+	--soft-border: rgba(0,58,112,0.10);
+	--inset-white: inset 0 1px 0 rgba(255,255,255,0.45);
+	--payload-id-bg: rgba(0,163,224,0.16);
+}
+
+:root {
+  --bg-surface-form: rgba(255,255,255,0.9);
+}
+
+/* Extra helper tokens for final tail-sweep */
+:root {
+	--warning-note-bg: rgba(255,130,0,0.14);
+	--status-card-shadow: var(--card-shadow);
+}
+
+/* Additional small tokens used by components */
+:root {
+	--text-muted-60: rgba(0,0,0,0.6);
+	--small-shadow: 0 2px 8px rgba(11,103,255,0.04);
+	--focus-border-color: rgba(0,163,224,0.65);
+	--focus-shadow: 0 0 0 4px rgba(0,163,224,0.16);
+	--btn-primary-hover-shadow: 0 18px 36px rgba(0,58,112,0.22);
+}
+
+:root {
+	--text-muted-65: rgba(0,0,0,0.65);
+	--text-muted-68: rgba(0,0,0,0.68);
+	--text-muted-70: rgba(0,0,0,0.70);
+	--text-muted-75: rgba(0,0,0,0.75);
+	--text-muted-54: rgba(0,0,0,0.54);
+	--text-muted-56: rgba(0,0,0,0.56);
+	--shadow-dark-24: 0 18px 36px rgba(0,0,0,0.24);
+	--shadow-dark-18: 0 12px 24px rgba(0,0,0,0.18);
+	--warn-border-25: rgba(196,28,36,0.25);
+	--badge-highlight-bg: rgba(218,127,58,0.06);
+	--warn-gradient: linear-gradient(90deg, rgba(196,28,36,0.15), rgba(196,28,36,0.10));
+	--amber-shadow: 0 8px 18px rgba(176,107,51,0.18);
+	--amber-shadow-2: 0 12px 24px rgba(176,107,51,0.22);
+	--muted-border-04: rgba(0,0,0,0.04);
+}
 
 /* badge / small UI tokens */
 :root {
@@ -39,10 +145,14 @@
 body {
 	@apply bg-white text-onsemi-charcoal font-sans;
 }
+body {
+  @apply bg-surface text-onsemi-charcoal font-sans;
+}
 
 /* Andromeda-like background + auth wrapper */
+
 .auth-wrapper {
-	background: linear-gradient(180deg, rgba(238,247,255,0.8) 0%, rgba(247,250,255,1) 40%, rgba(243,248,255,1) 100%);
+	background: var(--auth-wrapper-gradient);
 	padding-top: 2rem;
 	padding-bottom: 2rem;
 	min-height: 60vh;
@@ -67,6 +177,11 @@ a {
 	background: linear-gradient(135deg, var(--onsemi-primary) 0%, var(--onsemi-primary-light) 100%);
 	box-shadow: 0 10px 28px rgba(11,103,255,0.10);
 }
+.btn-primary {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform transition-colors ease-out duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--btn-gradient);
+    box-shadow: var(--btn-shadow);
+}
 
 .btn-primary:hover {
 	transform: translateY(-2px) scale(1.01);
@@ -79,10 +194,33 @@ a {
 	color: var(--onsemi-charcoal);
 	background: rgba(11,103,255,0.03);
 }
+.btn-secondary {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    border: 1px solid rgba(15,23,36,0.06);
+    /* subtle secondary styling */
+    color: var(--onsemi-charcoal);
+    background: rgba(11,103,255,0.03);
+}
 
 .btn-secondary:hover {
 		background-color: rgba(11,103,255,0.08);
 }
+
+/* Ghost button uses transparent background but relies on surface tokens for hover */
+.btn-ghost {
+	@apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors;
+	color: var(--onsemi-charcoal);
+	background: transparent;
+}
+.btn-ghost:hover { background: var(--btn-icon-bg-hover); }
+
+/* Ensure secondary variant uses tokenized border and background */
+.btn-secondary {
+	border: 1px solid rgba(15,23,36,0.06);
+	color: var(--onsemi-charcoal);
+	background: var(--bg-surface-form);
+}
+.btn-secondary:hover { background: var(--btn-disabled-bg); }
 
 /* Form control focus styling using theme primary */
 input:focus, textarea:focus, select:focus {
@@ -109,10 +247,18 @@ input:focus, textarea:focus, select:focus {
 	transition: box-shadow 180ms ease, transform 160ms ease;
 	border: 1px solid rgba(15,23,36,0.04);
 }
+.app-card {
+    display: block;
+    background: var(--surface-bg);
+    border-radius: 12px;
+    transition: box-shadow 180ms ease, transform 160ms ease;
+    border: 1px solid rgba(15,23,36,0.04);
+}
 
 /* inner container variants so CSS can style inner content consistently */
 .app-card__container { background: transparent; }
 .app-card__elevated { box-shadow: 0 18px 40px rgba(11,103,255,0.07); }
+.app-card__elevated { box-shadow: var(--card-shadow); }
 .app-card__elevated:hover { transform: translateY(-6px); box-shadow: 0 28px 60px rgba(11,103,255,0.10); }
 .app-card__flat { box-shadow: none; border: 1px dashed rgba(15,23,36,0.03); }
 
@@ -140,6 +286,10 @@ input:focus, textarea:focus, select:focus {
 	background-color: rgba(11,103,255,0.03);
 	transform: translateY(-2px);
 }
+.clickable:hover, .interactive:hover {
+    background-color: var(--table-row-hover);
+    transform: translateY(-2px);
+}
 
 /* Sender row and graph row styling */
 .sender-row, .graph-row {
@@ -148,6 +298,9 @@ input:focus, textarea:focus, select:focus {
 }
 .sender-row.clickable:hover, .graph-row.clickable:hover {
 	background: linear-gradient(90deg, rgba(11,103,255,0.03), rgba(11,103,255,0.02));
+}
+.sender-row.clickable:hover, .graph-row.clickable:hover {
+	background: var(--row-hover-gradient);
 }
 
 /* Table styles: zebra striping and hover */
@@ -169,8 +322,14 @@ table tbody td {
 table tbody tr:nth-child(odd) {
 	background-color: var(--table-zebra, rgba(11,103,255,0.01));
 }
+table tbody tr:nth-child(odd) {
+    background-color: var(--table-zebra);
+}
 table tbody tr:hover {
 	background-color: var(--table-row-hover, rgba(11,103,255,0.03));
+}
+table tbody tr:hover {
+    background-color: var(--table-row-hover);
 }
 
 /* Badge tweaks */
@@ -188,9 +347,17 @@ table tbody tr:hover {
 	background: linear-gradient(90deg, var(--onsemi-primary), var(--onsemi-primary-light));
 	color: white;
 }
+.badge.highlight {
+    background: var(--badge-highlight-gradient);
+    color: white;
+}
 .badge.warn {
 	background: linear-gradient(90deg, #ff6b6b, #ff8a8a);
 	color: white;
+}
+.badge.warn {
+    background: var(--badge-warn-gradient);
+    color: white;
 }
 
 .theme-toggle:focus {

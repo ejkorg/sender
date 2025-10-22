@@ -24,9 +24,9 @@
   max-height: 260px;
   overflow: auto;
   border-radius: 18px;
-  border: 1px solid rgba(0, 58, 112, 0.16);
-  background: linear-gradient(180deg, rgba(0, 58, 112, 0.05) 0%, rgba(255, 255, 255, 0.9) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--soft-border);
+  background: var(--graph-gradient);
+  box-shadow: var(--inset-white);
 }
 
 .payload {
@@ -46,14 +46,14 @@
 .payload-id {
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(0, 163, 224, 0.16);
+  background: var(--payload-id-bg);
 }
 
 .payload-meta {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--legend-color);
   font-size: 0.86rem;
 }
 
@@ -75,13 +75,13 @@
 }
 
 .timestamp {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--text-muted-60);
 }
 
 .status {
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(255, 130, 0, 0.18);
+  background: var(--status-amber-bg);
   color: var(--onsemi-amber);
   font-weight: 600;
 }
@@ -90,7 +90,7 @@
 .note {
   margin: 0;
   font-size: 0.82rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--text-muted-60);
 }
 
 .note {
@@ -111,19 +111,19 @@ button {
 }
 
 button:hover {
-  background: rgba(0, 58, 112, 0.08);
+  background: var(--btn-hover-bg);
 }
 button.primary {
   border-radius: 999px;
   padding: 0 24px;
   height: 44px;
-  background: linear-gradient(135deg, var(--onsemi-navy) 0%, var(--onsemi-azure) 100%);
+  background: var(--btn-unelevated-gradient);
   color: #fff;
   font-weight: 600;
-  box-shadow: 0 14px 28px rgba(0, 58, 112, 0.18);
+  box-shadow: var(--btn-unelevated-shadow);
   transition: transform 140ms ease, box-shadow 140ms ease;
 }
 
 /* replaced attribute-based button selectors with .primary button class */
-button.primary:hover { transform: translateY(-1px); box-shadow: 0 18px 36px rgba(0,58,112,0.22); }
+button.primary:hover { transform: translateY(-1px); box-shadow: var(--btn-primary-hover-shadow); }
 button.primary:active { transform: translateY(0); }

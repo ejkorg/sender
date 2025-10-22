@@ -19,7 +19,7 @@
     </div>
   </header>
 
-  <div *ngIf="loading" class="w-full h-1 bg-gray-200 overflow-hidden rounded-full">
+  <div *ngIf="loading" class="w-full h-1 bg-surface-95 overflow-hidden rounded-full">
     <div class="h-1 bg-onsemi-primary animate-progress" style="width:60%"></div>
   </div>
 
@@ -88,7 +88,7 @@
   <section *ngIf="backlogSeries.length" class="graph-section">
     <app-card class="graph-card" variant="elevated">
       <h3 class="text-lg font-semibold">Backlog composition</h3>
-      <div class="text-sm text-gray-600">Top senders by ready + enqueued + failed payloads</div>
+      <div class="text-sm text-onsemi-charcoal">Top senders by ready + enqueued + failed payloads</div>
       <div>
         <div class="graph-legend">
           <span class="legend-item ready">Ready</span>
@@ -123,7 +123,7 @@
       <app-card class="site-card" *ngFor="let site of siteSummaries" [class.has-alert]="site.alerts">
         <header class="p-4 border-b">
           <div class="text-lg font-semibold">{{ site.site }}</div>
-          <div class="text-sm text-gray-600">{{ site.activeSenders }} sender{{ site.activeSenders === 1 ? '' : 's' }}</div>
+          <div class="text-sm text-onsemi-charcoal">{{ site.activeSenders }} sender{{ site.activeSenders === 1 ? '' : 's' }}</div>
         </header>
         <div class="p-4">
           <div class="metric-grid">

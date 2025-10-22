@@ -22,7 +22,7 @@ import { ToastService } from '../ui/toast.service';
               id="token"
               rows="3"
               formControlName="token"
-              class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
+              class="block w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm text-onsemi-charcoal shadow-sm transition focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40"
               [class.border-red-500]="tokenCtrl.invalid && tokenCtrl.touched"
             ></textarea>
             <p class="mt-2 text-sm text-red-600" *ngIf="tokenCtrl.hasError('required') && tokenCtrl.touched">Verification token is required</p>
