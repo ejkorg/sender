@@ -12,9 +12,6 @@ import { AuthCardComponent } from './auth-card.component';
   template: `
     <app-auth-card>
       <div class="mb-6 text-center">
-        <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-onsemi-primary/10">
-          <span class="text-lg font-semibold uppercase tracking-wide text-onsemi-primary">ON</span>
-        </div>
         <h1 class="text-2xl font-semibold text-onsemi-charcoal">Welcome back</h1>
         <p class="mt-1 text-sm text-onsemi-charcoal/70">Manage resend requests and sender queues.</p>
       </div>
