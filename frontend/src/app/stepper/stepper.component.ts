@@ -35,8 +35,8 @@ export class StepperComponent implements OnInit, OnDestroy {
   sites: string[] = [];
   selectedSite: string | null = null;
   selectedEnvironment: string | null = 'qa';
-  lot: string | null = null;
-  wafer: string | null = null;
+  // support up to 5 lot/wafer pairs
+  lotWaferPairs: Array<{ lot?: string | null; wafer?: string | null }> = [{ lot: null, wafer: null }];
   isAdmin = false;
 
   filterOptions: ReloadFilterOptions | null = null;
@@ -50,6 +50,9 @@ export class StepperComponent implements OnInit, OnDestroy {
   selectedTestPhase = '';
   startDate: Date | null = null;
   endDate: Date | null = null;
+
+  // track whether sender was auto-resolved
+  senderAutoResolved = false;
 
   loading = false;
 
@@ -123,7 +126,22 @@ export class StepperComponent implements OnInit, OnDestroy {
       error: (err: unknown) => console.error('Failed to load sites', err)
     });
   }
-
+  
+  // Load only locations for the selected site (progressive/cascading)
+  private loadLocations(site: string) {
+    this.filtersLoading = true;
+    this.api.getDistinctLocations({ connectionKey: site }).subscribe({
+      next: (locations: string[]) => {
+        this.filterOptions = { locations: locations || [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load locations', err);
+        this.filterOptions = { locations: [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      }
+    });
+  }
   onSiteChange() {
     this.filterOptions = null;
     this.selectedLocation = '';
@@ -141,10 +159,32 @@ export class StepperComponent implements OnInit, OnDestroy {
     if (!this.selectedSite) {
       return;
     }
-    this.loadFiltersForSite(this.selectedSite);
-    this.loadSendersForSite(this.selectedSite);
+    // start cascading by loading locations
+    this.loadLocations(this.selectedSite);
   }
 
+  addLotWaferPair() {
+    if (this.lotWaferPairs.length >= 5) return;
+    this.lotWaferPairs.push({ lot: null, wafer: null });
+  }
+
+  removeLotWaferPair(index: number) {
+    if (this.lotWaferPairs.length <= 1) return;
+    this.lotWaferPairs.splice(index, 1);
+  }
+  
+  isLastPairFilled(): boolean {
+    if (!this.lotWaferPairs.length) return false;
+    const last = this.lotWaferPairs[this.lotWaferPairs.length - 1];
+    // wafer is optional, consider last pair filled if lot has a value
+    return !!(last && last.lot && String(last.lot).trim().length);
+  }
+
+  hasAtLeastOneLot(): boolean {
+    return this.lotWaferPairs.some(p => p.lot && String(p.lot).trim().length > 0);
+  }
+
+  // legacy combined loader still available but not used for cascading
   private loadFiltersForSite(site: string) {
     this.filtersLoading = true;
     this.api.getReloadFilters(site).subscribe({
@@ -167,6 +207,7 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   private loadSendersForSite(site: string) {
+    // kept for full-site sender listing; prefer filtered sender loading in cascading flow
     this.sendersLoading = true;
     const previousSelection = this.selectedSenderId;
     this.senderOptions = [];
@@ -193,7 +234,85 @@ export class StepperComponent implements OnInit, OnDestroy {
     });
   }
 
-  private getSelectedSenderName(): string | null {
+  // Load data types after location selected
+  private loadDataTypes() {
+    if (!this.selectedSite || !this.selectedLocation) {
+      this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+      return;
+    }
+    this.filtersLoading = true;
+    this.api.getDistinctDataTypes({ connectionKey: this.selectedSite, location: this.selectedLocation }).subscribe({
+      next: (dataTypes: string[]) => {
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: dataTypes || [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load data types', err);
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      }
+    });
+  }
+
+  // Load tester types after data type selected
+  private loadTesterTypes() {
+    if (!this.selectedSite || !this.selectedLocation || !this.selectedDataType) {
+      this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: [], dataTypeExt: [] };
+      return;
+    }
+    this.filtersLoading = true;
+    this.api.getDistinctTesterTypes({ connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType }).subscribe({
+      next: (testerTypes: string[]) => {
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: testerTypes || [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load tester types', err);
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      }
+    });
+  }
+
+  // Load senders filtered by all upstream selections and try to auto-resolve
+  private loadSendersFiltered() {
+    if (!this.selectedSite) return;
+    this.sendersLoading = true;
+    this.senderAutoResolved = false;
+    const params: Record<string, any> = { connectionKey: this.selectedSite };
+    if (this.selectedLocation) params['location'] = this.selectedLocation;
+    if (this.selectedDataType) params['dataType'] = this.selectedDataType;
+    if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
+    this.api.getExternalSenders(params).subscribe({
+      next: (senders: SenderOption[]) => {
+        const opts = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
+        this.senderOptions = opts;
+        if (opts.length === 1) {
+          this.selectedSenderId = opts[0].idSender ?? null;
+          this.senderAutoResolved = true;
+        } else {
+          // preserve previous selection if still present
+          if (this.selectedSenderId != null && !this.senderOptions.some(s => s.idSender === this.selectedSenderId)) {
+            this.selectedSenderId = null;
+          }
+          this.senderAutoResolved = false;
+        }
+        this.refreshTestPhasesIfReady();
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load filtered senders', err);
+        this.senderOptions = [];
+        this.selectedSenderId = null;
+        this.senderAutoResolved = false;
+        this.sendersLoading = false;
+      },
+      complete: () => {
+        this.sendersLoading = false;
+      }
+    });
+  }
+
+  public getSelectedSenderName(): string | null {
     if (this.selectedSenderId == null) {
       return null;
     }
@@ -203,21 +322,33 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   onLocationChanged() {
     this.clearDiscoveryState();
-    this.refreshTestPhasesIfReady();
+    // when location chosen, load data types
+    this.loadDataTypes();
+    // clear sender selection and reload filtered senders
+    this.selectedSenderId = null;
+    this.loadSendersFiltered();
   }
 
   onDataTypeChanged() {
     this.clearDiscoveryState();
-    this.refreshTestPhasesIfReady();
+    // when data type chosen, load tester types
+    this.loadTesterTypes();
+    this.selectedSenderId = null;
+    this.loadSendersFiltered();
   }
 
   onTesterTypeChanged() {
     this.clearDiscoveryState();
+    // when testerType chosen, reload senders filtered by all upstream
+    this.selectedSenderId = null;
+    this.loadSendersFiltered();
     this.refreshTestPhasesIfReady();
   }
 
   onSenderChanged() {
     this.clearDiscoveryState();
+    // if user manually selected sender, it's not auto-resolved
+    this.senderAutoResolved = false;
     this.refreshTestPhasesIfReady();
   }
 
@@ -299,9 +430,15 @@ export class StepperComponent implements OnInit, OnDestroy {
   canSearch(): boolean {
     // If lot/wafer provided (user role), allow searching by lot/wafer instead of date range/environment
     const hasRequired = Boolean(this.selectedSite && this.selectedLocation && this.selectedDataType && this.selectedTesterType && this.selectedSenderId != null);
-    const hasLotWafer = Boolean(this.lot && this.wafer);
+    // require at least one LOT when user is non-admin (wafer optional)
+    const hasLotWafer = this.lotWaferPairs.some(p => (p.lot && String(p.lot).trim().length > 0 && (p.wafer || true)));
+    const hasLot = this.hasAtLeastOneLot();
     const hasDateRange = Boolean(this.startDate && this.endDate);
     const hasEnv = Boolean(this.selectedEnvironment);
+    // For non-admins, require at least one lot; for admins, existing date/env logic remains
+    if (!this.isAdmin) {
+      return hasRequired && hasLot;
+    }
     return hasRequired && (hasLotWafer || hasDateRange || hasEnv);
   }
 
@@ -317,8 +454,9 @@ export class StepperComponent implements OnInit, OnDestroy {
       environment: this.selectedEnvironment || undefined,
       startDate: this.formatStartDate(),
       endDate: this.formatEndDate(),
-      lot: this.lot || undefined,
-      wafer: this.wafer || undefined,
+      // send arrays of lots and wafers where positions correspond
+      lots: this.lotWaferPairs.map(p => p.lot ?? '').filter(Boolean) as string[] | null,
+      wafers: this.lotWaferPairs.map(p => p.wafer ?? '').filter(Boolean) as string[] | null,
       testerType: this.selectedTesterType || undefined,
       dataType: this.selectedDataType || undefined,
       testPhase: this.selectedTestPhase || undefined,

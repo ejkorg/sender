@@ -397,24 +397,40 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                 result.append(")");
             }
         } else if (hasLots && hasWafers) {
-            // Pair-wise matching: build (UPPER(lot)=? AND UPPER(wafer)=?) OR (...) ; support up to 5 pairs
-            int pairs = Math.min(Math.min(lots.size(), wafers.size()), 5);
-            List<String> pairVals = new ArrayList<>();
+            // Pair-wise matching: for each pair support three cases:
+            //  - both lot and wafer provided: (UPPER(lot)=? AND UPPER(wafer)=?)
+            //  - only lot provided: (UPPER(lot)=?)
+            //  - only wafer provided: (UPPER(wafer)=?)
+            // Combine each pair clause with OR. Support up to 5 pairs.
+            // iterate up to the maximum length provided (support differing list lengths)
+            int pairs = Math.min(Math.max(lots.size(), wafers.size()), 5);
+            List<String[]> pairVals = new ArrayList<>();
             for (int i = 0; i < pairs; i++) {
-                String l = lots.get(i);
-                String w = wafers.get(i);
+                String l = i < lots.size() ? lots.get(i) : null;
+                String w = i < wafers.size() ? wafers.get(i) : null;
                 if ((l == null || l.isBlank()) && (w == null || w.isBlank())) continue;
-                pairVals.add(l == null ? null : l.trim().toUpperCase(Locale.ROOT));
-                pairVals.add(w == null ? null : w.trim().toUpperCase(Locale.ROOT));
+                String lu = (l == null || l.isBlank()) ? null : l.trim().toUpperCase(Locale.ROOT);
+                String wu = (w == null || w.isBlank()) ? null : w.trim().toUpperCase(Locale.ROOT);
+                pairVals.add(new String[] { lu, wu });
             }
             if (!pairVals.isEmpty()) {
                 result.append(" and (");
                 int added = 0;
-                for (int i = 0; i < pairVals.size(); i += 2) {
+                for (String[] p : pairVals) {
                     if (added > 0) result.append(" or ");
-                    result.append("(UPPER(lot) = ? and UPPER(wafer) = ?)");
-                    result.params.add(pairVals.get(i));
-                    result.params.add(pairVals.get(i+1));
+                    String lu = p[0];
+                    String wu = p[1];
+                    if (lu != null && wu != null) {
+                        result.append("(UPPER(lot) = ? and UPPER(wafer) = ?)");
+                        result.params.add(lu);
+                        result.params.add(wu);
+                    } else if (lu != null) {
+                        result.append("(UPPER(lot) = ?)");
+                        result.params.add(lu);
+                    } else {
+                        result.append("(UPPER(wafer) = ?)");
+                        result.params.add(wu);
+                    }
                     added++;
                 }
                 result.append(")");

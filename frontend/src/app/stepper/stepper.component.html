@@ -22,14 +22,30 @@
           </div>
 
           <div class="flex flex-col gap-2">
-            <!-- environment removed from form; if user is a normal user they will use lot/wafer inputs instead -->
-            <ng-container *ngIf="currentUser && !isAdmin; else adminEnvironment">
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="lot">Lot</label>
-              <input id="lot" [(ngModel)]="lot" name="lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" placeholder="Lot identifier" />
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="wafer">Wafer</label>
-              <input id="wafer" [(ngModel)]="wafer" name="wafer" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" placeholder="Wafer identifier" />
+            <!-- Admins see date range + environment; non-admin users see lot/wafer pairs -->
+            <ng-container *ngIf="currentUser && !isAdmin; else adminArea">
+              <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
+              <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
+              <div class="space-y-2">
+                <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
+                  <div>
+                    <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                    <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
+                  </div>
+                  <div>
+                    <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                  </div>
+                  <div class="flex items-center">
+                    <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
+                    <span class="text-xs text-slate-500">{{ i + 1 }}</span>
+                  </div>
+                </div>
+                <div>
+                  <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= 5 || !isLastPairFilled()">+ Add another pair</button>
+                </div>
+              </div>
             </ng-container>
-            <ng-template #adminEnvironment>
+            <ng-template #adminArea>
               <label class="text-sm font-semibold text-onsemi-charcoal" for="environment">Environment</label>
               <select id="environment" [(ngModel)]="selectedEnvironment" name="environment"
                       class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
@@ -80,16 +96,21 @@
 
             <div class="flex flex-col gap-2">
               <label class="text-sm font-semibold text-onsemi-charcoal" for="sender">Sender</label>
-              <select id="sender" [(ngModel)]="selectedSenderId" name="senderId" (ngModelChange)="onSenderChanged()"
-                      [disabled]="sendersLoading || !senderOptions.length"
-                      class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:opacity-60">
-                <option [ngValue]="null">Select sender</option>
-                <option *ngFor="let sender of senderOptions" [ngValue]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</option>
-              </select>
-              <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="sendersLoading">
-                <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
-                Loading sender list…
-              </p>
+              <ng-container *ngIf="senderAutoResolved && selectedSenderId; else senderDropdown">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Auto-selected: {{ selectedSenderId }} — {{ getSelectedSenderName() }}</div>
+              </ng-container>
+              <ng-template #senderDropdown>
+                <select id="sender" [(ngModel)]="selectedSenderId" name="senderId" (ngModelChange)="onSenderChanged()"
+                        [disabled]="sendersLoading || !senderOptions.length"
+                        class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:opacity-60">
+                  <option [ngValue]="null">Select sender</option>
+                  <option *ngFor="let sender of senderOptions" [ngValue]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</option>
+                </select>
+                <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="sendersLoading">
+                  <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+                  Loading sender list…
+                </p>
+              </ng-template>
             </div>
           </div>
         </ng-container>
@@ -108,30 +129,34 @@
               Loading phases…
             </p>
           </div>
-
           <div class="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="startDate">Start date</label>
-              <input id="startDate" type="date" [ngModel]="startDate ? (startDate | date:'yyyy-MM-dd') : ''" (ngModelChange)="onStartDateChange($event)" name="startDate"
-                     class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-            </div>
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="endDate">End date</label>
-              <input id="endDate" type="date" [ngModel]="endDate ? (endDate | date:'yyyy-MM-dd') : ''" (ngModelChange)="onEndDateChange($event)" name="endDate"
-                     class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-            </div>
+            <ng-container *ngIf="isAdmin; else nonAdminDates">
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-semibold text-onsemi-charcoal" for="startDate">Start date</label>
+                <input id="startDate" type="date" [ngModel]="startDate ? (startDate | date:'yyyy-MM-dd') : ''" (ngModelChange)="onStartDateChange($event)" name="startDate"
+                       class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+              </div>
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-semibold text-onsemi-charcoal" for="endDate">End date</label>
+                <input id="endDate" type="date" [ngModel]="endDate ? (endDate | date:'yyyy-MM-dd') : ''" (ngModelChange)="onEndDateChange($event)" name="endDate"
+                       class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+              </div>
+            </ng-container>
+            <ng-template #nonAdminDates>
+              <div class="col-span-2 text-sm text-slate-600">Non-admin users search by lot/wafer pairs only.</div>
+            </ng-template>
           </div>
         </div>
 
         <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
           <p><strong>Selected connection:</strong> {{ selectedSite || 'None' }}</p>
-          <p *ngIf="selectedSenderId"><strong>Sender:</strong> {{ selectedSenderId }}</p>
+          <p *ngIf="selectedSenderId"><strong>Sender:</strong> {{ selectedSenderId }} — {{ getSelectedSenderName() }}</p>
           <p *ngIf="selectedLocation"><strong>Location:</strong> {{ selectedLocation }}</p>
           <p *ngIf="selectedDataType"><strong>Data type:</strong> {{ selectedDataType }}</p>
         </div>
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-sm text-slate-600" *ngIf="!canSearch()">Select site, location, data type, tester, and sender to continue.</p>
+          <p class="text-sm text-slate-600" *ngIf="!canSearch()">Select site, location, data type, tester, and sender to continue. Non-admins must provide at least one lot/wafer pair.</p>
           <button type="button" class="btn-primary w-full py-3 sm:w-auto" (click)="doPreview(0)" [disabled]="loading || !canSearch()">
             <ng-container *ngIf="!loading; else previewLoadingTpl">Preview</ng-container>
           </button>

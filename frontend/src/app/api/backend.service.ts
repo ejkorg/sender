@@ -29,8 +29,9 @@ export interface DiscoveryPreviewRequest {
   environment?: string | null;
   startDate?: string | null;
   endDate?: string | null;
-  lot?: string | null;
-  wafer?: string | null;
+  // Support multiple lot/wafer pairs
+  lots?: string[] | null;
+  wafers?: string[] | null;
   testerType?: string | null;
   dataType?: string | null;
   testPhase?: string | null;
