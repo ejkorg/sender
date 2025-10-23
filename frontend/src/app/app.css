@@ -1,9 +1,9 @@
 .app-shell {
   display: flex;
   justify-content: center;
-  background: #f4f7fb;
+  background: var(--card-gradient);
   min-height: calc(100vh - 64px);
-  padding: 32px 16px 48px;
+  padding: 20px 16px 36px;
 }
 
 .app-container {
@@ -11,15 +11,19 @@
   max-width: 1120px;
 }
 
+header.site-header {
+  background: var(--header-backdrop-gradient);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--muted-border-04);
+  box-shadow: var(--small-shadow);
+}
+
 .app-tabs {
   background: transparent;
   box-shadow: none;
 }
 
-.app-tabs ::ng-deep .mat-mdc-tab-body-wrapper {
-  background: transparent;
-  padding-top: 16px;
-}
+/* Previously adjusted material tab body wrapper; no longer needed after migration */
 
 .tab-content {
   padding: 8px 0 0;
@@ -33,6 +37,6 @@
   text-align: center;
   padding: 32px;
   border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  background: var(--surface-bg);
+  box-shadow: var(--card-shadow);
 }

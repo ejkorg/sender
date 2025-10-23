@@ -11,6 +11,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
@@ -26,9 +27,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7);
             if (jwtUtil.validateToken(token)) {
                 String username = jwtUtil.extractUsername(token);
-                // For dev convenience, grant ADMIN role if token valid
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, token, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+                List<SimpleGrantedAuthority> authorities = jwtUtil.extractRoles(token)
+                        .stream()
+                        .map(SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList());
+                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(username, token, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
+            } else {
+                // If a Bearer header was present but the token is invalid, throw an AuthenticationException
+                throw new org.springframework.security.core.AuthenticationException("Invalid or expired token") {};
             }
         }
         filterChain.doFilter(request, response);

@@ -5,14 +5,14 @@ import java.util.List;
 
 public interface ExternalMetadataRepository {
     List<MetadataRow> findMetadata(String site, String environment, LocalDateTime start, LocalDateTime end,
-                                   String dataType, String testPhase, String testerType, String location, int limit);
+                                   String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers, int limit);
 
     List<MetadataRow> findMetadataPage(String site, String environment, LocalDateTime start, LocalDateTime end,
-                                       String dataType, String testPhase, String testerType, String location,
+                                       String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers,
                                        int offset, int limit);
 
     long countMetadata(String site, String environment, LocalDateTime start, LocalDateTime end,
-                       String dataType, String testPhase, String testerType, String location);
+                       String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers);
 
     default String describePreviewQuery(LocalDateTime start,
                                         LocalDateTime end,
@@ -20,6 +20,8 @@ public interface ExternalMetadataRepository {
                                         String testPhase,
                                         String testerType,
                                         String location,
+                                        java.util.List<String> lots,
+                                        java.util.List<String> wafers,
                                         int offset,
                                         int limit) {
         return null;
@@ -29,14 +31,14 @@ public interface ExternalMetadataRepository {
      * Stream rows; consumer should be fast. This will use JDBC ResultSet iteration.
      */
     void streamMetadata(String site, String environment, LocalDateTime start, LocalDateTime end,
-                        String dataType, String testPhase, String testerType, String location, int limit,
+                        String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers, int limit,
                         java.util.function.Consumer<MetadataRow> consumer);
 
     /**
      * Stream rows using an existing JDBC Connection (caller is responsible for lifecycle).
      */
     void streamMetadataWithConnection(java.sql.Connection conn, LocalDateTime start, LocalDateTime end,
-                                      String dataType, String testPhase, String testerType, String location, int limit,
+                                      String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers, int limit,
                                       java.util.function.Consumer<MetadataRow> consumer);
 
     /**

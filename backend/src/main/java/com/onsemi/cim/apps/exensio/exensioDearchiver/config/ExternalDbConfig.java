@@ -1,6 +1,8 @@
 package com.onsemi.cim.apps.exensio.exensioDearchiver.config;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.springframework.core.env.Environment;
@@ -39,6 +41,7 @@ import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory;
 
 @Component
 public class ExternalDbConfig {
+    private static final Logger log = LoggerFactory.getLogger(ExternalDbConfig.class);
 
     private final Map<String, Map<String, Object>> dbConnections;
     // cache of pooled DataSources keyed by resolved connection key (e.g. "EXTERNAL-qa")
@@ -218,28 +221,59 @@ public class ExternalDbConfig {
     }
 
     public Map<String, Object> getConfigForSite(String site) {
-        return dbConnections.get(site);
+        return lookupConfig(site);
     }
 
     /**
      * Try resolving db config with environment qualifiers. Order: site-environment, site_environment, site.environment, site
      */
     public Map<String, Object> getConfigForSite(String site, String environment) {
+        if (site == null || site.isBlank()) {
+            return null;
+        }
+        String trimmedSite = site.trim();
+        java.util.LinkedHashSet<String> siteVariants = new java.util.LinkedHashSet<>();
+        siteVariants.add(trimmedSite);
+        siteVariants.add(trimmedSite.toLowerCase(java.util.Locale.ROOT));
+        siteVariants.add(trimmedSite.toUpperCase(java.util.Locale.ROOT));
+
         if (environment != null && !environment.isBlank()) {
-            String[] candidates = new String[]{String.format("%s-%s", site, environment), String.format("%s_%s", site, environment), String.format("%s.%s", site, environment), site};
-            for (String k : candidates) {
-                Map<String, Object> cfg = dbConnections.get(k);
-                if (cfg != null) return cfg;
+            String trimmedEnv = environment.trim();
+            java.util.LinkedHashSet<String> envVariants = new java.util.LinkedHashSet<>();
+            envVariants.add(trimmedEnv);
+            envVariants.add(trimmedEnv.toLowerCase(java.util.Locale.ROOT));
+            envVariants.add(trimmedEnv.toUpperCase(java.util.Locale.ROOT));
+
+            for (String siteVariant : siteVariants) {
+                for (String envVariant : envVariants) {
+                    java.util.List<String> candidates = java.util.List.of(
+                            String.format("%s-%s", siteVariant, envVariant),
+                            String.format("%s_%s", siteVariant, envVariant),
+                            String.format("%s.%s", siteVariant, envVariant)
+                    );
+                    for (String candidate : candidates) {
+                        Map<String, Object> cfg = lookupConfig(candidate);
+                        if (cfg != null) {
+                            return cfg;
+                        }
+                    }
+                }
             }
         }
-        return dbConnections.get(site);
+        for (String siteVariant : siteVariants) {
+            Map<String, Object> cfg = lookupConfig(siteVariant);
+            if (cfg != null) {
+                return cfg;
+            }
+        }
+        return null;
     }
 
     /**
      * Return the raw configuration map by key (the key used in dbconnections.json).
      */
     public Map<String, Object> getConfigByKey(String key) {
-        return dbConnections.get(key);
+        return lookupConfig(key);
     }
 
     /**
@@ -321,6 +355,7 @@ public class ExternalDbConfig {
         String resolvedKey = environment != null && !environment.isBlank() ? key + "-" + environment : key;
         HikariDataSource ds = dsCache.get(resolvedKey);
         if (ds == null) {
+            log.debug("Creating Hikari pool for resolvedKey={} jdbcUrl={}", resolvedKey, jdbcUrl != null ? (jdbcUrl.length() > 100 ? jdbcUrl.substring(0, 100) + "..." : jdbcUrl) : "null");
             // Try to load per-connection hikari overrides if present
                 Map<String, Object> perConn = cfg; // alias
             HikariConfig cfgH = new HikariConfig();
@@ -428,6 +463,7 @@ public class ExternalDbConfig {
 
         Map<String, Object> cfg = getConfigForSite(site, environment);
         if (cfg == null) throw new SQLException("No DB configuration for site " + site);
+        log.debug("Resolved DB config for site={} environment={} to config keys present (host={})", site, environment, cfg.get("host"));
 
     String host = cfg.get("host") == null ? null : cfg.get("host").toString();
     String user = cfg.get("user") == null ? null : cfg.get("user").toString();
@@ -469,6 +505,7 @@ public class ExternalDbConfig {
         String resolvedKey = environment != null && !environment.isBlank() ? site + "-" + environment : site;
         HikariDataSource ds = dsCache.get(resolvedKey);
         if (ds == null) {
+            log.debug("Creating Hikari pool for resolvedKey={} jdbcUrl={}", resolvedKey, jdbcUrl != null ? (jdbcUrl.length() > 100 ? jdbcUrl.substring(0, 100) + "..." : jdbcUrl) : "null");
             Map<String, Object> perConn = cfg; // alias
             HikariConfig cfgH = new HikariConfig();
             cfgH.setJdbcUrl(jdbcUrl);
@@ -625,5 +662,23 @@ public class ExternalDbConfig {
         if (o == null) return fallback;
         if (o instanceof Number) return ((Number) o).longValue();
         try { return Long.parseLong(o.toString()); } catch (Exception e) { return fallback; }
+    }
+
+    private Map<String, Object> lookupConfig(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        Map<String, Object> exact = dbConnections.get(key);
+        if (exact != null) {
+            return exact;
+        }
+        String trimmed = key.trim();
+        for (Map.Entry<String, Map<String, Object>> entry : dbConnections.entrySet()) {
+            String candidateKey = entry.getKey();
+            if (candidateKey != null && candidateKey.equalsIgnoreCase(trimmed)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 }

@@ -1,44 +1,66 @@
-<mat-toolbar color="primary">
-  <span>exensio dearchiver</span>
-  <span style="flex:1 1 auto"></span>
+<header class="flex items-center gap-4 bg-surface border-b px-6 py-3 shadow-sm site-header">
+  <!-- <img src="assets/onsemi_logo_full_color.svg" class="onsemi-logo" alt="onsemi logo" /> -->
+  <div class="font-semibold text-onsemi-charcoal">exensio dearchiver</div>
+  <div class="flex-1"></div>
+  <app-theme-toggle></app-theme-toggle>
   <ng-container *ngIf="(auth.user$ | async) as u">
     <ng-container *ngIf="u?.username; else toolbarLogin">
-      <span>{{ u.username }}</span>
-      <button mat-button (click)="auth.logout()">Logout</button>
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-slate-700">{{ u.username }}</span>
+        <button *ngIf="u?.roles?.includes('ROLE_ADMIN')" class="btn-secondary" (click)="setTab(2)">Admin</button>
+        <button class="btn-secondary" (click)="auth.logout()">Logout</button>
+      </div>
     </ng-container>
   </ng-container>
-</mat-toolbar>
+</header>
 
 <ng-template #toolbarLogin>
-  <span>Not signed in</span>
+  <div class="text-sm text-slate-600">Not signed in</div>
 </ng-template>
 
 <ng-container *ngIf="(auth.user$ | async) as user; else loginView">
   <ng-container *ngIf="user?.username; else loginView">
-    <div class="app-shell">
-      <div class="app-container">
-        <mat-tab-group class="app-tabs" animationDuration="250ms" mat-stretch-tabs>
-          <mat-tab label="Dashboard">
-            <app-dashboard></app-dashboard>
-          </mat-tab>
-          <mat-tab label="Resender">
-            <div class="tab-content">
-              <app-stepper></app-stepper>
-            </div>
-          </mat-tab>
-        </mat-tab-group>
+    <div class="app-shell p-6">
+      <div class="app-container mx-auto max-w-6xl">
+        <nav class="nav-tabs flex gap-3 mb-6" role="tablist">
+          <button class="nav-tab" role="tab" [attr.aria-selected]="tabIndex===0" [class.nav-tab--active]="tabIndex===0" (click)="setTab(0)">Dashboard</button>
+          <button class="nav-tab" role="tab" [attr.aria-selected]="tabIndex===1" [class.nav-tab--active]="tabIndex===1" (click)="setTab(1)">Resender</button>
+          <button *ngIf="user?.roles?.includes('ROLE_ADMIN')" class="nav-tab" role="tab" [attr.aria-selected]="tabIndex===2" [class.nav-tab--active]="tabIndex===2" (click)="setTab(2)">Admin</button>
+        </nav>
+
+        <div *ngIf="tabIndex === 0"><app-dashboard></app-dashboard></div>
+        <div *ngIf="tabIndex === 1"><app-stepper></app-stepper></div>
+        <div *ngIf="tabIndex === 2"><app-admin-dashboard></app-admin-dashboard></div>
       </div>
     </div>
   </ng-container>
 </ng-container>
 
 <ng-template #loginView>
-  <div class="app-shell">
-    <div class="app-container login-prompt">
-      <p>Please sign in to manage resend requests.</p>
-      <app-login></app-login>
+  <div class="app-shell p-6">
+    <div class="app-container mx-auto max-w-4xl login-prompt">
+      <ng-container [ngSwitch]="activePublicView">
+        <ng-container *ngSwitchCase="'login'">
+          <p class="mb-4 text-sm text-slate-600">Please sign in to manage resend requests.</p>
+          <app-login></app-login>
+        </ng-container>
+        <app-register *ngSwitchCase="'register'"></app-register>
+        <app-verify *ngSwitchCase="'verify'"></app-verify>
+        <app-request-reset *ngSwitchCase="'request-reset'"></app-request-reset>
+        <app-reset-password *ngSwitchCase="'reset-password'"></app-reset-password>
+        <ng-container *ngSwitchDefault>
+          <app-login></app-login>
+        </ng-container>
+      </ng-container>
     </div>
   </div>
 </ng-template>
+
+<!-- global toast container -->
+<!-- global modal host -->
+<app-modal-host></app-modal-host>
+
+<!-- global toast container -->
+<app-toast-container></app-toast-container>
 
 

@@ -1,0 +1,21 @@
+// onsemi-theme.scss — minimal theme variables replacing Angular Material theming
+
+$onsemi-primary: #00B140; // green
+$onsemi-accent: #FFD100;  // yellow
+$onsemi-warn: #D32F2F;    // red
+$onsemi-ice: #F6FBF6;
+$onsemi-charcoal: #003a70;
+
+body {
+  font-family: 'Inter', 'Roboto', Arial, sans-serif;
+  background: #fff;
+  color: $onsemi-charcoal;
+}
+
+/* Convenience helpers for legacy styles that referenced Material selectors */
+.onsemi-primary { color: $onsemi-primary; }
+.onsemi-bg-primary { background-color: $onsemi-primary; }
+.onsemi-ice { background-color: $onsemi-ice; }
+
+/* Logo placement helper */
+.onsemi-logo { height: 32px; margin-right: 16px; vertical-align: middle; }

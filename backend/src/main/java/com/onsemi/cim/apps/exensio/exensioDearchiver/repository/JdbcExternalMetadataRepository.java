@@ -26,18 +26,18 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     // using top-level SenderCandidate DTO
 
     @Override
-    public List<MetadataRow> findMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, int limit) {
+    public List<MetadataRow> findMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers, int limit) {
         List<MetadataRow> rows = new ArrayList<>();
-        streamMetadata(site, environment, start, end, dataType, testPhase, testerType, location, limit, rows::add);
+        streamMetadata(site, environment, start, end, dataType, testPhase, testerType, location, lots, wafers, limit, rows::add);
         return rows;
     }
 
-    @Override
-    public List<MetadataRow> findMetadataPage(String site, String environment, LocalDateTime start, LocalDateTime end,
-                                              String dataType, String testPhase, String testerType, String location,
-                                              int offset, int limit) {
+        @Override
+        public List<MetadataRow> findMetadataPage(String site, String environment, LocalDateTime start, LocalDateTime end,
+                              String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers,
+                              int offset, int limit) {
         SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
-                start, end, dataType, testPhase, testerType, location);
+            start, end, dataType, testPhase, testerType, location, lots, wafers);
         sql.append(" order by end_time desc");
         if (limit > 0) {
             sql.append(" offset ? rows fetch next ? rows only");
@@ -58,17 +58,19 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         }
     }
 
-    @Override
-    public String describePreviewQuery(LocalDateTime start,
-                                       LocalDateTime end,
-                                       String dataType,
-                                       String testPhase,
-                                       String testerType,
-                                       String location,
-                                       int offset,
-                                       int limit) {
+        @Override
+        public String describePreviewQuery(LocalDateTime start,
+                           LocalDateTime end,
+                           String dataType,
+                           String testPhase,
+                           String testerType,
+                           String location,
+                           java.util.List<String> lots,
+                           java.util.List<String> wafers,
+                           int offset,
+                           int limit) {
         SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
-                start, end, dataType, testPhase, testerType, location);
+            start, end, dataType, testPhase, testerType, location, lots, wafers);
         sql.append(" order by end_time desc");
         if (limit > 0) {
             sql.append(" offset ? rows fetch next ? rows only");
@@ -79,9 +81,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
-    public long countMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location) {
+    public long countMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers) {
         SqlWithParams sql = buildMetadataQuery("select count(1) from all_metadata_view",
-                start, end, dataType, testPhase, testerType, location);
+                start, end, dataType, testPhase, testerType, location, lots, wafers);
         try (Connection c = externalDbConfig.getConnection(site, environment);
              PreparedStatement ps = prepareStatement(c, sql);
              ResultSet rs = ps.executeQuery()) {
@@ -93,9 +95,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
-    public void streamMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, int limit, java.util.function.Consumer<MetadataRow> consumer) {
+    public void streamMetadata(String site, String environment, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers, int limit, java.util.function.Consumer<MetadataRow> consumer) {
         try (Connection c = externalDbConfig.getConnection(site, environment)) {
-            streamMetadataWithConnection(c, start, end, dataType, testPhase, testerType, location, limit, consumer);
+            streamMetadataWithConnection(c, start, end, dataType, testPhase, testerType, location, lots, wafers, limit, consumer);
         } catch (Exception ex) {
             log.error("Failed streaming metadata for site {} env {}: {}", site, environment, ex.getMessage(), ex);
             throw new RuntimeException("External metadata read failed", ex);
@@ -103,12 +105,12 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
-    public void streamMetadataWithConnection(Connection c, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, int limit, java.util.function.Consumer<MetadataRow> consumer) {
+    public void streamMetadataWithConnection(Connection c, LocalDateTime start, LocalDateTime end, String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers, int limit, java.util.function.Consumer<MetadataRow> consumer) {
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
             SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
-                    start, end, dataType, testPhase, testerType, location);
+                    start, end, dataType, testPhase, testerType, location, lots, wafers);
             if (limit > 0) {
                 sql.append(" fetch first ").append(String.valueOf(limit)).append(" rows only");
             }
@@ -221,7 +223,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                 sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
+        // For DISTINCT selection Oracle requires ORDER BY expressions to be in the select list.
+        // We only want distinct locations here so order only by location to avoid ORA-01791.
+        sql += " order by location";
 
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -258,7 +262,8 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                 sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
+        // Ordering for distinct data_type should only reference the selected column.
+        sql += " order by data_type";
 
         PreparedStatement ps = null; ResultSet rs = null;
         try {
@@ -281,7 +286,8 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                 sql += " and data_type_ext = ?"; params.add(testPhase);
             }
         }
-        sql += " order by location, data_type, tester_type, data_type_ext, file_type";
+        // Ordering for distinct tester_type should only reference the selected column.
+        sql += " order by tester_type";
 
         PreparedStatement ps = null; ResultSet rs = null;
         try { ps = c.prepareStatement(sql); int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString()); rs = ps.executeQuery(); List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null && !v.isBlank()) out.add(v); } return out; } catch (Exception ex) { log.error("Failed fetching distinct tester types from simple_client_setting: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct tester types query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
@@ -332,7 +338,8 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     private SqlWithParams buildMetadataQuery(String select, LocalDateTime start, LocalDateTime end,
-                                             String dataType, String testPhase, String testerType, String location) {
+                                             String dataType, String testPhase, String testerType, String location,
+                                             java.util.List<String> lots, java.util.List<String> wafers) {
         SqlWithParams result = new SqlWithParams(select + " where end_time BETWEEN ? AND ?");
         result.params.add(Timestamp.valueOf(start));
         result.params.add(Timestamp.valueOf(end));
@@ -355,6 +362,83 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         if (location != null && !location.isBlank()) {
             result.append(" and location = ?");
             result.params.add(location);
+        }
+
+        // Handle lots/wafer lists. Support up to 5 pairs; matching is case-insensitive.
+        boolean hasLots = lots != null && !lots.isEmpty();
+        boolean hasWafers = wafers != null && !wafers.isEmpty();
+        if (hasLots && !hasWafers) {
+            // UPPER(lot) IN (?, ?, ...)
+            int cap = Math.min(lots.size(), 100); // safety cap
+            List<String> vals = new ArrayList<>();
+            for (int i = 0; i < cap; i++) {
+                String v = lots.get(i);
+                if (v != null && !v.isBlank()) vals.add(v.trim().toUpperCase(Locale.ROOT));
+            }
+            if (!vals.isEmpty()) {
+                result.append(" and UPPER(lot) IN (");
+                for (int i = 0; i < vals.size(); i++) {
+                    if (i > 0) result.append(",");
+                    result.append("?");
+                    result.params.add(vals.get(i));
+                }
+                result.append(")");
+            }
+        } else if (!hasLots && hasWafers) {
+            int cap = Math.min(wafers.size(), 100);
+            List<String> vals = new ArrayList<>();
+            for (int i = 0; i < cap; i++) {
+                String v = wafers.get(i);
+                if (v != null && !v.isBlank()) vals.add(v.trim().toUpperCase(Locale.ROOT));
+            }
+            if (!vals.isEmpty()) {
+                result.append(" and UPPER(wafer) IN (");
+                for (int i = 0; i < vals.size(); i++) {
+                    if (i > 0) result.append(",");
+                    result.append("?");
+                    result.params.add(vals.get(i));
+                }
+                result.append(")");
+            }
+        } else if (hasLots && hasWafers) {
+            // Pair-wise matching: for each pair support three cases:
+            //  - both lot and wafer provided: (UPPER(lot)=? AND UPPER(wafer)=?)
+            //  - only lot provided: (UPPER(lot)=?)
+            //  - only wafer provided: (UPPER(wafer)=?)
+            // Combine each pair clause with OR. Support up to 5 pairs.
+            // iterate up to the maximum length provided (support differing list lengths)
+            int pairs = Math.min(Math.max(lots.size(), wafers.size()), 5);
+            List<String[]> pairVals = new ArrayList<>();
+            for (int i = 0; i < pairs; i++) {
+                String l = i < lots.size() ? lots.get(i) : null;
+                String w = i < wafers.size() ? wafers.get(i) : null;
+                if ((l == null || l.isBlank()) && (w == null || w.isBlank())) continue;
+                String lu = (l == null || l.isBlank()) ? null : l.trim().toUpperCase(Locale.ROOT);
+                String wu = (w == null || w.isBlank()) ? null : w.trim().toUpperCase(Locale.ROOT);
+                pairVals.add(new String[] { lu, wu });
+            }
+            if (!pairVals.isEmpty()) {
+                result.append(" and (");
+                int added = 0;
+                for (String[] p : pairVals) {
+                    if (added > 0) result.append(" or ");
+                    String lu = p[0];
+                    String wu = p[1];
+                    if (lu != null && wu != null) {
+                        result.append("(UPPER(lot) = ? and UPPER(wafer) = ?)");
+                        result.params.add(lu);
+                        result.params.add(wu);
+                    } else if (lu != null) {
+                        result.append("(UPPER(lot) = ?)");
+                        result.params.add(lu);
+                    } else {
+                        result.append("(UPPER(wafer) = ?)");
+                        result.params.add(wu);
+                    }
+                    added++;
+                }
+                result.append(")");
+            }
         }
         if (log.isDebugEnabled()) {
             log.debug("Metadata query: {} params={} ", result.sql, result.params);

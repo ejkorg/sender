@@ -5,142 +5,151 @@
       <p class="subtitle">High-level health of Dataport resend activity.</p>
     </div>
     <div class="header-actions">
-      <button mat-stroked-button color="primary" (click)="refresh()" [disabled]="loading">
-        <mat-icon>refresh</mat-icon>
+      <button type="button" (click)="refresh()" [disabled]="loading">
+        <app-icon name="refresh" class="mr-2" ariaHidden="true"></app-icon>
         Refresh
       </button>
-      <span class="timestamp" [matTooltip]="lastUpdated ? (lastUpdated | date: uiDateFormat) : 'No data yet'">
+      <button type="button" class="ml-3" (click)="openSenderLookup()">
+        <app-icon name="search" class="mr-2" ariaHidden="true"></app-icon>
+        Lookup senders
+      </button>
+      <span class="timestamp" [title]="lastUpdated ? (lastUpdated | date: uiDateFormat) : 'No data yet'">
         Updated: {{ formatUpdated() }}
       </span>
     </div>
   </header>
 
-  <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+  <div *ngIf="loading" class="w-full h-1 bg-surface-95 overflow-hidden rounded-full">
+    <div class="h-1 bg-onsemi-primary animate-progress" style="width:60%"></div>
+  </div>
 
   <section *ngIf="errorMessage" class="error-state">
-    <mat-card appearance="outlined" class="error-card">
-      <mat-card-title>Dashboard unavailable</mat-card-title>
-      <mat-card-content>
+    <app-card class="error-card" variant="flat">
+      <h3 class="text-lg font-semibold">Dashboard unavailable</h3>
+      <div>
         <p>{{ errorMessage }}</p>
         <p>Retry once connectivity is restored.</p>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </app-card>
   </section>
 
+  <!-- Inline modal for details -->
+    <!-- Dialogs are now shown via the global ModalHost -->
+
   <section *ngIf="!errorMessage && !hasData" class="empty-state">
-    <mat-card appearance="outlined" class="empty-card">
-      <mat-card-title>No staged payloads detected</mat-card-title>
-      <mat-card-content>
+    <app-card class="empty-card" variant="flat">
+      <h3 class="text-lg font-semibold">No staged payloads detected</h3>
+      <div>
         <p>Once resend activity begins the dashboard will summarize progress here.</p>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </app-card>
   </section>
 
   <section *ngIf="globalSummary" class="global-section">
-    <mat-card appearance="outlined" class="global-card">
-      <mat-card-title>System snapshot</mat-card-title>
-      <mat-card-content>
+    <app-card class="global-card" variant="elevated">
+      <h3 class="text-lg font-semibold">System snapshot</h3>
+      <div>
         <div class="global-grid">
-          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View active sender detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View active sender detail'"
                (click)="openGlobalDetail('activeSenders')" (keydown.enter)="openGlobalDetail('activeSenders')">
             <span class="metric-value">{{ globalSummary.activeSenders }}</span>
             <span class="metric-label">Active Senders</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View ready payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View ready payload detail'"
                (click)="openGlobalDetail('ready')" (keydown.enter)="openGlobalDetail('ready')">
             <span class="metric-value highlight">{{ globalSummary.ready }}</span>
             <span class="metric-label">Ready to Dispatch</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View enqueued payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View enqueued payload detail'"
                (click)="openGlobalDetail('enqueued')" (keydown.enter)="openGlobalDetail('enqueued')">
             <span class="metric-value">{{ globalSummary.enqueued }}</span>
             <span class="metric-label">Enqueued</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View failed payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View failed payload detail'"
                (click)="openGlobalDetail('failed')" (keydown.enter)="openGlobalDetail('failed')">
             <span class="metric-value warn" [class.attention]="globalSummary.failed > 0">{{ globalSummary.failed }}</span>
             <span class="metric-label">Failed</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View completed payload detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View completed payload detail'"
                (click)="openGlobalDetail('completed')" (keydown.enter)="openGlobalDetail('completed')">
             <span class="metric-value">{{ globalSummary.completed }}</span>
             <span class="metric-label">Completed</span>
           </div>
-          <div class="global-metric interactive" role="button" tabindex="0" matTooltip="View backlog detail"
+          <div class="global-metric interactive" role="button" tabindex="0" [appTooltip]="'View backlog detail'"
                (click)="openGlobalDetail('backlog')" (keydown.enter)="openGlobalDetail('backlog')">
             <span class="metric-value">{{ globalSummary.backlog }}</span>
             <span class="metric-label">Backlog</span>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </app-card>
   </section>
 
   <section *ngIf="backlogSeries.length" class="graph-section">
-    <mat-card appearance="outlined" class="graph-card">
-      <mat-card-title>Backlog composition</mat-card-title>
-      <mat-card-subtitle>Top senders by ready + enqueued + failed payloads</mat-card-subtitle>
-      <mat-card-content>
+    <app-card class="graph-card" variant="elevated">
+      <h3 class="text-lg font-semibold">Backlog composition</h3>
+      <div class="text-sm text-onsemi-charcoal">Top senders by ready + enqueued + failed payloads</div>
+      <div>
         <div class="graph-legend">
           <span class="legend-item ready">Ready</span>
           <span class="legend-item enqueued">Enqueued</span>
           <span class="legend-item failed">Failed</span>
         </div>
         <div class="graph-list">
-          <div class="graph-row clickable" *ngFor="let series of backlogSeries" role="button" tabindex="0"
-               (click)="openBacklogDetail(series)" (keydown.enter)="openBacklogDetail(series)" matTooltip="View sender breakdown">
-            <div class="graph-label" [matTooltip]="series.label" matTooltipPosition="above" matTooltipShowDelay="150" title="{{ series.label }}">{{ series.label }}</div>
+            <div class="graph-row clickable" *ngFor="let series of backlogSeries" role="button" tabindex="0"
+            (click)="openBacklogDetail(series)" (keydown.enter)="openBacklogDetail(series)" [appTooltip]="'View sender breakdown'">
+            <div class="graph-label" [appTooltip]="series.label">{{ series.label }}</div>
             <div class="graph-bar">
-              <div class="bar-segment ready" *ngIf="series.ready" [style.width]="barWidth(series.ready, series.total)" [matTooltip]="segmentTooltip('Ready', series.ready, series.total)">
+              <div class="bar-segment ready" *ngIf="series.ready" [style.width]="barWidth(series.ready, series.total)" [appTooltip]="segmentTooltip('Ready', series.ready, series.total)">
                 <span *ngIf="showSegmentLabel(series.ready, series.total)">{{ series.ready }}</span>
               </div>
-              <div class="bar-segment enqueued" *ngIf="series.enqueued" [style.width]="barWidth(series.enqueued, series.total)" [matTooltip]="segmentTooltip('Enqueued', series.enqueued, series.total)">
+              <div class="bar-segment enqueued" *ngIf="series.enqueued" [style.width]="barWidth(series.enqueued, series.total)" [appTooltip]="segmentTooltip('Enqueued', series.enqueued, series.total)">
                 <span *ngIf="showSegmentLabel(series.enqueued, series.total)">{{ series.enqueued }}</span>
               </div>
-              <div class="bar-segment failed" *ngIf="series.failed" [style.width]="barWidth(series.failed, series.total)" [matTooltip]="segmentTooltip('Failed', series.failed, series.total)">
+              <div class="bar-segment failed" *ngIf="series.failed" [style.width]="barWidth(series.failed, series.total)" [appTooltip]="segmentTooltip('Failed', series.failed, series.total)">
                 <span *ngIf="showSegmentLabel(series.failed, series.total)">{{ series.failed }}</span>
               </div>
             </div>
             <div class="graph-total">{{ series.total }}</div>
           </div>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </app-card>
   </section>
 
   <section *ngIf="siteSummaries.length" class="site-section">
     <h2>Site health</h2>
     <div class="site-grid">
-      <mat-card appearance="outlined" class="site-card" *ngFor="let site of siteSummaries" [class.has-alert]="site.alerts">
-        <mat-card-header>
-          <mat-card-title>{{ site.site }}</mat-card-title>
-          <mat-card-subtitle>{{ site.activeSenders }} sender{{ site.activeSenders === 1 ? '' : 's' }}</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
+      <app-card class="site-card" *ngFor="let site of siteSummaries" [class.has-alert]="site.alerts">
+        <header class="p-4 border-b">
+          <div class="text-lg font-semibold">{{ site.site }}</div>
+          <div class="text-sm text-onsemi-charcoal">{{ site.activeSenders }} sender{{ site.activeSenders === 1 ? '' : 's' }}</div>
+        </header>
+        <div class="p-4">
           <div class="metric-grid">
             <div class="metric-item">
-              <mat-icon class="metric-icon" aria-hidden="true">schedule_send</mat-icon>
+              <app-icon name="schedule_send" class="metric-icon" ariaHidden="true"></app-icon>
               <div>
                 <span class="metric-label">Ready</span>
                 <span class="metric-number highlight" [class.attention]="site.ready > 0">{{ site.ready }}</span>
               </div>
             </div>
             <div class="metric-item">
-              <mat-icon class="metric-icon" aria-hidden="true">outbox</mat-icon>
+              <app-icon name="outbox" class="metric-icon" ariaHidden="true"></app-icon>
               <div>
                 <span class="metric-label">Enqueued</span>
                 <span class="metric-number">{{ site.enqueued }}</span>
               </div>
             </div>
             <div class="metric-item">
-              <mat-icon class="metric-icon" aria-hidden="true">check_circle</mat-icon>
+              <app-icon name="check_circle" class="metric-icon" ariaHidden="true"></app-icon>
               <div>
                 <span class="metric-label">Completed</span>
                 <span class="metric-number">{{ site.completed }}</span>
               </div>
             </div>
             <div class="metric-item">
-              <mat-icon class="metric-icon" aria-hidden="true">error</mat-icon>
+              <app-icon name="error" class="metric-icon" ariaHidden="true"></app-icon>
               <div>
                 <span class="metric-label">Failed</span>
                 <span class="metric-number warn" [class.attention]="site.failed > 0">{{ site.failed }}</span>
@@ -150,28 +159,28 @@
 
           <div class="sender-section">
             <h3>Sender focus</h3>
-            <div class="sender-row clickable" *ngFor="let sender of site.senders" role="button" tabindex="0"
-                 (click)="openSenderDetail(site, sender)" (keydown.enter)="openSenderDetail(site, sender)" matTooltip="View user activity">
-              <div class="sender-id">
-                <mat-icon aria-hidden="true" class="sender-icon" [class.alert]="sender.alert">router</mat-icon>
-                <span>Sender {{ sender.senderLabel }}</span>
-              </div>
-              <div class="sender-metrics">
-                <span class="badge" [class.highlight]="sender.ready > 0" matTooltip="Ready">R {{ sender.ready }}</span>
-                <span class="badge" matTooltip="Enqueued">E {{ sender.enqueued }}</span>
-                <span class="badge warn" [class.attention]="sender.failed > 0" matTooltip="Failed">F {{ sender.failed }}</span>
-                <span class="badge muted" matTooltip="Completed">C {{ sender.completed }}</span>
-              </div>
-              <div class="sender-backlog" [class.attention]="sender.backlog > 0">
-                Backlog {{ sender.backlog }}
-              </div>
-            </div>
+                  <div *ngFor="let sender of site.senders" class="sender-row clickable" role="button" tabindex="0"
+                       (click)="openSenderDetail(site, sender)" (keydown.enter)="openSenderDetail(site, sender)" [appTooltip]="'View user activity'">
+                    <div class="sender-id">
+                      <app-icon name="router" [class]="'sender-icon' + (sender.alert ? ' alert' : '')" ariaHidden="true"></app-icon>
+                      <span>Sender {{ sender.senderLabel }}</span>
+                    </div>
+                    <div class="sender-metrics">
+                      <span class="badge" [class.highlight]="sender.ready > 0" [appTooltip]="'Ready'">R {{ sender.ready }}</span>
+                      <span class="badge" [appTooltip]="'Enqueued'">E {{ sender.enqueued }}</span>
+                      <span class="badge warn" [class.attention]="sender.failed > 0" [appTooltip]="'Failed'">F {{ sender.failed }}</span>
+                      <span class="badge muted" [appTooltip]="'Completed'">C {{ sender.completed }}</span>
+                    </div>
+                    <div class="sender-backlog" [class.attention]="sender.backlog > 0">
+                      Backlog {{ sender.backlog }}
+                    </div>
+                  </div>
           </div>
-        </mat-card-content>
-        <mat-card-actions>
-          <button mat-button type="button" (click)="openSiteDetail(site)">View site details</button>
-        </mat-card-actions>
-      </mat-card>
+        </div>
+        <div class="card-actions p-4 bg-transparent text-right">
+          <app-button (click)="openSiteDetail(site)" variant="secondary">View site details</app-button>
+        </div>
+      </app-card>
     </div>
   </section>
 </div>

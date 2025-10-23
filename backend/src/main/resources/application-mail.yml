@@ -1,0 +1,21 @@
+### Sample mail configuration. Copy to application-local.yml or set environment variables in production.
+spring:
+  mail:
+    host: mailhost.onsemi.com      # your SMTP host (e.g. smtp.sendgrid.net)
+    port: 25                  # common SMTP port with STARTTLS
+    username: "${MAIL_USERNAME:}"
+    password: "${MAIL_PASSWORD:}"
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Optional: from address used when sending automated messages
+app:
+  mail:
+    from: "no-reply@onsemi.com"
+
+# Dev note: in the 'test' profile the app returns reset/verification tokens in HTTP responses
+# for easier testing. In production you may want to disable that behavior and only email tokens.

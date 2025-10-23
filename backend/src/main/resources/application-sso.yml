@@ -1,6 +1,8 @@
 security:
   sso:
     enabled: true
+  csp:
+    relaxed: false
 
 spring:
   security:

@@ -7,26 +7,26 @@
 
 .description {
   margin: 0;
-  color: rgba(0, 0, 0, 0.72);
+  color: var(--text-muted-72);
 }
 
 .table-wrapper {
   max-height: 420px;
   overflow: auto;
   border-radius: 16px;
-  border: 1px solid rgba(0, 58, 112, 0.14);
+  border: 1px solid var(--card-border);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--surface-bg);
 }
 
 thead {
   position: sticky;
   top: 0;
-  background: rgba(0, 58, 112, 0.08);
+  background: var(--table-head-bg);
   z-index: 1;
 }
 
@@ -40,7 +40,7 @@ thead th {
 
 tbody td {
   padding: 12px 16px;
-  border-top: 1px solid rgba(0, 58, 112, 0.08);
+  border-top: 1px solid var(--table-border);
   font-size: 0.9rem;
 }
 
@@ -65,7 +65,12 @@ tbody td {
   gap: 6px;
 }
 
-.row-actions button mat-icon {
+.row-actions button .material-icons,
+.row-actions button .icon-svg {
+  margin-right: 0;
+}
+
+.row-actions .icon-svg, .row-actions .material-icons {
   margin-right: 0;
 }
 
@@ -93,13 +98,15 @@ tbody td {
 .empty {
   margin: 24px 0;
   text-align: center;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--text-muted-60);
 }
 
-mat-dialog-actions {
+/* dialog actions container (non-Material) */
+.dialog-actions {
   padding-top: 12px;
 }
 
-button[mat-flat-button] mat-icon {
+button.primary .material-icons,
+button.primary .icon-svg {
   margin-right: 6px;
 }

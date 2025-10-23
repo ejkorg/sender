@@ -10,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -27,5 +28,14 @@ public class AuthControllerNegativeTests {
     void refreshWithoutCookie_returns401() throws Exception {
         mvc.perform(post("/api/auth/refresh"))
             .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void requestReset_unknownUser_returnsGenericSuccess() throws Exception {
+        mvc.perform(post("/api/auth/request-reset")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"does-not-exist\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("reset requested"));
     }
 }

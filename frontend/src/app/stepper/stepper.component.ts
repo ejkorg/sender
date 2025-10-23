@@ -1,7 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StepperSelectionEvent } from '@angular/cdk/stepper';
 import {
   BackendService,
   DiscoveryPreviewRequest,
@@ -15,41 +14,31 @@ import {
   StageRecordView,
   StageStatus
 } from '../api/backend.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { Clipboard } from '@angular/cdk/clipboard';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
-import { MatCardModule } from '@angular/material/card';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatStepperModule } from '@angular/material/stepper';
-import { MatIconModule } from '@angular/material/icon';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatListModule } from '@angular/material/list';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
+import { DuplicateWarningDialogComponent } from './duplicate-warning-dialog.component';
 import { Subscription } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
-import { DuplicateWarningDialogComponent } from './duplicate-warning-dialog.component';
+import { ModalService } from '../ui/modal.service';
+import { ToastService } from '../ui/toast.service';
+import { CsvExportService } from '../ui/csv-export.service';
 
 
 @Component({
   selector: 'app-stepper',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCardModule, MatProgressSpinnerModule, MatListModule, MatSnackBarModule, MatStepperModule, MatIconModule, MatDatepickerModule, MatNativeDateModule, MatCheckboxModule, MatDialogModule, MatMenuModule],
-  templateUrl: './stepper.component.html',
-  styleUrls: ['./stepper.component.css']
+  // Note: DuplicateWarningDialogComponent is created dynamically via ModalService
+  imports: [CommonModule, FormsModule],
+  templateUrl: './stepper.component.html'
 })
 export class StepperComponent implements OnInit, OnDestroy {
   stepIndex = 0;
 
   sites: string[] = [];
   selectedSite: string | null = null;
-  selectedEnvironment: string | null = 'qa';
+  // support up to 5 lot/wafer pairs
+  lotWaferPairs: Array<{ lot?: string | null; wafer?: string | null }> = [{ lot: null, wafer: null }];
+  // configurable maximum number of lot/wafer pairs (default 5)
+  readonly maxLotWaferPairs = 5;
+  isAdmin = false;
 
   filterOptions: ReloadFilterOptions | null = null;
   filtersLoading = false;
@@ -62,6 +51,9 @@ export class StepperComponent implements OnInit, OnDestroy {
   selectedTestPhase = '';
   startDate: Date | null = null;
   endDate: Date | null = null;
+
+  // track whether sender was auto-resolved
+  senderAutoResolved = false;
 
   loading = false;
 
@@ -99,17 +91,20 @@ export class StepperComponent implements OnInit, OnDestroy {
   currentUser: string | null = null;
   private userSub?: Subscription;
   readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
+  // duplicate prompt handled by ModalService
 
   constructor(private api: BackendService,
-              private snack: MatSnackBar,
-              private clipboard: Clipboard,
-              private dialog: MatDialog,
-              private auth: AuthService) {}
+              private toast: ToastService,
+              private auth: AuthService,
+              private modal: ModalService,
+              private csv: CsvExportService) {}
 
   ngOnInit(): void {
     this.loadSites();
     this.userSub = this.auth.user$.subscribe(user => {
       this.currentUser = user?.username ?? null;
+      this.isAdmin = !!(user && Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN'));
+      // environment filter removed from stepper UI/logic
     });
   }
 
@@ -129,7 +124,22 @@ export class StepperComponent implements OnInit, OnDestroy {
       error: (err: unknown) => console.error('Failed to load sites', err)
     });
   }
-
+  
+  // Load only locations for the selected site (progressive/cascading)
+  private loadLocations(site: string) {
+    this.filtersLoading = true;
+    this.api.getDistinctLocations({ connectionKey: site }).subscribe({
+      next: (locations: string[]) => {
+        this.filterOptions = { locations: locations || [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load locations', err);
+        this.filterOptions = { locations: [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      }
+    });
+  }
   onSiteChange() {
     this.filterOptions = null;
     this.selectedLocation = '';
@@ -147,10 +157,32 @@ export class StepperComponent implements OnInit, OnDestroy {
     if (!this.selectedSite) {
       return;
     }
-    this.loadFiltersForSite(this.selectedSite);
-    this.loadSendersForSite(this.selectedSite);
+    // start cascading by loading locations
+    this.loadLocations(this.selectedSite);
   }
 
+  addLotWaferPair() {
+    if (this.lotWaferPairs.length >= this.maxLotWaferPairs) return;
+    this.lotWaferPairs.push({ lot: null, wafer: null });
+  }
+
+  removeLotWaferPair(index: number) {
+    if (this.lotWaferPairs.length <= 1) return;
+    this.lotWaferPairs.splice(index, 1);
+  }
+  
+  isLastPairFilled(): boolean {
+    if (!this.lotWaferPairs.length) return false;
+    const last = this.lotWaferPairs[this.lotWaferPairs.length - 1];
+    // wafer is optional, consider last pair filled if lot has a value
+    return !!(last && last.lot && String(last.lot).trim().length);
+  }
+
+  hasAtLeastOneLot(): boolean {
+    return this.lotWaferPairs.some(p => p.lot && String(p.lot).trim().length > 0);
+  }
+
+  // legacy combined loader still available but not used for cascading
   private loadFiltersForSite(site: string) {
     this.filtersLoading = true;
     this.api.getReloadFilters(site).subscribe({
@@ -173,6 +205,7 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   private loadSendersForSite(site: string) {
+    // kept for full-site sender listing; prefer filtered sender loading in cascading flow
     this.sendersLoading = true;
     const previousSelection = this.selectedSenderId;
     this.senderOptions = [];
@@ -199,7 +232,85 @@ export class StepperComponent implements OnInit, OnDestroy {
     });
   }
 
-  private getSelectedSenderName(): string | null {
+  // Load data types after location selected
+  private loadDataTypes() {
+    if (!this.selectedSite || !this.selectedLocation) {
+      this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+      return;
+    }
+    this.filtersLoading = true;
+    this.api.getDistinctDataTypes({ connectionKey: this.selectedSite, location: this.selectedLocation }).subscribe({
+      next: (dataTypes: string[]) => {
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: dataTypes || [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load data types', err);
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      }
+    });
+  }
+
+  // Load tester types after data type selected
+  private loadTesterTypes() {
+    if (!this.selectedSite || !this.selectedLocation || !this.selectedDataType) {
+      this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: [], dataTypeExt: [] };
+      return;
+    }
+    this.filtersLoading = true;
+    this.api.getDistinctTesterTypes({ connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType }).subscribe({
+      next: (testerTypes: string[]) => {
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: testerTypes || [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load tester types', err);
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      }
+    });
+  }
+
+  // Load senders filtered by all upstream selections and try to auto-resolve
+  private loadSendersFiltered() {
+    if (!this.selectedSite) return;
+    this.sendersLoading = true;
+    this.senderAutoResolved = false;
+    const params: Record<string, any> = { connectionKey: this.selectedSite };
+    if (this.selectedLocation) params['location'] = this.selectedLocation;
+    if (this.selectedDataType) params['dataType'] = this.selectedDataType;
+    if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
+    this.api.getExternalSenders(params).subscribe({
+      next: (senders: SenderOption[]) => {
+        const opts = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
+        this.senderOptions = opts;
+        if (opts.length === 1) {
+          this.selectedSenderId = opts[0].idSender ?? null;
+          this.senderAutoResolved = true;
+        } else {
+          // preserve previous selection if still present
+          if (this.selectedSenderId != null && !this.senderOptions.some(s => s.idSender === this.selectedSenderId)) {
+            this.selectedSenderId = null;
+          }
+          this.senderAutoResolved = false;
+        }
+        this.refreshTestPhasesIfReady();
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load filtered senders', err);
+        this.senderOptions = [];
+        this.selectedSenderId = null;
+        this.senderAutoResolved = false;
+        this.sendersLoading = false;
+      },
+      complete: () => {
+        this.sendersLoading = false;
+      }
+    });
+  }
+
+  public getSelectedSenderName(): string | null {
     if (this.selectedSenderId == null) {
       return null;
     }
@@ -209,22 +320,65 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   onLocationChanged() {
     this.clearDiscoveryState();
-    this.refreshTestPhasesIfReady();
+    // when location chosen, load data types
+    this.loadDataTypes();
+    // clear sender selection and reload filtered senders
+    this.selectedSenderId = null;
+    this.loadSendersFiltered();
   }
 
   onDataTypeChanged() {
     this.clearDiscoveryState();
-    this.refreshTestPhasesIfReady();
+    // when data type chosen, load tester types
+    this.loadTesterTypes();
+    this.selectedSenderId = null;
+    this.loadSendersFiltered();
   }
 
   onTesterTypeChanged() {
     this.clearDiscoveryState();
+    // when testerType chosen, reload senders filtered by all upstream
+    this.selectedSenderId = null;
+    this.loadSendersFiltered();
     this.refreshTestPhasesIfReady();
   }
 
   onSenderChanged() {
     this.clearDiscoveryState();
+    // if user manually selected sender, it's not auto-resolved
+    this.senderAutoResolved = false;
     this.refreshTestPhasesIfReady();
+  }
+
+  onStartDateChange(value: string) {
+    if (!value) {
+      this.startDate = null;
+      return;
+    }
+    // value is from datetime-local (local time like 'yyyy-MM-ddTHH:mm'), create Date using local time
+    // If seconds are missing, Date constructor will treat it as local without seconds.
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) {
+      // Fallback: try appending seconds
+      const tryWithSec = new Date(value + ':00');
+      this.startDate = isNaN(tryWithSec.getTime()) ? null : tryWithSec;
+    } else {
+      this.startDate = parsed;
+    }
+  }
+
+  onEndDateChange(value: string) {
+    if (!value) {
+      this.endDate = null;
+      return;
+    }
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) {
+      const tryWithSec = new Date(value + ':00');
+      this.endDate = isNaN(tryWithSec.getTime()) ? null : tryWithSec;
+    } else {
+      this.endDate = parsed;
+    }
   }
 
   private clearDiscoveryState() {
@@ -295,21 +449,33 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   canSearch(): boolean {
-    return !!(this.selectedSite && this.selectedLocation && this.selectedDataType && this.selectedTesterType && this.selectedSenderId != null);
+    // If lot/wafer provided (user role), allow searching by lot/wafer instead of date range/environment
+    const hasRequired = Boolean(this.selectedSite && this.selectedLocation && this.selectedDataType && this.selectedTesterType && this.selectedSenderId != null);
+    // require at least one LOT when user is non-admin (wafer optional)
+    const hasLotWafer = this.lotWaferPairs.some(p => (p.lot && String(p.lot).trim().length > 0 && (p.wafer || true)));
+    const hasLot = this.hasAtLeastOneLot();
+    const hasDateRange = Boolean(this.startDate && this.endDate);
+    // For non-admins, require at least one lot; for admins, require either lot/wafer or a date range
+    if (!this.isAdmin) {
+      return hasRequired && hasLot;
+    }
+    return hasRequired && (hasLotWafer || hasDateRange);
   }
 
   doPreview(page: number = 0) {
     if (!this.canSearch()) {
-      this.snack.open('Select all required filters before searching.', 'Close', { duration: 3000 });
+      this.toast.error('Select all required filters before searching.');
       return;
     }
 
     const site = this.selectedSite as string;
     const request: DiscoveryPreviewRequest = {
       site,
-      environment: this.selectedEnvironment || undefined,
       startDate: this.formatStartDate(),
       endDate: this.formatEndDate(),
+      // send arrays of lots and wafers where positions correspond
+      lots: this.lotWaferPairs.map(p => p.lot ?? '').filter(Boolean) as string[] | null,
+      wafers: this.lotWaferPairs.map(p => p.wafer ?? '').filter(Boolean) as string[] | null,
       testerType: this.selectedTesterType || undefined,
       dataType: this.selectedDataType || undefined,
       testPhase: this.selectedTestPhase || undefined,
@@ -341,7 +507,7 @@ export class StepperComponent implements OnInit, OnDestroy {
       },
       error: (err: unknown) => {
         console.error('Preview failed', err);
-        this.snack.open('Discovery preview failed', 'Close', { duration: 4000 });
+        this.toast.error('Discovery preview failed');
         this.loading = false;
         this.previewLoading = false;
       },
@@ -357,13 +523,6 @@ export class StepperComponent implements OnInit, OnDestroy {
     if (index > 2) index = 2;
     this.stepIndex = index;
     if (index === 2) {
-      this.refreshMonitoring();
-    }
-  }
-
-  onStepperChange(event: StepperSelectionEvent) {
-    this.stepIndex = event.selectedIndex;
-    if (this.stepIndex === 2) {
       this.refreshMonitoring();
     }
   }
@@ -417,18 +576,17 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   stageSelected(force: boolean = false) {
     if (!this.selectedSite || !this.selectedSenderId) {
-      this.snack.open('Site and sender must be selected.', 'Close', { duration: 3000 });
+      this.toast.error('Site and sender must be selected.');
       return;
     }
     const payloads = this.collectSelectedPayloads();
     if (!payloads.length) {
-      this.snack.open('Select at least one payload to stage.', 'Close', { duration: 3000 });
+      this.toast.error('Select at least one payload to stage.');
       return;
     }
 
     const body: StagePayloadRequestBody = {
       site: this.selectedSite,
-      environment: this.selectedEnvironment || undefined,
       senderId: this.selectedSenderId,
       payloads,
       triggerDispatch: this.triggerDispatch,
@@ -440,14 +598,14 @@ export class StepperComponent implements OnInit, OnDestroy {
       next: (response: StagePayloadResponseBody) => {
         if (response?.requiresConfirmation && !force) {
           this.staging = false;
-          this.promptDuplicateConfirmation(response);
+          this.openDuplicatePrompt(response, payloads.length);
           return;
         }
         this.finalizeStage(response, payloads.length);
       },
       error: (err: unknown) => {
         console.error('Staging failed', err);
-        this.snack.open('Failed staging payloads', 'Close', { duration: 4000 });
+        this.toast.error('Failed staging payloads');
         this.staging = false;
       },
       complete: () => {
@@ -461,27 +619,26 @@ export class StepperComponent implements OnInit, OnDestroy {
     const stagedCount = response?.staged ?? fallbackCount;
     const duplicateCount = response?.duplicates ?? 0;
     const duplicateNote = duplicateCount > 0 ? ` (${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'})` : '';
-    this.snack.open(`Staged ${stagedCount} payload${stagedCount === 1 ? '' : 's'}${duplicateNote}`, 'OK', { duration: 3500 });
+    this.toast.success(`Staged ${stagedCount} payload${stagedCount === 1 ? '' : 's'}${duplicateNote}`);
     this.stepIndex = 2;
     this.refreshMonitoring();
   }
 
-  private promptDuplicateConfirmation(response: StagePayloadResponseBody) {
-    const dialogRef = this.dialog.open(DuplicateWarningDialogComponent, {
-      width: '560px',
-      data: {
-        currentUser: this.currentUser,
-        duplicates: response?.duplicatePayloads ?? []
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result === true) {
+  private async openDuplicatePrompt(response: StagePayloadResponseBody, fallbackCount: number): Promise<void> {
+    try {
+      const result = await this.modal.openComponent(DuplicateWarningDialogComponent as any, { data: { currentUser: this.currentUser, duplicates: response.duplicatePayloads } as any });
+      if (result) {
+        // force staging
         this.stageSelected(true);
       } else {
-        this.snack.open('Staging cancelled. No changes applied.', 'Close', { duration: 3500 });
+        this.toast.info('Staging cancelled. No changes applied.');
+        this.stageResponse = response;
       }
-    });
+    } catch (err) {
+      console.error('Duplicate prompt failed', err);
+      // fallback to inline behavior
+      this.stageResponse = response;
+    }
   }
 
   refreshMonitoring() {
@@ -518,13 +675,12 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.stageRecordsPage = 0;
     this.stageRecordsStatus = 'ALL';
     this.stageRecordsLoading = false;
-    this.selectedEnvironment = 'qa';
     this.triggerDispatch = false;
   }
 
   copyDuplicatesToClipboard() {
     if (!this.stageResponse?.duplicatePayloads?.length) {
-      this.snack.open('No duplicate payloads to copy.', 'OK', { duration: 2500 });
+      this.toast.info('No duplicate payloads to copy.');
       return;
     }
     const text = this.stageResponse.duplicatePayloads
@@ -545,17 +701,21 @@ export class StepperComponent implements OnInit, OnDestroy {
         return segments.join(' ');
       })
       .join('\n');
-    this.clipboard.copy(text);
-    this.snack.open('Duplicate payload IDs copied.', 'OK', { duration: 2500 });
+    navigator.clipboard.writeText(text).then(
+      () => this.toast.success('Duplicate payload IDs copied.'),
+      () => this.toast.error('Unable to copy duplicate payloads.')
+    );
   }
 
   copyPreviewSql() {
     if (!this.previewDebugSql) {
-      this.snack.open('No SQL to copy.', 'OK', { duration: 2500 });
+      this.toast.info('No SQL to copy.');
       return;
     }
-    this.clipboard.copy(this.previewDebugSql);
-    this.snack.open('Preview SQL copied.', 'OK', { duration: 2500 });
+    navigator.clipboard.writeText(this.previewDebugSql).then(
+      () => this.toast.success('Preview SQL copied.'),
+      () => this.toast.error('Unable to copy SQL.')
+    );
   }
 
   private resetPreview() {
@@ -599,11 +759,10 @@ export class StepperComponent implements OnInit, OnDestroy {
   exportPreviewCsv(selectedOnly: boolean = false) {
     const rows = selectedOnly ? this.collectSelectedPreviewRows() : [...this.previewRows];
     if (!rows.length) {
-      this.snack.open(selectedOnly ? 'No selected payloads to export.' : 'No preview rows to export.', 'Close', { duration: 3000 });
+      this.toast.info(selectedOnly ? 'No selected payloads to export.' : 'No preview rows to export.');
       return;
     }
 
-    const headers = ['Metadata ID', 'Data ID', 'Lot', 'End Time'];
     const csvRows = rows.map(row => [
       row.metadataId ?? '',
       row.dataId ?? '',
@@ -611,20 +770,81 @@ export class StepperComponent implements OnInit, OnDestroy {
       this.formatDateTime(row.endTime)
     ]);
 
-    const csv = [headers, ...csvRows]
-      .map(cols => cols.map(value => this.escapeCsv(value)).join(','))
-      .join('\n');
+    const fileName = `discovery_${selectedOnly ? 'selected' : 'page'}`;
+    const exported = this.csv.download({
+      filename: fileName,
+      headers: ['Metadata ID', 'Data ID', 'Lot', 'End Time'],
+      rows: csvRows
+    });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const timestamp = formatDate(new Date(), 'yyyyMMdd_HHmmss', 'en-US');
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `discovery_${selectedOnly ? 'selected' : 'page'}_${timestamp}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    if (exported) {
+      this.toast.success(`Exported ${rows.length} payload${rows.length === 1 ? '' : 's'} to CSV.`);
+    } else {
+      this.toast.error('Unable to create CSV export.');
+    }
+  }
 
-    this.snack.open(`Exported ${rows.length} payload${rows.length === 1 ? '' : 's'} to CSV.`, 'OK', { duration: 3500 });
+  exportStageRecordsCsv(): void {
+    if (!this.stageRecords.length) {
+      this.toast.info('No staged records to export.');
+      return;
+    }
+
+    const rows = this.stageRecords.map(record => [
+      record.site ?? '',
+      record.senderId ?? '',
+      record.metadataId ?? '',
+      record.dataId ?? '',
+      record.status ?? '',
+      record.lastRequestedBy ?? record.stagedBy ?? '',
+      this.formatDateTime(record.lastRequestedAt),
+      this.formatDateTime(record.updatedAt),
+      this.formatDateTime(record.processedAt ?? null),
+      record.errorMessage ?? ''
+    ]);
+
+    const exported = this.csv.download({
+      filename: 'stage-records',
+      headers: ['Site', 'Sender ID', 'Metadata ID', 'Data ID', 'Status', 'Owner', 'Last Requested At', 'Updated At', 'Processed At', 'Error'],
+      rows
+    });
+
+    if (exported) {
+      this.toast.success(`Exported ${rows.length} record${rows.length === 1 ? '' : 's'} to CSV.`);
+    } else {
+      this.toast.error('Unable to create staged records export.');
+    }
+  }
+
+  exportDuplicateCsv(): void {
+    const duplicates = this.stageResponse?.duplicatePayloads ?? [];
+    if (!duplicates.length) {
+      this.toast.info('No duplicate payloads to export.');
+      return;
+    }
+
+    const rows = duplicates.map(dup => [
+      dup.metadataId ?? '',
+      dup.dataId ?? '',
+      dup.previousStatus ?? '',
+      dup.lastRequestedBy ?? '',
+      this.formatDateTime(dup.lastRequestedAt),
+      dup.stagedBy ?? '',
+      this.formatDateTime(dup.stagedAt),
+      this.formatDateTime(dup.processedAt)
+    ]);
+
+    const exported = this.csv.download({
+      filename: 'duplicate-payloads',
+      headers: ['Metadata ID', 'Data ID', 'Previous Status', 'Last Requested By', 'Last Requested At', 'Staged By', 'Staged At', 'Processed At'],
+      rows
+    });
+
+    if (exported) {
+      this.toast.success(`Exported ${rows.length} duplicate payload${rows.length === 1 ? '' : 's'} to CSV.`);
+    } else {
+      this.toast.error('Unable to create duplicate payload export.');
+    }
   }
 
   private collectSelectedPayloads(): Array<{ metadataId: string; dataId: string }> {
@@ -663,6 +883,7 @@ export class StepperComponent implements OnInit, OnDestroy {
         console.error('Failed loading stage status', err);
         this.stageStatus = [];
         this.statusLoading = false;
+        this.toast.error('Failed loading stage status');
       },
       complete: () => {
         this.statusLoading = false;
@@ -689,6 +910,7 @@ export class StepperComponent implements OnInit, OnDestroy {
         this.stageRecords = [];
         this.stageRecordsTotal = 0;
         this.stageRecordsLoading = false;
+        this.toast.error('Failed loading stage records');
       },
       complete: () => {
         this.stageRecordsLoading = false;
@@ -720,14 +942,20 @@ export class StepperComponent implements OnInit, OnDestroy {
     if (!this.startDate) {
       return null;
     }
-    return `${formatDate(this.startDate, 'yyyy-MM-dd', 'en-US')} 00:00:00`;
+    // Preserve the time component if user provided it; otherwise default to start of day
+    const hasTime = this.startDate.getHours() !== 0 || this.startDate.getMinutes() !== 0 || this.startDate.getSeconds() !== 0;
+    const timePart = hasTime ? formatDate(this.startDate, 'HH:mm:ss', 'en-US') : '00:00:00';
+    return `${formatDate(this.startDate, 'yyyy-MM-dd', 'en-US')} ${timePart}`;
   }
 
   private formatEndDate(): string | null {
     if (!this.endDate) {
       return null;
     }
-    return `${formatDate(this.endDate, 'yyyy-MM-dd', 'en-US')} 23:59:59`;
+    // Preserve the time component if user provided it; otherwise default to end of day
+    const hasTime = this.endDate.getHours() !== 0 || this.endDate.getMinutes() !== 0 || this.endDate.getSeconds() !== 0;
+    const timePart = hasTime ? formatDate(this.endDate, 'HH:mm:ss', 'en-US') : '23:59:59';
+    return `${formatDate(this.endDate, 'yyyy-MM-dd', 'en-US')} ${timePart}`;
   }
 
   private formatDateTime(value: string | Date | null | undefined): string {
@@ -739,11 +967,5 @@ export class StepperComponent implements OnInit, OnDestroy {
       return String(value ?? '');
     }
     return formatDate(date, this.uiDateFormat, 'en-US');
-  }
-
-  private escapeCsv(value: unknown): string {
-    const str = String(value ?? '');
-    const escaped = str.replace(/"/g, '""');
-    return `"${escaped}"`;
   }
 }

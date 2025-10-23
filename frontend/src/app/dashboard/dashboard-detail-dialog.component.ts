@@ -1,9 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { ChangeDetectorRef, Component, EventEmitter, Input, Output } from '@angular/core';
+import { IconComponent } from '../ui/icon.component';
+import { TooltipDirective } from '../ui/tooltip.directive';
 import { Observable, isObservable } from 'rxjs';
 
 export interface DashboardDetailColumn {
@@ -35,18 +33,17 @@ export interface DashboardDetailDialogData {
 @Component({
   selector: 'app-dashboard-detail-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, IconComponent, TooltipDirective],
   templateUrl: './dashboard-detail-dialog.component.html',
   styleUrls: ['./dashboard-detail-dialog.component.css']
 })
 export class DashboardDetailDialogComponent {
   private executing = new Set<string>();
 
-  constructor(
-    @Inject(MAT_DIALOG_DATA) public data: DashboardDetailDialogData,
-    private dialogRef: MatDialogRef<DashboardDetailDialogComponent>,
-    private cdr: ChangeDetectorRef
-  ) {}
+  @Input() data!: DashboardDetailDialogData;
+  @Output() close = new EventEmitter<void>();
+
+  constructor(private cdr: ChangeDetectorRef) {}
 
   get hasRows(): boolean {
     return (this.data?.rows?.length ?? 0) > 0;
@@ -140,8 +137,8 @@ export class DashboardDetailDialogComponent {
     window.URL.revokeObjectURL(url);
   }
 
-  close(): void {
-    this.dialogRef.close();
+  onClose(): void {
+    this.close.emit();
   }
 
   private escapeCsv(value: string): string {

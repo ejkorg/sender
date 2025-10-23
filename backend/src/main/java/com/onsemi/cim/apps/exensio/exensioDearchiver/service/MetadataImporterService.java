@@ -127,6 +127,7 @@ public class MetadataImporterService {
      */
     public DiscoveryPreviewResponse previewMetadata(String site, String environment, Integer senderId,
                                                     String startDate, String endDate,
+                                                    java.util.List<String> lots, java.util.List<String> wafers,
                                                     String testerType, String dataType, String testPhase,
                                                     String location, int page, int size) {
         if (site == null || site.isBlank()) {
@@ -143,9 +144,9 @@ public class MetadataImporterService {
         LocalDateTime lstart = resolveStart(startDate);
         LocalDateTime lend = resolveEnd(endDate);
 
-    long total = externalMetadataRepository.countMetadata(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location);
-    List<MetadataRow> rows = externalMetadataRepository.findMetadataPage(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location, offset, resolvedSize);
-    String debugSql = externalMetadataRepository.describePreviewQuery(lstart, lend, dataType, testPhase, testerType, location, offset, resolvedSize);
+    long total = externalMetadataRepository.countMetadata(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location, lots, wafers);
+    List<MetadataRow> rows = externalMetadataRepository.findMetadataPage(site, resolvedEnv, lstart, lend, dataType, testPhase, testerType, location, lots, wafers, offset, resolvedSize);
+    String debugSql = externalMetadataRepository.describePreviewQuery(lstart, lend, dataType, testPhase, testerType, location, lots, wafers, offset, resolvedSize);
 
         List<DiscoveryPreviewRow> items = rows.stream()
                 .map(row -> new DiscoveryPreviewRow(nullSafe(row.getId()), nullSafe(row.getIdData()), nullSafe(row.getLot()), toIsoString(row.getEndTime())))
@@ -257,11 +258,11 @@ public class MetadataImporterService {
                     log.warn("External location id {} not found, aborting discovery", locationId);
                 } else {
                     try (Connection conn = externalDbResolverService.resolveConnectionForLocation(loc, environment)) {
-                        externalMetadataRepository.streamMetadataWithConnection(conn, lstart, lend, dataType, testPhase, testerType, location, maxToStage, processor);
+                        externalMetadataRepository.streamMetadataWithConnection(conn, lstart, lend, dataType, testPhase, testerType, location, null, null, maxToStage, processor);
                     }
                 }
             } else {
-                externalMetadataRepository.streamMetadata(site, environment, lstart, lend, dataType, testPhase, testerType, location, maxToStage, processor);
+                externalMetadataRepository.streamMetadata(site, environment, lstart, lend, dataType, testPhase, testerType, location, null, null, maxToStage, processor);
             }
 
             StageResult tail = stageCurrentBatch(site, resolvedSenderId, batch);

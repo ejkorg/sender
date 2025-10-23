@@ -1,328 +1,421 @@
-<mat-card class="stepper-card">
-  <mat-horizontal-stepper linear [selectedIndex]="stepIndex" (selectionChange)="onStepperChange($event)">
-    <mat-step label="1. Choose filters" [completed]="stepIndex > 0">
-      <div class="step-content">
-        <mat-form-field appearance="fill" class="full-width">
-          <mat-label>Site / Connection</mat-label>
-          <mat-select [(ngModel)]="selectedSite" name="site" (selectionChange)="onSiteChange()">
-            <mat-option [value]="null">-- Select site --</mat-option>
-            <mat-option *ngFor="let s of sites" [value]="s">{{ s }}</mat-option>
-          </mat-select>
-        </mat-form-field>
 
-        <div class="filters-loading" *ngIf="filtersLoading">
-          <mat-progress-spinner diameter="24" mode="indeterminate"></mat-progress-spinner>
-          <span>Loading connection filters…</span>
-        </div>
+<div class="rounded-3xl bg-surface-95 p-8 shadow-2xl ring-1 ring-onsemi-primary/10">
+  <div class="flex flex-col gap-8">
+    <nav class="nav-tabs flex flex-wrap gap-3" role="tablist">
+      <button type="button" class="nav-tab" role="tab" [attr.aria-selected]="stepIndex===0" [class.nav-tab--active]="stepIndex===0" (click)="goToStep(0)">1. Choose filters</button>
+      <button type="button" class="nav-tab" role="tab" [attr.aria-selected]="stepIndex===1" [class.nav-tab--active]="stepIndex===1" (click)="goToStep(1)" [disabled]="!previewLoaded">2. Select payloads</button>
+      <button type="button" class="nav-tab" role="tab" [attr.aria-selected]="stepIndex===2" [class.nav-tab--active]="stepIndex===2" (click)="goToStep(2)" [disabled]="!stageResponse && !stageStatus.length">3. Monitor staging</button>
+    </nav>
 
-        <ng-container *ngIf="!filtersLoading && filterOptions as filters">
-          <div class="two-col">
-            <mat-form-field appearance="fill">
-              <mat-label>Location</mat-label>
-              <mat-select [(ngModel)]="selectedLocation" name="location" (selectionChange)="onLocationChanged()">
-                <mat-option [value]="''">-- Select location --</mat-option>
-                <mat-option *ngFor="let loc of filters.locations" [value]="loc">{{ loc }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+    <!-- Duplicate prompt shown via ModalService.openComponent -->
 
-            <mat-form-field appearance="fill">
-              <mat-label>Data type</mat-label>
-              <mat-select [(ngModel)]="selectedDataType" name="dataType" (selectionChange)="onDataTypeChanged()">
-                <mat-option [value]="''">-- Select data type --</mat-option>
-                <mat-option *ngFor="let dt of filters.dataTypes" [value]="dt">{{ dt }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+    <div [ngSwitch]="stepIndex">
+      <div *ngSwitchCase="0" class="space-y-8">
+        <div class="grid gap-6 md:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-onsemi-charcoal" for="site">Site / DTP instance</label>
+            <select id="site" [(ngModel)]="selectedSite" name="site" (ngModelChange)="onSiteChange()"
+                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+              <option [ngValue]="null">Select site/dtp instance</option>
+              <option *ngFor="let s of sites" [ngValue]="s">{{ s }}</option>
+            </select>
+            <p class="text-xs text-slate-500" *ngIf="selectedSite && !senderOptions.length && !sendersLoading">No senders available for this connection.</p>
           </div>
 
-          <div class="two-col">
-            <mat-form-field appearance="fill">
-              <mat-label>Tester type</mat-label>
-              <mat-select [(ngModel)]="selectedTesterType" name="testerType" (selectionChange)="onTesterTypeChanged()">
-                <mat-option [value]="''">-- Select tester type --</mat-option>
-                <mat-option *ngFor="let tt of filters.testerTypes" [value]="tt">{{ tt }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+          <div class="flex flex-col gap-2"></div>
+        </div>
 
-            <mat-form-field appearance="fill" class="sender-field">
-              <mat-label>Sender</mat-label>
-              <mat-select [(ngModel)]="selectedSenderId" name="senderId" (selectionChange)="onSenderChanged()" [disabled]="sendersLoading || !senderOptions.length">
-                <mat-option [value]="null">-- Select sender --</mat-option>
-                <mat-option *ngFor="let sender of senderOptions" [value]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</mat-option>
-              </mat-select>
-              <mat-progress-spinner *ngIf="sendersLoading" matSuffix diameter="20" mode="indeterminate"></mat-progress-spinner>
-              <mat-hint *ngIf="selectedSite && !sendersLoading && !senderOptions.length">No senders available for this connection.</mat-hint>
-            </mat-form-field>
+        <!-- duplicate Lot / Wafer block removed; canonical block exists below Test phase -->
+
+        <!-- Lot / Wafer inputs will be rendered after the Test phase section -->
+
+        <div class="rounded-2xl border border-onsemi-primary/15 bg-onsemi-ice/60 px-4 py-3 text-sm text-onsemi-charcoal" *ngIf="filtersLoading">
+          <div class="flex items-center gap-3">
+            <span class="h-4 w-4 animate-spin rounded-full border-2 border-onsemi-primary border-t-transparent"></span>
+            Loading connection filters…
+          </div>
+        </div>
+
+        <!-- Lot / Wafer pairs removed from here and reinserted below Test phase -->
+
+        <ng-container *ngIf="!filtersLoading && filterOptions as filters">
+          <div class="grid gap-6 md:grid-cols-2">
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-onsemi-charcoal" for="location">Location</label>
+              <select id="location" [(ngModel)]="selectedLocation" name="location" (ngModelChange)="onLocationChanged()"
+                      class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                <option value="">Select location</option>
+                <option *ngFor="let loc of filters.locations" [value]="loc">{{ loc }}</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-onsemi-charcoal" for="dataType">Data type</label>
+              <select id="dataType" [(ngModel)]="selectedDataType" name="dataType" (ngModelChange)="onDataTypeChanged()"
+                      class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                <option value="">Select data type</option>
+                <option *ngFor="let dt of filters.dataTypes" [value]="dt">{{ dt }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid gap-6 md:grid-cols-2">
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-onsemi-charcoal" for="testerType">Tester type</label>
+              <select id="testerType" [(ngModel)]="selectedTesterType" name="testerType" (ngModelChange)="onTesterTypeChanged()"
+                      class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                <option value="">Select tester type</option>
+                <option *ngFor="let tt of filters.testerTypes" [value]="tt">{{ tt }}</option>
+              </select>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-onsemi-charcoal" for="sender">Sender</label>
+              <ng-container *ngIf="senderAutoResolved && selectedSenderId; else senderDropdown">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Auto-selected: {{ selectedSenderId }} — {{ getSelectedSenderName() }}</div>
+              </ng-container>
+              <ng-template #senderDropdown>
+                <select id="sender" [(ngModel)]="selectedSenderId" name="senderId" (ngModelChange)="onSenderChanged()"
+                        [disabled]="sendersLoading || !senderOptions.length"
+                        class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:opacity-60">
+                  <option [ngValue]="null">Select sender</option>
+                  <option *ngFor="let sender of senderOptions" [ngValue]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</option>
+                </select>
+                <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="sendersLoading">
+                  <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+                  Loading sender list…
+                </p>
+              </ng-template>
+            </div>
           </div>
         </ng-container>
 
-        <div class="two-col" *ngIf="selectedSite">
-          <mat-form-field appearance="fill" class="phase-field">
-            <mat-label>Test phase</mat-label>
-            <mat-select [(ngModel)]="selectedTestPhase" name="testPhase" [disabled]="!testPhaseOptions.length && !testPhaseLoading">
-              <mat-option [value]="''">-- Any --</mat-option>
-              <mat-option *ngFor="let phase of testPhaseOptions" [value]="phase">{{ phase || 'None' }}</mat-option>
-            </mat-select>
-            <mat-progress-spinner *ngIf="testPhaseLoading" matSuffix diameter="20" mode="indeterminate"></mat-progress-spinner>
-            <mat-hint *ngIf="selectedSite && !testPhaseLoading && !testPhaseOptions.length">
-              Select location, data type, tester type, and sender to load phases.
-            </mat-hint>
-          </mat-form-field>
-        </div>
-
-        <div class="two-col">
-          <div class="date-range">
-            <mat-form-field appearance="fill">
-              <mat-label>Start date</mat-label>
-              <input matInput [matDatepicker]="startPicker" [(ngModel)]="startDate" name="startDate" />
-              <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
-              <mat-datepicker #startPicker></mat-datepicker>
-            </mat-form-field>
-            <mat-form-field appearance="fill">
-              <mat-label>End date</mat-label>
-              <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate" name="endDate" />
-              <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
-              <mat-datepicker #endPicker></mat-datepicker>
-            </mat-form-field>
+        <div class="grid gap-6 md:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-onsemi-charcoal" for="phase">Test phase</label>
+            <select id="phase" [(ngModel)]="selectedTestPhase" name="testPhase"
+                    [disabled]="!testPhaseOptions.length && !testPhaseLoading"
+                    class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+              <option value="">Any</option>
+              <option *ngFor="let phase of testPhaseOptions" [value]="phase">{{ phase || 'None' }}</option>
+            </select>
+            <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="testPhaseLoading">
+              <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+              Loading phases…
+            </p>
+          </div>
+          <div class="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
+            <ng-container *ngIf="isAdmin; else nonAdminDates">
+                   <div class="flex flex-col gap-2">
+                  <label class="text-sm font-semibold text-onsemi-charcoal" for="startDate">Start (date & time)</label>
+                  <!-- datetime-local provides local date/time; bind to ISO-local value -->
+                  <input id="startDate" type="datetime-local" [ngModel]="startDate ? (startDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onStartDateChange($event)" name="startDate"
+                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                </div>
+                <div class="flex flex-col gap-2">
+                  <label class="text-sm font-semibold text-onsemi-charcoal" for="endDate">End (date & time)</label>
+                  <input id="endDate" type="datetime-local" [ngModel]="endDate ? (endDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onEndDateChange($event)" name="endDate"
+                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                </div>
+            </ng-container>
+            <ng-template #nonAdminDates>
+              <div class="col-span-2 text-sm text-slate-600">Non-admin users search by lot/wafer pairs only.</div>
+            </ng-template>
           </div>
         </div>
 
-        <div class="step-actions">
-          <span class="helper" *ngIf="!canSearch()">Select site, location, data type, tester, and sender to continue.</span>
-          <button mat-flat-button color="primary" (click)="doPreview(0)" [disabled]="loading || !canSearch()">
-            <mat-icon *ngIf="loading" class="spinner-icon">sync</mat-icon>
-            {{ loading ? 'Previewing…' : 'Preview' }}
+        <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <p><strong>Selected connection:</strong> {{ selectedSite || 'None' }}</p>
+          <p *ngIf="selectedSenderId"><strong>Sender:</strong> {{ selectedSenderId }} — {{ getSelectedSenderName() }}</p>
+          <p *ngIf="selectedLocation"><strong>Location:</strong> {{ selectedLocation }}</p>
+          <p *ngIf="selectedDataType"><strong>Data type:</strong> {{ selectedDataType }}</p>
+        </div>
+
+        <!-- Lot / Wafer pairs: appear after the Test phase / date grid (and after the Selected connection summary) -->
+        <div class="mt-4" *ngIf="selectedSite && selectedLocation && selectedDataType && (selectedTesterType || !(filterOptions?.testerTypes?.length))">
+          <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
+          <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
+          <div class="space-y-2 mt-2">
+            <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
+              <div>
+                <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
+              </div>
+              <div>
+                <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+              </div>
+              <div class="flex items-center">
+                <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
+                <span class="text-xs text-slate-500">{{ i + 1 }}</span>
+              </div>
+            </div>
+            <div>
+              <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= maxLotWaferPairs || !isLastPairFilled()">+ Add another pair</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-slate-600" *ngIf="!canSearch()">Select site, location, data type, tester, and sender to continue. Non-admins must provide at least one lot/wafer pair.</p>
+          <button type="button" class="btn-primary w-full py-3 sm:w-auto" (click)="doPreview(0)" [disabled]="loading || !canSearch()">
+            <ng-container *ngIf="!loading; else previewLoadingTpl">Preview</ng-container>
           </button>
+          <ng-template #previewLoadingTpl>
+            <div class="flex items-center justify-center gap-2">
+              <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              Previewing…
+            </div>
+          </ng-template>
         </div>
       </div>
-    </mat-step>
 
-    <mat-step label="2. Select payloads" [completed]="stepIndex > 1">
-      <div class="step-content">
-        <ng-container *ngIf="previewLoaded; else noPreview">
-          <div class="preview-header">
+      <div *ngSwitchCase="1" class="space-y-6">
+        <ng-container *ngIf="previewLoaded; else noPreviewState">
+          <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <span class="preview-count">{{ previewTotal }} result{{ previewTotal === 1 ? '' : 's' }}</span>
-              <span class="preview-selected">({{ selectedCount }} selected)</span>
+              <p class="text-sm font-semibold text-onsemi-charcoal">{{ previewTotal }} result{{ previewTotal === 1 ? '' : 's' }}</p>
+              <p class="text-xs text-slate-600">{{ selectedCount }} selected</p>
             </div>
-            <div class="preview-header-actions">
-              <button mat-button type="button" (click)="toggleSelectAllCurrentPage(true)" [disabled]="previewLoading || !previewRows.length">Select page</button>
-              <button mat-button type="button" (click)="toggleSelectAllCurrentPage(false)" [disabled]="previewLoading || !previewRows.length">Clear page</button>
-              <button mat-button type="button" [matMenuTriggerFor]="exportMenu" [disabled]="previewLoading || (!previewRows.length && !selectedCount)">
-                <mat-icon>download</mat-icon>
-                Export CSV
-              </button>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="btn-secondary" (click)="toggleSelectAllCurrentPage(true)" [disabled]="previewLoading || !previewRows.length">Select page</button>
+              <button type="button" class="btn-secondary" (click)="toggleSelectAllCurrentPage(false)" [disabled]="previewLoading || !previewRows.length">Clear page</button>
+              <button type="button" class="btn-secondary" (click)="exportPreviewCsv(false)" [disabled]="!previewRows.length">Export page</button>
+              <button type="button" class="btn-secondary" (click)="exportPreviewCsv(true)" [disabled]="!selectedCount">Export selected</button>
+              <button type="button" class="btn-secondary" (click)="copyPreviewSql()" [disabled]="!previewDebugSql">Copy SQL</button>
             </div>
           </div>
 
-          <mat-menu #exportMenu="matMenu">
-            <button mat-menu-item type="button" (click)="exportPreviewCsv(false)" [disabled]="!previewRows.length">
-              <mat-icon>table_view</mat-icon>
-              Current page
-            </button>
-            <button mat-menu-item type="button" (click)="exportPreviewCsv(true)" [disabled]="!selectedCount">
-              <mat-icon>checklist</mat-icon>
-              Selected payloads
-            </button>
-          </mat-menu>
-
-          <mat-card *ngIf="previewDebugSql" class="debug-sql-card">
-            <mat-card-title>Preview SQL</mat-card-title>
-            <mat-card-content>
-              <pre>{{ previewDebugSql }}</pre>
-            </mat-card-content>
-            <mat-card-actions>
-              <button mat-button type="button" (click)="copyPreviewSql()">Copy SQL</button>
-            </mat-card-actions>
-          </mat-card>
-
-          <div class="preview-table-wrapper" [class.loading]="previewLoading">
-            <div class="loading-overlay" *ngIf="previewLoading">
-              <mat-progress-spinner diameter="36" mode="indeterminate"></mat-progress-spinner>
+          <div class="relative overflow-hidden rounded-2xl border border-slate-200">
+            <div *ngIf="previewLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-surface-70">
+              <span class="h-6 w-6 animate-spin rounded-full border-2 border-onsemi-primary border-t-transparent"></span>
             </div>
-            <table class="preview-table" *ngIf="previewRows.length">
-              <thead>
+            <div class="overflow-auto">
+              <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-onsemi-ice text-onsemi-charcoal">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold">Metadata ID</th>
+                    <th class="px-4 py-3 text-left font-semibold">Data ID</th>
+                    <th class="px-4 py-3 text-left font-semibold">Lot</th>
+                    <th class="px-4 py-3 text-left font-semibold">End Time</th>
+                    <th class="px-4 py-3 text-center font-semibold">Select</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-surface">
+                  <tr *ngFor="let row of previewRows" class="hover:bg-onsemi-ice/60">
+                    <td class="px-4 py-3 font-medium text-onsemi-charcoal">{{ row.metadataId || '—' }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ row.dataId || '—' }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ row.lot || '—' }}</td>
+                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ row.endTime ? (row.endTime | date: uiDateFormat) : '—' }}</td>
+                    <td class="px-4 py-3 text-center">
+                      <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-onsemi-primary focus:ring-onsemi-primary/40"
+                             [checked]="isRowSelected(row)" (change)="toggleRow(row, $event.target.checked)" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="px-4 py-3 text-sm text-slate-500" *ngIf="!previewRows.length && !previewLoading">No results on this page.</p>
+          </div>
+
+          <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm md:flex-row md:items-center md:justify-between">
+            <div class="flex items-center gap-3">
+              <button type="button" class="btn-secondary" (click)="changePreviewPage(-1)" [disabled]="previewLoading || previewPage === 0">Prev</button>
+              <span>Page {{ previewPage + 1 }} of {{ previewLastPage + 1 }}</span>
+              <button type="button" class="btn-secondary" (click)="changePreviewPage(1)" [disabled]="previewLoading || previewLastPage < 0 || previewPage >= previewLastPage">Next</button>
+            </div>
+            <div class="flex items-center gap-3">
+              <label for="previewSize" class="text-sm text-slate-600">Page size</label>
+              <select id="previewSize" [(ngModel)]="previewSize" name="previewSize" (ngModelChange)="changePreviewSize($event)"
+                      class="rounded-lg border border-slate-300 bg-surface px-3 py-2 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                <option *ngFor="let size of previewSizes" [value]="size">{{ size }}</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-onsemi-primary focus:ring-onsemi-primary/40" [(ngModel)]="triggerDispatch" name="triggerDispatch" />
+            Dispatch immediately after staging
+          </label>
+
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button type="button" class="btn-secondary" (click)="goToStep(0)">Back</button>
+            <p class="text-sm text-slate-600">{{ selectedCount }} selected</p>
+            <button type="button" class="btn-primary" (click)="stageSelected()" [disabled]="staging || selectedCount === 0">
+              <ng-container *ngIf="!staging; else stagingTpl">Stage selected</ng-container>
+            </button>
+            <ng-template #stagingTpl>
+              <div class="flex items-center justify-center gap-2">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                Staging…
+              </div>
+            </ng-template>
+          </div>
+        </ng-container>
+        <ng-template #noPreviewState>
+          <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600">
+            Preview results appear here after step 1.
+          </div>
+        </ng-template>
+      </div>
+
+      <div *ngSwitchCase="2" class="space-y-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" class="btn-secondary" (click)="reset()">Start over</button>
+          <button type="button" class="btn-primary" (click)="refreshMonitoring()" [disabled]="statusLoading || stageRecordsLoading">
+            <ng-container *ngIf="!(statusLoading || stageRecordsLoading); else refreshingTpl">Refresh metrics</ng-container>
+          </button>
+          <ng-template #refreshingTpl>
+            <div class="flex items-center justify-center gap-2">
+              <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              Refreshing…
+            </div>
+          </ng-template>
+        </div>
+
+        <div *ngIf="stageResponse" class="space-y-4 rounded-2xl border border-onsemi-primary/20 bg-onsemi-ice/60 p-5">
+          <div class="flex flex-wrap gap-6 text-sm text-onsemi-charcoal">
+            <p><strong>Staged:</strong> {{ stageResponse.staged }}</p>
+            <p><strong>Duplicates:</strong> {{ stageResponse.duplicates }}</p>
+            <p><strong>Dispatched:</strong> {{ stageResponse.dispatched }}</p>
+          </div>
+          <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700" *ngIf="stageResponse.requiresConfirmation">
+            Dispatch pending confirmation. Re-run staging to proceed.
+          </div>
+          <div *ngIf="stageResponse.duplicatePayloads.length" class="space-y-3">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p class="text-sm font-semibold text-onsemi-charcoal">Duplicate payloads ({{ stageResponse.duplicatePayloads.length }})</p>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="btn-secondary" (click)="copyDuplicatesToClipboard()">Copy duplicates</button>
+                <button type="button" class="btn-secondary" (click)="exportDuplicateCsv()">Export CSV</button>
+              </div>
+            </div>
+            <div class="overflow-auto rounded-xl border border-slate-200 bg-surface">
+              <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-onsemi-ice text-onsemi-charcoal">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-semibold">Metadata</th>
+                    <th class="px-4 py-3 text-left font-semibold">Data</th>
+                    <th class="px-4 py-3 text-left font-semibold">Requested By</th>
+                    <th class="px-4 py-3 text-left font-semibold">Last Requested</th>
+                    <th class="px-4 py-3 text-left font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-surface">
+                  <tr *ngFor="let dup of stageResponse.duplicatePayloads" class="hover:bg-onsemi-ice/60">
+                    <td class="px-4 py-3 font-medium text-onsemi-charcoal">{{ dup.metadataId }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ dup.dataId }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ dup.lastRequestedAt ? (dup.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ dup.previousStatus || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+        </div>
+
+        <div *ngIf="stageStatus.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div *ngFor="let status of stageStatus" class="rounded-2xl border border-slate-200 bg-surface p-5 shadow-sm">
+            <h3 class="text-sm font-semibold text-onsemi-charcoal">Sender {{ status.senderId }}</h3>
+            <dl class="mt-3 space-y-2 text-sm text-slate-600">
+              <div class="flex justify-between"><dt>Total</dt><dd class="font-semibold text-onsemi-charcoal">{{ status.total }}</dd></div>
+              <div class="flex justify-between"><dt>Ready</dt><dd class="font-semibold text-onsemi-charcoal">{{ status.ready }}</dd></div>
+              <div class="flex justify-between"><dt>Enqueued</dt><dd class="font-semibold text-onsemi-charcoal">{{ status.enqueued }}</dd></div>
+              <div class="flex justify-between"><dt>Completed</dt><dd class="font-semibold text-onsemi-charcoal">{{ status.completed }}</dd></div>
+              <div class="flex justify-between"><dt>Failed</dt><dd class="font-semibold text-onsemi-charcoal">{{ status.failed }}</dd></div>
+            </dl>
+            <div class="mt-4 space-y-2" *ngIf="status.users.length">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">User breakdown</p>
+              <div class="space-y-2 text-xs text-slate-600">
+                <div *ngFor="let user of status.users" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div class="flex items-center justify-between">
+                    <span class="font-semibold text-onsemi-charcoal">{{ user.username || 'unknown' }}</span>
+                    <span class="text-slate-500">{{ user.lastRequestedAt ? (user.lastRequestedAt | date: uiDateFormat) : '—' }}</span>
+                  </div>
+                  <div class="flex flex-col gap-2">
+                    <!-- Both admins and non-admins can use lot/wafer pairs. Admins also see date range below. -->
+                    <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
+                    <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
+                    <div class="space-y-2">
+                      <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
+                        <div>
+                          <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                          <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
+                        </div>
+                        <div>
+                          <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                        </div>
+                        <div class="flex items-center">
+                          <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
+                          <span class="text-xs text-slate-500">{{ i + 1 }}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= maxLotWaferPairs || !isLastPairFilled()">+ Add another pair</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <label for="stageRecordsSize" class="text-sm text-slate-600">Page size</label>
+                    <select id="stageRecordsSize" [(ngModel)]="stageRecordsSize" name="stageRecordsSize" (ngModelChange)="changeStageRecordsSize($event)"
+                            class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                      <option *ngFor="let size of stageRecordsSizes" [value]="size">{{ size }}</option>
+                    </select>
+                  </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          <div class="flex items-center justify-end gap-2 md:ml-auto">
+            <label for="stageRecordsSize" class="text-sm text-slate-600 mr-3 hidden md:inline">Page size</label>
+            <select id="stageRecordsSize" [(ngModel)]="stageRecordsSize" name="stageRecordsSize" (ngModelChange)="changeStageRecordsSize($event)"
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 md:inline">
+              <option *ngFor="let size of stageRecordsSizes" [value]="size">{{ size }}</option>
+            </select>
+
+            <button type="button" class="btn-secondary" (click)="exportStageRecordsCsv()" [disabled]="!stageRecords.length">Export CSV</button>
+          </div>
+        </div>
+
+        <div class="relative overflow-hidden rounded-2xl border border-slate-200">
+            <div *ngIf="stageRecordsLoading" class="absolute inset-0 z-10 flex items-center justify-center bg-surface-70">
+            <span class="h-6 w-6 animate-spin rounded-full border-2 border-onsemi-primary border-t-transparent"></span>
+          </div>
+          <div class="overflow-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+              <thead class="bg-onsemi-ice text-onsemi-charcoal">
                 <tr>
-                  <th>Metadata ID</th>
-                  <th>Data ID</th>
-                  <th>Lot</th>
-                  <th>End Time</th>
-                  <th class="select-cell">Select</th>
+                  <th class="px-4 py-3 text-left font-semibold">Metadata ID</th>
+                  <th class="px-4 py-3 text-left font-semibold">Data ID</th>
+                  <th class="px-4 py-3 text-left font-semibold">Status</th>
+                  <th class="px-4 py-3 text-left font-semibold">Staged By</th>
+                  <th class="px-4 py-3 text-left font-semibold">Last Requested</th>
+                  <th class="px-4 py-3 text-left font-semibold">Updated</th>
+                  <th class="px-4 py-3 text-left font-semibold">Error</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr *ngFor="let row of previewRows">
-                  <td>{{ row.metadataId || '—' }}</td>
-                  <td>{{ row.dataId || '—' }}</td>
-                  <td>{{ row.lot || '—' }}</td>
-                  <td>{{ row.endTime ? (row.endTime | date: uiDateFormat) : '—' }}</td>
-                  <td class="select-cell">
-                    <mat-checkbox [checked]="isRowSelected(row)" (change)="toggleRow(row, $event.checked)"></mat-checkbox>
-                  </td>
+              <tbody class="divide-y divide-slate-100 bg-surface">
+                <tr *ngFor="let record of stageRecords" class="hover:bg-onsemi-ice/60">
+                  <td class="px-4 py-3 font-medium text-onsemi-charcoal">{{ record.metadataId || '—' }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ record.dataId || '—' }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ record.status }}</td>
+                  <td class="px-4 py-3 text-slate-700">{{ record.lastRequestedBy || record.stagedBy || 'unknown' }}</td>
+                  <td class="px-4 py-3 text-slate-600">{{ record.lastRequestedAt ? (record.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
+                  <td class="px-4 py-3 text-slate-600">{{ record.updatedAt | date: uiDateFormat }}</td>
+                  <td class="px-4 py-3 text-slate-600">{{ record.errorMessage || '—' }}</td>
                 </tr>
               </tbody>
             </table>
-            <p class="empty-hint" *ngIf="!previewRows.length && !previewLoading">No results on this page.</p>
           </div>
-
-          <div class="pagination-bar" *ngIf="previewLoaded && previewTotal > 0">
-            <button mat-icon-button type="button" (click)="changePreviewPage(-1)" [disabled]="previewLoading || previewPage === 0">
-              <mat-icon>chevron_left</mat-icon>
-            </button>
-            <span>Page {{ previewPage + 1 }} of {{ previewLastPage + 1 }}</span>
-            <button mat-icon-button type="button" (click)="changePreviewPage(1)" [disabled]="previewLoading || previewLastPage < 0 || previewPage >= previewLastPage">
-              <mat-icon>chevron_right</mat-icon>
-            </button>
-            <mat-form-field appearance="outline" class="page-size-field">
-              <mat-label>Page size</mat-label>
-              <mat-select [(ngModel)]="previewSize" name="previewSize" (selectionChange)="changePreviewSize($event.value)">
-                <mat-option *ngFor="let size of previewSizes" [value]="size">{{ size }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <mat-checkbox [(ngModel)]="triggerDispatch" name="triggerDispatch">Dispatch immediately after staging</mat-checkbox>
-
-          <div class="step-actions">
-            <button mat-button type="button" (click)="goToStep(0)">Back</button>
-            <span class="helper">{{ selectedCount }} selected</span>
-            <button mat-raised-button color="primary" type="button" (click)="stageSelected()" [disabled]="staging || selectedCount === 0">
-              <mat-icon *ngIf="staging" class="spinner-icon">sync</mat-icon>
-              {{ staging ? 'Staging…' : 'Stage selected' }}
-            </button>
-          </div>
-        </ng-container>
-        <ng-template #noPreview>
-          <p *ngIf="!loading">Preview results appear here after step 1.</p>
-        </ng-template>
-      </div>
-    </mat-step>
-
-    <mat-step label="3. Monitor staging">
-      <div class="step-content">
-        <div class="step-actions">
-          <button mat-button type="button" (click)="reset()">Start over</button>
-          <button mat-stroked-button type="button" (click)="refreshMonitoring()" [disabled]="statusLoading || stageRecordsLoading">Refresh</button>
+          <p class="px-4 py-3 text-sm text-slate-500" *ngIf="!stageRecords.length && !stageRecordsLoading">No staged records for this filter.</p>
         </div>
 
-        <mat-card *ngIf="stageResponse" class="enqueue-card">
-          <mat-card-title>Last staging run</mat-card-title>
-          <mat-card-content>
-            <div><strong>Staged:</strong> {{ stageResponse.staged }}</div>
-            <div><strong>Duplicates:</strong> {{ stageResponse.duplicates }}</div>
-            <div><strong>Dispatched:</strong> {{ stageResponse.dispatched }}</div>
-            <div *ngIf="stageResponse.requiresConfirmation" class="warning-note">
-              <mat-icon aria-hidden="true">warning</mat-icon>
-              <span>Dispatch pending confirmation. Re-run staging to proceed.</span>
-            </div>
-            <div *ngIf="stageResponse.duplicatePayloads?.length">
-              <p><strong>Duplicate payloads ({{ stageResponse.duplicatePayloads.length }}):</strong></p>
-              <mat-list dense>
-                <mat-list-item *ngFor="let dup of stageResponse.duplicatePayloads | slice:0:10">
-                  <div class="duplicate-row">
-                    <div class="duplicate-ids">{{ dup.metadataId }}, {{ dup.dataId }}</div>
-                    <div class="duplicate-meta">
-                      <mat-icon aria-hidden="true">person</mat-icon>
-                      <span>{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</span>
-                      <span class="duplicate-time" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ (dup.lastRequestedAt || dup.stagedAt) | date: uiDateFormat }}</span>
-                      <span *ngIf="dup.previousStatus" class="duplicate-status">status {{ dup.previousStatus }}</span>
-                      <span *ngIf="dup.requiresConfirmation" class="duplicate-attention">needs confirmation</span>
-                    </div>
-                  </div>
-                </mat-list-item>
-              </mat-list>
-              <button mat-button type="button" (click)="copyDuplicatesToClipboard()">Copy duplicates</button>
-            </div>
-            <div *ngIf="!stageResponse.duplicatePayloads?.length"><small>No duplicates reported.</small></div>
-          </mat-card-content>
-        </mat-card>
-
-        <div class="status-grid" *ngIf="stageStatus.length">
-          <mat-card *ngFor="let status of stageStatus" class="status-card">
-            <mat-card-title>Sender {{ status.senderId }}</mat-card-title>
-            <mat-card-content>
-              <div class="status-line"><span>Total</span><strong>{{ status.total }}</strong></div>
-              <div class="status-line"><span>Ready</span><strong>{{ status.ready }}</strong></div>
-              <div class="status-line"><span>Enqueued</span><strong>{{ status.enqueued }}</strong></div>
-              <div class="status-line"><span>Completed</span><strong>{{ status.completed }}</strong></div>
-              <div class="status-line"><span>Failed</span><strong>{{ status.failed }}</strong></div>
-              <div class="status-users" *ngIf="status.users?.length">
-                <h4>User breakdown</h4>
-                <div class="status-user-row" *ngFor="let user of status.users">
-                  <div class="user-name">{{ user.username || 'unknown' }}</div>
-                  <div class="user-metrics">
-                    <span class="badge" matTooltip="Ready">R {{ user.ready }}</span>
-                    <span class="badge" matTooltip="Enqueued">E {{ user.enqueued }}</span>
-                    <span class="badge warn" matTooltip="Failed">F {{ user.failed }}</span>
-                    <span class="badge muted" matTooltip="Completed">C {{ user.completed }}</span>
-                  </div>
-                  <div class="user-timestamp" *ngIf="user.lastRequestedAt">{{ user.lastRequestedAt | date: uiDateFormat }}</div>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </div>
-        <p *ngIf="!stageStatus.length && !statusLoading">No staging metrics available yet.</p>
-
-        <div class="records-header">
-          <mat-form-field appearance="outline">
-            <mat-label>Status filter</mat-label>
-            <mat-select [(ngModel)]="stageRecordsStatus" name="recordsStatus" (selectionChange)="loadStageRecords(0)">
-              <mat-option value="ALL">All</mat-option>
-              <mat-option value="NEW">New</mat-option>
-              <mat-option value="ENQUEUED">Enqueued</mat-option>
-              <mat-option value="DONE">Done</mat-option>
-              <mat-option value="FAILED">Failed</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="page-size-field">
-            <mat-label>Page size</mat-label>
-            <mat-select [(ngModel)]="stageRecordsSize" name="recordPageSize" (selectionChange)="changeStageRecordsSize($event.value)">
-              <mat-option *ngFor="let size of stageRecordsSizes" [value]="size">{{ size }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <div class="records-table-wrapper" [class.loading]="stageRecordsLoading">
-          <div class="loading-overlay" *ngIf="stageRecordsLoading">
-            <mat-progress-spinner diameter="36" mode="indeterminate"></mat-progress-spinner>
-          </div>
-          <table class="records-table" *ngIf="stageRecords.length">
-            <thead>
-              <tr>
-                <th>Metadata ID</th>
-                <th>Data ID</th>
-                <th>Status</th>
-                <th>Staged By</th>
-                <th>Last Requested</th>
-                <th>Updated</th>
-                <th>Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let record of stageRecords">
-                <td>{{ record.metadataId || '—' }}</td>
-                <td>{{ record.dataId || '—' }}</td>
-                <td>{{ record.status }}</td>
-                <td>{{ record.lastRequestedBy || record.stagedBy || 'unknown' }}</td>
-                <td>{{ record.lastRequestedAt ? (record.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
-                <td>{{ record.updatedAt | date: uiDateFormat }}</td>
-                <td>{{ record.errorMessage || '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="empty-hint" *ngIf="!stageRecords.length && !stageRecordsLoading">No staged records for this filter.</p>
-        </div>
-
-        <div class="pagination-bar" *ngIf="stageRecordsTotal > 0">
-          <button mat-icon-button type="button" (click)="changeStageRecordsPage(-1)" [disabled]="stageRecordsLoading || stageRecordsPage === 0">
-            <mat-icon>chevron_left</mat-icon>
-          </button>
+        <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600" *ngIf="stageRecordsTotal > 0">
+          <button type="button" class="btn-secondary" (click)="changeStageRecordsPage(-1)" [disabled]="stageRecordsLoading || stageRecordsPage === 0">Prev</button>
           <span>Page {{ stageRecordsPage + 1 }} of {{ stageRecordsLastPage + 1 }}</span>
-          <button mat-icon-button type="button" (click)="changeStageRecordsPage(1)" [disabled]="stageRecordsLoading || stageRecordsLastPage < 0 || stageRecordsPage >= stageRecordsLastPage">
-            <mat-icon>chevron_right</mat-icon>
-          </button>
+          <button type="button" class="btn-secondary" (click)="changeStageRecordsPage(1)" [disabled]="stageRecordsLoading || stageRecordsLastPage < 0 || stageRecordsPage >= stageRecordsLastPage">Next</button>
         </div>
       </div>
-    </mat-step>
-  </mat-horizontal-stepper>
-</mat-card>
+    </div>
+  </div>
+</div>

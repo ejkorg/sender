@@ -1,15 +1,18 @@
 import { CommonModule, formatDate } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+// removed MatDialogModule as we migrated to inline dialog components
+import { ToastService } from '../ui/toast.service';
 import { firstValueFrom, Subscription, timer } from 'rxjs';
 import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
 import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
+import { ModalService } from '../ui/modal.service';
+import { SenderLookupDialogComponent } from '../sender-lookup.dialog';
+import { IconComponent } from '../ui/icon.component';
+import { ButtonComponent } from '../ui/button.component';
+import { CardComponent } from '../ui/card.component';
+import { TableComponent } from '../ui/table.component';
+import { BadgeComponent } from '../ui/badge.component';
+import { TooltipDirective } from '../ui/tooltip.directive';
 
 interface DashboardAggregate {
   total: number;
@@ -69,7 +72,7 @@ interface GlobalDetailRow extends Record<string, string | number | null | undefi
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatDialogModule, MatSnackBarModule],
+  imports: [CommonModule, IconComponent, ButtonComponent, CardComponent, TooltipDirective],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -125,7 +128,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   };
 
-  constructor(private api: BackendService, private dialog: MatDialog, private snack: MatSnackBar) {}
+  // dialog handled by ModalService
+
+  constructor(private api: BackendService, private toast: ToastService, private modal: ModalService) {}
+
+  async openSenderLookup(site?: string) {
+    try {
+      const items = await firstValueFrom(this.api.lookupSenders({ site: site ?? 'default' }).pipe());
+      const result = await this.modal.openComponent(SenderLookupDialogComponent as any, { items } as any);
+      if (result) {
+        // user selected an item — show toast (caller can implement full wiring later)
+        this.toast.info(`Selected sender: ${JSON.stringify(result)}`);
+      }
+    } catch (err) {
+      console.error('Sender lookup failed', err);
+      this.toast.error('Sender lookup failed');
+    }
+  }
 
   ngOnInit(): void {
     this.refresh();
@@ -458,19 +477,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private openDetailDialog(data: DashboardDetailDialogData): void {
-    this.dialog.open(DashboardDetailDialogComponent, {
-      width: '720px',
-      maxHeight: '80vh',
-      data
-    });
+  private async openDetailDialog(data: DashboardDetailDialogData): Promise<void> {
+    try {
+      await this.modal.openComponent(DashboardDetailDialogComponent, { data });
+    } catch (err) {
+      console.error('Failed to open detail dialog', err);
+    }
   }
 
   private async enqueueReady(row: GlobalDetailRow): Promise<void> {
     const senderId = this.normalizeSenderId(row.senderId);
     const site = row.site;
     if (!site || senderId === null) {
-      this.snack.open('Unable to determine site or sender for enqueue request.', 'Close', { duration: 4000 });
+      this.toast.error('Unable to determine site or sender for enqueue request.');
       return;
     }
     const readyCount = Number(row.ready ?? 0);
@@ -479,17 +498,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
   const response: DispatchResponse = await firstValueFrom(this.api.dispatchSender(senderId, { site, senderId, limit }));
   const dispatched = response.dispatched ?? 0;
       if (dispatched > 0) {
-        this.snack.open(`Enqueued ${dispatched} payload${dispatched === 1 ? '' : 's'} for ${row.sender}`, undefined, { duration: 3500 });
+        this.toast.success(`Enqueued ${dispatched} payload${dispatched === 1 ? '' : 's'} for ${row.sender}`);
         row.ready = Math.max(0, (row.ready ?? 0) - dispatched);
         row.backlog = Math.max(0, (row.backlog ?? 0) - dispatched);
         row.enqueued = (row.enqueued ?? 0) + dispatched;
       } else {
-        this.snack.open(`No payloads enqueued for ${row.sender}`, 'Close', { duration: 4000 });
+        this.toast.info(`No payloads enqueued for ${row.sender}`);
       }
       this.refresh(false);
     } catch (err) {
       console.error(`Failed to enqueue ready payloads for ${site} sender ${senderId}`, err);
-      this.snack.open(`Failed to enqueue ${row.sender}. See console for details.`, 'Close', { duration: 5000 });
+      this.toast.error(`Failed to enqueue ${row.sender}. See console for details.`);
     }
   }
 

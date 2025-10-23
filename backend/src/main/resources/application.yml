@@ -6,6 +6,10 @@ spring:
     exclude:
       - org.springframework.boot.autoconfigure.liquibase.LiquibaseAutoConfiguration
 
+security:
+  csp:
+    relaxed: true
+
 # Base refdb configuration. Per-environment overrides should be placed in
 # the corresponding profile such as `application-oracle.yml`.
 refdb:
@@ -21,6 +25,13 @@ reloader:
   dbconn:
     yaml:
       path: classpath:dbconnections.yml
+
+# Default mail settings (can be overridden per-profile or via env vars)
+app:
+  mail:
+    from: "no-reply@onsemi.com"
+    # default reset URL for local development; override in production
+    reset-url-base: "http://localhost:5173/reset-password"
 
 # Optional: Dev-only local authorization bootstrap (use Liquibase in prod)
 #refdb:

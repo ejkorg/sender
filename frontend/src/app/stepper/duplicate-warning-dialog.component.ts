@@ -1,10 +1,7 @@
 import { CommonModule, formatDate } from '@angular/common';
-import { Component, Inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { IconComponent } from '../ui/icon.component';
+import { TooltipDirective } from '../ui/tooltip.directive';
 import { DuplicatePayloadInfo } from '../api/backend.service';
 
 export interface DuplicateWarningDialogData {
@@ -15,29 +12,30 @@ export interface DuplicateWarningDialogData {
 @Component({
   selector: 'app-duplicate-warning-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatListModule, MatTooltipModule],
+  imports: [CommonModule, IconComponent, TooltipDirective],
   templateUrl: './duplicate-warning-dialog.component.html',
   styleUrls: ['./duplicate-warning-dialog.component.css']
 })
 export class DuplicateWarningDialogComponent {
-  readonly duplicatesToShow: DuplicatePayloadInfo[];
+  @Input() data!: DuplicateWarningDialogData;
+  @Output() close = new EventEmitter<boolean | null>();
+
   readonly uiDateFormat = 'yyyy-MM-dd HH:mm:ss';
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: DuplicateWarningDialogData,
-              private dialogRef: MatDialogRef<DuplicateWarningDialogComponent>) {
-    this.duplicatesToShow = (data.duplicates || []).slice(0, 20);
+  get duplicatesToShow(): DuplicatePayloadInfo[] {
+    return (this.data?.duplicates || []).slice(0, 20);
   }
 
   get otherUserCount(): number {
-    return (this.data.duplicates || []).filter(dup => this.isDifferentUser(dup)).length;
+    return (this.data?.duplicates || []).filter(dup => this.isDifferentUser(dup)).length;
   }
 
   continue(): void {
-    this.dialogRef.close(true);
+    this.close.emit(true);
   }
 
   cancel(): void {
-    this.dialogRef.close(false);
+    this.close.emit(false);
   }
 
   displayUser(user: string | null | undefined): string {
@@ -68,7 +66,7 @@ export class DuplicateWarningDialogComponent {
       return false;
     }
     const previous = this.displayUser(dup.lastRequestedBy ?? dup.stagedBy);
-    const current = this.displayUser(this.data.currentUser ?? '');
+    const current = this.displayUser(this.data?.currentUser ?? '');
     return previous.toLowerCase() !== current.toLowerCase();
   }
 }
