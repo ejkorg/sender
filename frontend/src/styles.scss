@@ -22,7 +22,18 @@
 	--badge-highlight-gradient: linear-gradient(90deg, var(--onsemi-primary), var(--onsemi-primary-light));
 	--badge-warn-gradient: linear-gradient(90deg, #ff6b6b, #ff8a8a);
 	--card-gradient: linear-gradient(180deg, var(--bg-gradient-start, rgba(246,249,251,0.9)) 0%, var(--bg-gradient-end, rgba(238,247,255,1)) 60%);
-	--header-gradient: radial-gradient(circle at 18% 26%, rgba(255,130,0,0.22) 0%, rgba(51,24,0,0.92) 55%);
+	// --header-gradient: radial-gradient(circle at 18% 26%, rgba(255,130,0,0.22) 0%, rgba(51,24,0,0.92) 55%);
+	//   --header-gradient: radial-gradient(
+	//     circle at 18% 26%,
+	//     rgba(255,106,0,0.85) 0%,   /* strong onsemi orange */
+	//     rgba(255,106,0,0.55) 55%   /* softer orange for fade */
+	//   );
+
+	--header-gradient: radial-gradient(
+		circle at 18% 26%,
+		rgba(255,106,0,0.9) 0%,    /* bright orange */
+		rgba(200,80,0,0.8) 55%     /* deeper orange tone */
+	);
 	--graph-gradient: linear-gradient(180deg, rgba(255,130,0,0.06) 0%, rgba(255, 255, 255, 0.95) 100%);
 	--stepper-bg: linear-gradient(155deg, rgba(255,130,0,0.08) 0%, #ffffff 55%);
 	--btn-unelevated-gradient: linear-gradient(135deg, var(--onsemi-navy) 0%, var(--onsemi-azure) 100%);
