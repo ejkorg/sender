@@ -58,7 +58,13 @@
                   "maximumError": "12kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ]
             },
             "development": {
               "optimization": false,
@@ -75,8 +81,7 @@
               "buildTarget": "frontend:build:production"
             },
             "development": {
-              "buildTarget": "frontend:build:development",
-              "proxyConfig": "proxy.conf.json"
+              "buildTarget": "frontend:build:development"
             }
           },
           "defaultConfiguration": "development"
