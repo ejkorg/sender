@@ -14,6 +14,11 @@
   </ng-container>
 </header>
 
+<!-- Dev runtime marker: shows current API base URL during development -->
+<div *ngIf="!env.production" class="bg-amber-50 border-b border-amber-200 text-amber-800 px-6 py-2 text-sm">
+  DEV: API base URL = {{ env.apiBaseUrl }}
+</div>
+
 <ng-template #toolbarLogin>
   <div class="text-sm text-slate-600">Not signed in</div>
 </ng-template>

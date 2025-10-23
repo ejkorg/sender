@@ -17,6 +17,7 @@ import { AdminDashboardComponent } from './admin-dashboard.component';
 import { ToastContainerComponent } from './ui/toast-container.component';
 import { ModalHostComponent } from './ui/modal-host.component';
 import { IconComponent } from './ui/icon.component';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -49,6 +50,9 @@ export class App {
     // apply persisted theme on startup
     this.theme.init();
   }
+
+  // expose environment for runtime marker
+  readonly env = environment;
   // show reset UI when URL path is /reset-password or token query is present
   get showReset(): boolean {
     try {
