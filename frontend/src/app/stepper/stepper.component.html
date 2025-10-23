@@ -22,30 +22,12 @@
             <p class="text-xs text-slate-500" *ngIf="selectedSite && !senderOptions.length && !sendersLoading">No senders available for this connection.</p>
           </div>
 
-          <div class="flex flex-col gap-2">
-            <!-- Both admins and non-admins can use lot/wafer pairs. Admins also see date range below. -->
-            <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
-            <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
-            <div class="space-y-2">
-              <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
-                <div>
-                  <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
-                  <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
-                </div>
-                <div>
-                  <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
-                </div>
-                <div class="flex items-center">
-                  <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
-                  <span class="text-xs text-slate-500">{{ i + 1 }}</span>
-                </div>
-              </div>
-              <div>
-                <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= maxLotWaferPairs || !isLastPairFilled()">+ Add another pair</button>
-              </div>
-            </div>
-          </div>
+          <div class="flex flex-col gap-2"></div>
         </div>
+
+        <!-- duplicate Lot / Wafer block removed; canonical block exists below Test phase -->
+
+        <!-- Lot / Wafer inputs will be rendered after the Test phase section -->
 
         <div class="rounded-2xl border border-onsemi-primary/15 bg-onsemi-ice/60 px-4 py-3 text-sm text-onsemi-charcoal" *ngIf="filtersLoading">
           <div class="flex items-center gap-3">
@@ -53,6 +35,8 @@
             Loading connection filters…
           </div>
         </div>
+
+        <!-- Lot / Wafer pairs removed from here and reinserted below Test phase -->
 
         <ng-container *ngIf="!filtersLoading && filterOptions as filters">
           <div class="grid gap-6 md:grid-cols-2">
@@ -145,6 +129,30 @@
           <p *ngIf="selectedSenderId"><strong>Sender:</strong> {{ selectedSenderId }} — {{ getSelectedSenderName() }}</p>
           <p *ngIf="selectedLocation"><strong>Location:</strong> {{ selectedLocation }}</p>
           <p *ngIf="selectedDataType"><strong>Data type:</strong> {{ selectedDataType }}</p>
+        </div>
+
+        <!-- Lot / Wafer pairs: appear after the Test phase / date grid (and after the Selected connection summary) -->
+        <div class="mt-4" *ngIf="selectedSite && selectedLocation && selectedDataType && (selectedTesterType || !(filterOptions?.testerTypes?.length))">
+          <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
+          <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
+          <div class="space-y-2 mt-2">
+            <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
+              <div>
+                <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+                <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
+              </div>
+              <div>
+                <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
+              </div>
+              <div class="flex items-center">
+                <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
+                <span class="text-xs text-slate-500">{{ i + 1 }}</span>
+              </div>
+            </div>
+            <div>
+              <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= maxLotWaferPairs || !isLastPairFilled()">+ Add another pair</button>
+            </div>
+          </div>
         </div>
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
