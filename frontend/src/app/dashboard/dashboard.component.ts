@@ -2,7 +2,9 @@ import { CommonModule, formatDate } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 // removed MatDialogModule as we migrated to inline dialog components
 import { ToastService } from '../ui/toast.service';
+import { AuthService } from '../auth/auth.service';
 import { firstValueFrom, Subscription, timer } from 'rxjs';
+import { filter, take } from 'rxjs/operators';
 import { BackendService, DispatchResponse, SenderOption, StageStatus, StageUserStatus } from '../api/backend.service';
 import { DashboardDetailDialogComponent, DashboardDetailDialogData, DashboardDetailColumn } from './dashboard-detail-dialog.component';
 import { ModalService } from '../ui/modal.service';
@@ -130,7 +132,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // dialog handled by ModalService
 
-  constructor(private api: BackendService, private toast: ToastService, private modal: ModalService) {}
+  constructor(private api: BackendService, private toast: ToastService, private modal: ModalService, private auth: AuthService) {}
 
   async openSenderLookup(site?: string) {
     try {
@@ -147,8 +149,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.refresh();
-    this.autoRefreshSub = timer(this.refreshIntervalMs, this.refreshIntervalMs).subscribe(() => this.refresh(false));
+    // Wait until AuthService emits a user before performing dashboard refreshes.
+    // This avoids making authenticated requests before the access token is set
+    // (prevents race conditions where the interceptor sees no token and requests 401).
+    // Use `filter`+`take(1)` so the subscribe callback runs only once and we don't
+    // need to manually unsubscribe (avoids TDZ issues when subscribe emits synchronously).
+    this.auth.user$.pipe(
+      filter(user => !!user),
+      take(1)
+    ).subscribe(() => {
+      this.refresh();
+      this.autoRefreshSub = timer(this.refreshIntervalMs, this.refreshIntervalMs).subscribe(() => this.refresh(false));
+    });
   }
 
   ngOnDestroy(): void {
