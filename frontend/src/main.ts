@@ -19,14 +19,14 @@ bootstrapApplication(App, {
     {
       provide: API_BASE_URL,
       useFactory: () => {
-        // In development, when the app is served on 0.0.0.0 or a network IP,
-        // prefer using the current page hostname so the browser can reach the
-        // backend at the host that served the UI (useful when "localhost"
-        // wouldn't resolve from other devices on the network).
+        // If dev proxy is enabled, return empty so interceptor leaves /api
+        // requests intact and the dev server proxies them.
         try {
+          if (!environment.production && (environment as any).useProxy) {
+            return '';
+          }
           if (!environment.production) {
             const loc = window.location;
-            // If the configured dev base uses localhost, swap hostname
             if (environment.apiBaseUrl && environment.apiBaseUrl.includes('localhost')) {
               const port = environment.apiBaseUrl.split(':').pop() || '8080';
               return `${loc.protocol}//${loc.hostname}:${port}`;
