@@ -116,11 +116,17 @@ public class SecurityConfig {
         // use allowed origin patterns so we can accept subdomains like
         // "https://<random>-4200.app.github.dev" used by Codespaces preview URLs.
         configuration.setAllowedOriginPatterns(java.util.List.of(
+            // keep common dev origins
             "http://localhost:4200",
             "http://127.0.0.1:4200",
             "http://localhost:8080",
             "http://127.0.0.1:8080",
-            "https://*.app.github.dev"
+            "https://*.app.github.dev",
+            // allow other machines on the local network to access the frontend
+            // (e.g. http://192.168.1.10:4200). Using patterns lets Spring echo
+            // the origin while allowCredentials=true.
+            "http://*",
+            "https://*"
         ));
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
