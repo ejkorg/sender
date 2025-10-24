@@ -23,6 +23,12 @@ export class AuthInterceptor implements HttpInterceptor {
   }
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    // Debug: log whether an access token is available when intercepting
+    try {
+      const t = this.auth.getAccessToken();
+      const masked = t && t.length ? (t.length > 12 ? t.substring(0, 6) + '…' + t.substring(t.length - 4) : t) : 'null';
+      console.debug('[AuthInterceptor] intercept - accessToken=', masked, ' url=', req.url);
+    } catch (e) { /* ignore */ }
     if (this.shouldBypass(req.url)) {
       return next.handle(req);
     }
@@ -77,6 +83,10 @@ export class AuthInterceptor implements HttpInterceptor {
     if (request.headers.has('Authorization')) {
       return request;
     }
+    try {
+      const masked = token && token.length ? (token.length > 12 ? token.substring(0, 6) + '…' + token.substring(token.length - 4) : token) : 'null';
+      console.debug('[AuthInterceptor] adding Authorization header - token=', masked, ' for url=', request.url);
+    } catch (e) { /* ignore */ }
     return request.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`

@@ -84,6 +84,11 @@ export class AuthService {
       this.userSubject.next(null);
       return;
     }
+    // Debug: log masked token presence for troubleshooting auth flow
+    try {
+      const masked = token && token.length ? (token.length > 12 ? token.substring(0, 6) + '…' + token.substring(token.length - 4) : token) : 'null';
+      console.debug('[AuthService] setSession - token=', masked);
+    } catch (e) { /* ignore logging errors */ }
     this.accessToken = token;
     const username = this.extractUsername(token) || fallbackUsername || null;
     let roles: string[] = [];
@@ -106,7 +111,11 @@ export class AuthService {
 
   // Get current authenticated user from backend
   getMe(): Observable<UserInfo | null> {
-    return this.http.get<any>(`${this.baseUrl}/me`, { withCredentials: true }).pipe(
+    // Ensure Authorization header is included on this initial /me call using the
+    // in-memory access token as a fallback in case the interceptor hasn't yet
+    // picked it up (avoids a race or DI-instance mismatch).
+    const headers = this.getAuthHeaders() || undefined;
+    return this.http.get<any>(`${this.baseUrl}/me`, { withCredentials: true, headers }).pipe(
       map(res => {
         if (res && res.username) {
           const info: UserInfo = { username: res.username, roles: res.roles || [] };

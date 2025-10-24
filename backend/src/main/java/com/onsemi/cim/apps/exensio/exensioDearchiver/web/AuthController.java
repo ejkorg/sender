@@ -17,6 +17,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.service.AuthTokenService;
 import com.onsemi.cim.apps.exensio.exensioDearchiver.repository.AppUserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,6 +43,12 @@ public class AuthController {
     private final com.onsemi.cim.apps.exensio.exensioDearchiver.service.MailService mailService;
     private final boolean returnTokensInResponse;
     private final String resetUrlBase;
+    // cookie attributes for refresh token; configurable via application properties
+    @org.springframework.beans.factory.annotation.Value("${reloader.refresh.cookie-secure:false}")
+    private boolean refreshCookieSecure;
+
+    @org.springframework.beans.factory.annotation.Value("${reloader.refresh.cookie-sameSite:None}")
+    private String refreshCookieSameSite;
 
     public AuthController(AuthenticationManager authManager, JwtUtil jwtUtil, RefreshTokenService refreshTokenService,
                           AuthTokenService authTokenService, AppUserRepository userRepository, PasswordEncoder passwordEncoder,
@@ -158,10 +166,19 @@ public class AuthController {
             rt.setExpiresAt(java.time.Instant.now().plusSeconds(60 * 60 * 24 * 7)); // 7 days
             refreshTokenService.save(rt);
 
-            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refresh_token", rt.getToken());
-            cookie.setHttpOnly(true);
-            cookie.setPath("/");
-            resp.addCookie(cookie);
+            // Build Set-Cookie header manually so we can control SameSite and Secure attrs
+            StringBuilder sc = new StringBuilder();
+            sc.append("refresh_token=").append(rt.getToken()).append("; Path=/; HttpOnly");
+            if (this.refreshCookieSecure) sc.append("; Secure");
+            if (this.refreshCookieSameSite != null && !this.refreshCookieSameSite.isBlank()) {
+                String s = this.refreshCookieSameSite.trim();
+                if ("None".equalsIgnoreCase(s) && !this.refreshCookieSecure) {
+                    logger.warn("[AuthController.login] SameSite=None configured but refreshCookieSecure=false; omitting SameSite attribute to avoid browser rejection in non-secure dev contexts");
+                } else {
+                    sc.append("; SameSite=").append(s);
+                }
+            }
+            resp.addHeader("Set-Cookie", sc.toString());
 
             Map<String, String> body = new HashMap<>();
             body.put("accessToken", accessToken);
@@ -191,10 +208,19 @@ public class AuthController {
             rt.setExpiresAt(java.time.Instant.now().plusSeconds(60 * 60 * 24 * 7));
             refreshTokenService.save(rt);
 
-            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refresh_token", rt.getToken());
-            cookie.setHttpOnly(true);
-            cookie.setPath("/");
-            resp.addCookie(cookie);
+            // Build Set-Cookie header manually for refresh rotation
+            StringBuilder sc2 = new StringBuilder();
+            sc2.append("refresh_token=").append(rt.getToken()).append("; Path=/; HttpOnly");
+            if (this.refreshCookieSecure) sc2.append("; Secure");
+            if (this.refreshCookieSameSite != null && !this.refreshCookieSameSite.isBlank()) {
+                String s2 = this.refreshCookieSameSite.trim();
+                if ("None".equalsIgnoreCase(s2) && !this.refreshCookieSecure) {
+                    logger.warn("[AuthController.refresh] SameSite=None configured but refreshCookieSecure=false; omitting SameSite attribute to avoid browser rejection in non-secure dev contexts");
+                } else {
+                    sc2.append("; SameSite=").append(s2);
+                }
+            }
+            resp.addHeader("Set-Cookie", sc2.toString());
 
             Map<String, String> body = new HashMap<>();
             // On refresh we do not have Authentication; rebuild roles from DB
@@ -215,15 +241,51 @@ public class AuthController {
             refreshTokenService.revoke(rt);
         });
 
-        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("refresh_token", "");
-        cookie.setMaxAge(0);
-        cookie.setPath("/");
-        resp.addCookie(cookie);
+        // Clear cookie by setting an expired Set-Cookie header
+        StringBuilder sc3 = new StringBuilder();
+        sc3.append("refresh_token=; Path=/; HttpOnly; Max-Age=0");
+        if (this.refreshCookieSecure) sc3.append("; Secure");
+        if (this.refreshCookieSameSite != null && !this.refreshCookieSameSite.isBlank()) {
+            String s3 = this.refreshCookieSameSite.trim();
+            if ("None".equalsIgnoreCase(s3) && !this.refreshCookieSecure) {
+                logger.warn("[AuthController.logout] SameSite=None configured but refreshCookieSecure=false; omitting SameSite attribute to avoid browser rejection in non-secure dev contexts");
+            } else {
+                sc3.append("; SameSite=").append(s3);
+            }
+        }
+        resp.addHeader("Set-Cookie", sc3.toString());
         return ResponseEntity.ok().build();
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me(org.springframework.security.core.Authentication authentication) {
+        // server-side debug: log presence of Authorization header and refresh cookie (masked)
+        try {
+            var attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                var req = attrs.getRequest();
+                String authHeader = req.getHeader("Authorization");
+                String authMasked = null;
+                if (authHeader != null && !authHeader.isBlank()) {
+                    authMasked = authHeader.length() > 12 ? authHeader.substring(0, 6) + "…" + authHeader.substring(authHeader.length() - 4) : authHeader;
+                }
+                String cookieMask = "(none)";
+                var cookies = req.getCookies();
+                if (cookies != null) {
+                    for (var c : cookies) {
+                        if ("refresh_token".equals(c.getName())) {
+                            String v = c.getValue();
+                            cookieMask = v == null ? "(empty)" : (v.length() > 12 ? v.substring(0, 6) + "…" + v.substring(v.length() - 4) : v);
+                            break;
+                        }
+                    }
+                }
+                logger.debug("[AuthController.me] incoming Authorization={} refresh_cookie={}", authMasked, cookieMask);
+            }
+        } catch (Exception e) {
+            logger.warn("[AuthController.me] failed to inspect incoming request headers", e);
+        }
+
         if (authentication == null || !authentication.isAuthenticated()) return ResponseEntity.status(401).build();
         Map<String, Object> body = new HashMap<>();
         body.put("username", authentication.getName());
