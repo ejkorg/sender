@@ -149,9 +149,16 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         sb.append(" and dl.location = ?"); params.add(location);
         sb.append(" and dd.data_type = ?"); params.add(dataType);
 
-        // tester type: match selected value OR entries where tester type is NULL on the conf row
+        // tester type: prefer ID-based matching if caller provided a numeric id; allow NULL fallback
         if (testerType != null && !testerType.isBlank()) {
-            sb.append(" and (dt.type = ? OR dc.id_tester_type IS NULL)"); params.add(testerType);
+            String tt = testerType.trim();
+            if (tt.matches("^\\d+$")) {
+                // caller supplied testerType as an id -> match dc.id_tester_type
+                sb.append(" and (dc.id_tester_type = ? OR dc.id_tester_type IS NULL)"); params.add(tt);
+            } else {
+                // caller supplied tester type name -> match dt.type OR fallback where id_tester_type IS NULL
+                sb.append(" and (dt.type = ? OR dc.id_tester_type IS NULL)"); params.add(tt);
+            }
         }
 
         // data type extension: when provided, match the value OR id_data_type_ext IS NULL
@@ -159,10 +166,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
             sb.append(" and (de.data_type_ext = ? OR dc.id_data_type_ext IS NULL)"); params.add(dataTypeExt);
         }
 
-        // test phase: if provided, attempt a regex match against the distribution config where_condition
+        // test phase: if provided, perform a LIKE match against where_condition (Python uses LIKE '%phase%')
         if (testPhase != null && !testPhase.isBlank() && !"NULL".equalsIgnoreCase(testPhase) && !"NONE".equalsIgnoreCase(testPhase)) {
-            // Use REGEXP_LIKE for DBs that support it (Oracle/H2). This may be a no-op on DBs without regex support.
-            sb.append(" and REGEXP_LIKE(dc.where_condition, ?)"); params.add(testPhase.trim());
+            sb.append(" and dc.where_condition like ?"); params.add("%" + testPhase.trim() + "%");
         }
 
         sb.append(" order by dl.location, dd.data_type, dt.type, de.data_type_ext");
@@ -209,12 +215,19 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         // location and dataType are required for lookup
         if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); }
         if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and (dt.type = ? OR dc.id_tester_type IS NULL)"); }
+        if (testerType != null && !testerType.isBlank()) {
+            String tt = testerType.trim();
+            if (tt.matches("^\\d+$")) {
+                sb.append(" and (dc.id_tester_type = ? OR dc.id_tester_type IS NULL)");
+            } else {
+                sb.append(" and (dt.type = ? OR dc.id_tester_type IS NULL)");
+            }
+        }
         if (dataTypeExt != null && !dataTypeExt.isBlank() && !"NULL".equalsIgnoreCase(dataTypeExt) && !"NONE".equalsIgnoreCase(dataTypeExt)) {
             sb.append(" and (de.data_type_ext = ? OR dc.id_data_type_ext IS NULL)");
         }
         if (testPhase != null && !testPhase.isBlank() && !"NULL".equalsIgnoreCase(testPhase) && !"NONE".equalsIgnoreCase(testPhase)) {
-            sb.append(" and REGEXP_LIKE(dc.where_condition, ?)");
+            sb.append(" and dc.where_condition like ?");
         }
         sb.append(" order by dl.location, dd.data_type, dt.type, de.data_type_ext");
         return sb.toString();
@@ -335,7 +348,33 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         sql += " order by tester_type";
 
         PreparedStatement ps = null; ResultSet rs = null;
-        try { ps = c.prepareStatement(sql); int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString()); rs = ps.executeQuery(); List<String> out = new ArrayList<>(); while (rs.next()) { String v = rs.getString(1); if (v != null && !v.isBlank()) out.add(v); } return out; } catch (Exception ex) { log.error("Failed fetching distinct tester types from simple_client_setting: {}", ex.getMessage(), ex); throw new RuntimeException("Distinct tester types query failed", ex); } finally { try { if (rs != null) rs.close(); } catch (Exception ignore) {} try { if (ps != null) ps.close(); } catch (Exception ignore) {} }
+        try {
+            ps = c.prepareStatement(sql);
+            int idx = 1;
+            for (Object p : params) ps.setString(idx++, p == null ? null : p.toString());
+            rs = ps.executeQuery();
+            List<String> out = new ArrayList<>();
+            boolean hasNull = false;
+            while (rs.next()) {
+                String v = rs.getString(1);
+                if (v == null) {
+                    hasNull = true;
+                } else if (!v.isBlank()) {
+                    out.add(v);
+                }
+            }
+            if (hasNull) {
+                // include an explicit empty string to represent NULL value so UI can show 'None' or blank option
+                out.add(0, "");
+            }
+            return out;
+        } catch (Exception ex) {
+            log.error("Failed fetching distinct tester types from simple_client_setting: {}", ex.getMessage(), ex);
+            throw new RuntimeException("Distinct tester types query failed", ex);
+        } finally {
+            try { if (rs != null) rs.close(); } catch (Exception ignore) {}
+            try { if (ps != null) ps.close(); } catch (Exception ignore) {}
+        }
     }
 
     @Override
@@ -344,11 +383,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         List<Object> params = new ArrayList<>();
         if (location != null && !location.isBlank()) { sql += " and location = ?"; params.add(location); }
         if (dataType != null && !dataType.isBlank()) { sql += " and data_type = ?"; params.add(dataType); }
-        // Allow testerType to be null and also fallback to rows where tester_type IS NULL when a value is provided
-        // Pattern: ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )
-        sql += " and ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )";
-        params.add(testerType);
-        params.add(testerType);
+        // Note: do not filter data_type_ext by tester_type so that extensions are available
+        // based solely on location + data_type. This ensures the UI can present data_type_ext
+        // choices even when testerType is not provided or explicitly NULL.
         sql += " order by data_type_ext";
 
         PreparedStatement ps = null; ResultSet rs = null;
@@ -398,8 +435,30 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         List<Object> params = new ArrayList<>();
         sb.append(" and location = ?"); params.add(location);
         sb.append(" and data_type = ?"); params.add(dataType);
-        // include tester type matching with NULL fallback regardless of whether testerType is supplied
-        sb.append(" and ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )"); params.add(testerType); params.add(testerType);
+        // Do not filter test phases by tester_type — return phases based on location + data_type
+        // so the UI can present test phase choices even when testerType is not supplied or is NULL.
+
+        // If the caller supplied a senderId or senderName, ensure there exists a distribution
+        // configuration row for that sender which could apply to the same location/data_type.
+        // When matching the distribution config, allow tester_type to match OR be NULL so
+        // we preserve the fallback semantics. We don't require a specific data_type_ext here
+        // so NULL data_type_ext entries will also be considered.
+        if (senderId != null || (senderName != null && !senderName.isBlank())) {
+            sb.append(" and exists (select 1 from dtp_dist_conf dc ");
+            sb.append(" left join dtp_location dl on dc.id_location = dl.id ");
+            sb.append(" left join dtp_data_type dd on dc.id_data_type = dd.id ");
+            sb.append(" left join dtp_tester_type dt on dc.id_tester_type = dt.id ");
+            sb.append(" left join dtp_sender ss on dc.id_sender = ss.id ");
+            sb.append(" where dl.location = ? and dd.data_type = ?");
+            params.add(location);
+            params.add(dataType);
+            if (senderId != null) { sb.append(" and dc.id_sender = ?"); params.add(senderId); }
+            if (senderName != null && !senderName.isBlank()) { sb.append(" and ss.name = ?"); params.add(senderName); }
+            // allow tester type to match or be NULL on the distribution config row
+            sb.append(" and ( ? IS NULL OR dt.type = ? OR dc.id_tester_type IS NULL )"); params.add(testerType); params.add(testerType);
+            sb.append(" )");
+        }
+
         sb.append(" order by 1");
 
         PreparedStatement ps = null;

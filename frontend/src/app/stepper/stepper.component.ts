@@ -58,8 +58,12 @@ export class StepperComponent implements OnInit, OnDestroy {
   senderLookupLoading = false;
 
   selectedLocation = '';
+  // optional hidden ids supplied by the dropdowns (not shown to user)
+  selectedLocationId: number | null = null;
   selectedDataType = '';
+  selectedDataTypeId: number | null = null;
   selectedTesterType = '';
+  selectedTesterTypeId: number | null = null;
   selectedTestPhase = '';
   // optional extended data type filter (populated after testerType selected)
   selectedDataTypeExt = '';
@@ -271,7 +275,14 @@ export class StepperComponent implements OnInit, OnDestroy {
     }
     this.filtersLoading = true;
     this.dataTypesLoading = true;
-    this.api.getDistinctDataTypes({ connectionKey: this.selectedSite, location: this.selectedLocation }).subscribe({
+    const params: Record<string, any> = { connectionKey: this.selectedSite };
+    // prefer numeric locationId when available
+    if (this.selectedLocationId != null) {
+      params['locationId'] = this.selectedLocationId;
+    } else {
+      params['location'] = this.selectedLocation;
+    }
+    this.api.getDistinctDataTypes(params).subscribe({
       next: (dataTypes: string[]) => {
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: dataTypes || [], testerTypes: [], dataTypeExt: [] };
         this.filtersLoading = false;
@@ -294,7 +305,19 @@ export class StepperComponent implements OnInit, OnDestroy {
     }
     this.filtersLoading = true;
     this.testerTypesLoading = true;
-    this.api.getDistinctTesterTypes({ connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType }).subscribe({
+    const params: Record<string, any> = { connectionKey: this.selectedSite };
+    if (this.selectedLocationId != null) {
+      params['locationId'] = this.selectedLocationId;
+    } else {
+      params['location'] = this.selectedLocation;
+    }
+    // prefer numeric data type id when available
+    if (this.selectedDataTypeId != null) {
+      params['dataType'] = this.selectedDataTypeId;
+    } else {
+      params['dataType'] = this.selectedDataType;
+    }
+    this.api.getDistinctTesterTypes(params).subscribe({
       next: (testerTypes: string[]) => {
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: testerTypes || [], dataTypeExt: [] };
         this.filtersLoading = false;
@@ -318,7 +341,23 @@ export class StepperComponent implements OnInit, OnDestroy {
     }
     this.filtersLoading = true;
     this.dataTypeExtLoading = true;
-      const params: Record<string, any> = { connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType, testerType: this.selectedTesterType || null };
+      const params: Record<string, any> = { connectionKey: this.selectedSite };
+      if (this.selectedLocationId != null) {
+        params['locationId'] = this.selectedLocationId;
+      } else {
+        params['location'] = this.selectedLocation;
+      }
+      if (this.selectedDataTypeId != null) {
+        params['dataType'] = this.selectedDataTypeId;
+      } else {
+        params['dataType'] = this.selectedDataType;
+      }
+      // prefer numeric testerType id when available
+      if (this.selectedTesterTypeId != null) {
+        params['testerType'] = String(this.selectedTesterTypeId);
+      } else {
+        params['testerType'] = this.mapSelectionValueToParam(this.selectedTesterType);
+      }
     this.api.getDistinctDataTypeExts(params).subscribe({
       next: (exts: string[] | null | undefined) => {
         let hasBlank = false;
@@ -350,10 +389,24 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.senderAutoResolved = false;
     this.senderFallback = false;
     const params: Record<string, any> = { connectionKey: this.selectedSite };
-    if (this.selectedLocation) params['location'] = this.selectedLocation;
-    if (this.selectedDataType) params['dataType'] = this.selectedDataType;
-      params['testerType'] = this.selectedTesterType || null;
-    if (this.selectedDataTypeExt) params['dataTypeExt'] = this.selectedDataTypeExt;
+    if (this.selectedLocationId != null) {
+      params['locationId'] = this.selectedLocationId;
+    } else if (this.selectedLocation) {
+      params['location'] = this.selectedLocation;
+    }
+    if (this.selectedDataTypeId != null) {
+      params['dataType'] = String(this.selectedDataTypeId);
+    } else if (this.selectedDataType) {
+      params['dataType'] = this.selectedDataType;
+    }
+    if (this.selectedTesterTypeId != null) {
+      params['testerType'] = String(this.selectedTesterTypeId);
+    } else {
+      params['testerType'] = this.mapSelectionValueToParam(this.selectedTesterType);
+    }
+    params['dataTypeExt'] = this.mapSelectionValueToParam(this.selectedDataTypeExt);
+        // include testPhase (always present as key, null when not selected) so backend can apply OR-NULL semantics
+        params['testPhase'] = this.mapSelectionValueToParam(this.selectedTestPhase);
     // attempt a lookup first to auto-resolve senderId (backend may return metadata about lookup)
     this.api.lookupSenders(params).subscribe({
       next: (lookup: any[]) => {
@@ -445,6 +498,8 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   onLocationChanged() {
     this.clearDiscoveryState();
+    // If the dropdown option encoded an id (JSON), extract it so we can call backend endpoints using locationId.
+    this.extractHiddenIdFromSelection('location');
     // when location chosen, load data types
     this.loadDataTypes();
     // clear sender selection and reload filtered senders
@@ -453,6 +508,8 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   onDataTypeChanged() {
     this.clearDiscoveryState();
+    // If the dropdown option encoded an id (JSON), extract it so we can pass a numeric dataType id when available.
+    this.extractHiddenIdFromSelection('dataType');
     // when data type chosen, load tester types
     this.loadTesterTypes();
     // Allow extensions and phases to be loaded even if testerType is not yet selected
@@ -470,9 +527,62 @@ export class StepperComponent implements OnInit, OnDestroy {
     // when testerType chosen or cleared, reset sender selection so resolution will re-run later
     this.selectedSenderId = null;
     // load extensions for this tester type (data_type_ext)
+    // If the dropdown option encoded an id (JSON), extract it so we can pass numeric testerType id when available.
+    this.extractHiddenIdFromSelection('testerType');
     this.loadDataTypeExts();
     // Refresh test phases (we fetch phases before resolving sender)
     this.refreshTestPhasesIfReady();
+  }
+
+  /**
+   * Helper to extract hidden id information when option values are encoded as JSON like
+   * {"id":123, "label":"Display"}. This keeps the visible label in the existing
+   * selected* string fields while capturing the numeric id in selected*Id fields.
+   *
+   * Supported kinds: 'location' | 'dataType' | 'testerType'
+   */
+  private extractHiddenIdFromSelection(kind: 'location' | 'dataType' | 'testerType') {
+    try {
+      if (kind === 'location') {
+        const v = this.selectedLocation;
+        if (v && v.trim().startsWith('{')) {
+          const parsed = JSON.parse(v);
+          if (parsed && (parsed.id || parsed.label)) {
+            this.selectedLocationId = parsed.id ?? null;
+            this.selectedLocation = parsed.label ?? '';
+            return;
+          }
+        }
+        this.selectedLocationId = null;
+      } else if (kind === 'dataType') {
+        const v = this.selectedDataType;
+        if (v && v.trim().startsWith('{')) {
+          const parsed = JSON.parse(v);
+          if (parsed && (parsed.id || parsed.label)) {
+            this.selectedDataTypeId = parsed.id ?? null;
+            this.selectedDataType = parsed.label ?? '';
+            return;
+          }
+        }
+        this.selectedDataTypeId = null;
+      } else if (kind === 'testerType') {
+        const v = this.selectedTesterType;
+        if (v && v.trim().startsWith('{')) {
+          const parsed = JSON.parse(v);
+          if (parsed && (parsed.id || parsed.label)) {
+            this.selectedTesterTypeId = parsed.id ?? null;
+            this.selectedTesterType = parsed.label ?? '';
+            return;
+          }
+        }
+        this.selectedTesterTypeId = null;
+      }
+    } catch (e) {
+      // ignore parse errors and treat selection as plain string
+      if (kind === 'location') this.selectedLocationId = null;
+      if (kind === 'dataType') this.selectedDataTypeId = null;
+      if (kind === 'testerType') this.selectedTesterTypeId = null;
+    }
   }
 
   onTestPhaseChanged() {
@@ -537,6 +647,18 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.stepIndex = 0;
   }
 
+  /**
+   * Map a selection value used in templates to an API parameter.
+   * - '__NULL__' (sentinel) -> 'NULL' (server-recognised marker to mean NULL-aware filters)
+   * - empty string or falsy -> null (meaning 'Any' / omit filter)
+   * - otherwise return the value as-is
+   */
+  private mapSelectionValueToParam(val: string | null | undefined): string | null {
+    if (val === '__NULL__') return 'NULL';
+    if (!val) return null;
+    return val;
+  }
+
   private refreshTestPhasesIfReady() {
     if (!this.selectedSite) {
       this.testPhaseOptions = [];
@@ -554,12 +676,24 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.testPhaseLoading = true;
     const params: Record<string, any> = {
       connectionKey: this.selectedSite,
-      location: this.selectedLocation,
-      dataType: this.selectedDataType,
     };
+    if (this.selectedLocationId != null) {
+      params['locationId'] = this.selectedLocationId;
+    } else {
+      params['location'] = this.selectedLocation;
+    }
+    if (this.selectedDataTypeId != null) {
+      params['dataType'] = String(this.selectedDataTypeId);
+    } else {
+      params['dataType'] = this.selectedDataType;
+    }
     // Include testerType/dataTypeExt even when not selected so backend can apply OR NULL matching
-    params['testerType'] = this.selectedTesterType || null;
-    params['dataTypeExt'] = this.selectedDataTypeExt || null;
+    if (this.selectedTesterTypeId != null) {
+      params['testerType'] = String(this.selectedTesterTypeId);
+    } else {
+      params['testerType'] = this.mapSelectionValueToParam(this.selectedTesterType);
+    }
+    params['dataTypeExt'] = this.mapSelectionValueToParam(this.selectedDataTypeExt);
 
     this.api.getDistinctTestPhases(params).subscribe({
       next: (phases: string[] | null | undefined) => {

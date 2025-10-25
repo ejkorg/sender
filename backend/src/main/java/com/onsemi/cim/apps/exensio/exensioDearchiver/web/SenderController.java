@@ -506,7 +506,9 @@ public class SenderController {
             } else {
                 throw new IllegalArgumentException("locationId or connectionKey is required");
             }
-            if (location == null || location.isBlank() || dataType == null || dataType.isBlank() || testerType == null || testerType.isBlank()) {
+            // Only require location and dataType; testerType is optional and the repository will
+            // apply OR-NULL semantics so callers can request phases even when testerType is not provided.
+            if (location == null || location.isBlank() || dataType == null || dataType.isBlank()) {
                 return ResponseEntity.ok(java.util.List.of());
             }
             try (java.sql.Connection c = conn) {

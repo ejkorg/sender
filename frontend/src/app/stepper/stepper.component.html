@@ -73,7 +73,10 @@
               <select id="testerType" [(ngModel)]="selectedTesterType" name="testerType" (ngModelChange)="onTesterTypeChanged()"
                       class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
                 <option value="">Any</option>
-                <option *ngFor="let tt of (filterOptions?.testerTypes || [])" [value]="tt">{{ tt }}</option>
+                  <!-- Show explicit label for DB NULL entries; use sentinel '__NULL__' as the option value so we can distinguish from 'Any' -->
+                  <option *ngFor="let tt of (filterOptions?.testerTypes || [])" [value]="tt === '' ? '__NULL__' : tt">{{ tt === '' ? '(null)' : tt }}</option>
+                  <!-- If backend didn't include an explicit blank entry for NULL, provide a fallback option so the UI always allows selecting NULL -->
+                  <option *ngIf="(filterOptions?.testerTypes || []).indexOf('') === -1" [value]="'__NULL__'">(null)</option>
               </select>
               <p *ngIf="testerTypesLoading" class="flex items-center gap-2 text-xs text-slate-500 mt-1">
                 <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
@@ -88,59 +91,92 @@
                       [disabled]="filtersLoading || !(filterOptions?.dataTypeExt?.length)"
                       class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
                 <option value="">Any</option>
-                <option *ngFor="let ext of (filterOptions?.dataTypeExt || [])" [value]="ext">{{ ext }}</option>
+                <option *ngFor="let ext of (filterOptions?.dataTypeExt || [])" [value]="ext === '' ? '__NULL__' : ext">{{ ext === '' ? '(null)' : ext }}</option>
               </select>
               <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="dataTypeExtLoading">
                 <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
                 Loading extensions…
               </p>
             </div>
-
-            <div class="flex flex-col gap-2">
-              <app-sender-selector
-                [senderOptions]="senderOptions"
-                [selectedSenderId]="selectedSenderId"
-                [selectedSenderName]="getSelectedSenderName()"
-                [senderFallback]="senderFallback"
-                [senderLookupLoading]="senderLookupLoading"
-                [senderAutoResolved]="senderAutoResolved"
-                (selectSender)="selectSender($event)"
-                (senderChanged)="onSenderChanged()">
-              </app-sender-selector>
-            </div>
           </div>
+
+            <!-- Test Phase will be grouped with date/time below; sender will be shown in its own half-row beneath -->
 
         <div class="grid gap-6 md:grid-cols-2">
           <div class="flex flex-col gap-2">
             <label class="text-sm font-semibold text-onsemi-charcoal" for="phase">Test phase</label>
-                <select id="phase" [(ngModel)]="selectedTestPhase" name="testPhase" (ngModelChange)="onTestPhaseChanged()"
+            <select id="phase" [(ngModel)]="selectedTestPhase" name="testPhase" (ngModelChange)="onTestPhaseChanged()"
                     [disabled]="!testPhaseOptions.length && !testPhaseLoading"
-                    class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                    class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
               <option value="">Any</option>
-              <option *ngFor="let phase of testPhaseOptions" [value]="phase">{{ phase || 'None' }}</option>
+              <option *ngFor="let phase of testPhaseOptions" [value]="phase === '' ? '__NULL__' : phase">{{ phase === '' ? '(null)' : phase }}</option>
             </select>
             <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="testPhaseLoading">
               <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
               Loading phases…
             </p>
           </div>
+
           <div class="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
             <ng-container *ngIf="isAdmin; else nonAdminDates">
-                   <div class="flex flex-col gap-2">
-                  <label class="text-sm font-semibold text-onsemi-charcoal" for="startDate">Start (date & time)</label>
-                  <!-- datetime-local provides local date/time; bind to ISO-local value -->
-                  <input id="startDate" type="datetime-local" [ngModel]="startDate ? (startDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onStartDateChange($event)" name="startDate"
-                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-                </div>
-                <div class="flex flex-col gap-2">
-                  <label class="text-sm font-semibold text-onsemi-charcoal" for="endDate">End (date & time)</label>
-                  <input id="endDate" type="datetime-local" [ngModel]="endDate ? (endDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onEndDateChange($event)" name="endDate"
-                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-                </div>
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-semibold text-onsemi-charcoal" for="startDate">Start (date & time)</label>
+                <!-- datetime-local provides local date/time; bind to ISO-local value -->
+                <input id="startDate" type="datetime-local" [ngModel]="startDate ? (startDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onStartDateChange($event)" name="startDate"
+                  class="w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+              </div>
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-semibold text-onsemi-charcoal" for="endDate">End (date & time)</label>
+                <input id="endDate" type="datetime-local" [ngModel]="endDate ? (endDate | date:'yyyy-MM-ddTHH:mm') : ''" (ngModelChange)="onEndDateChange($event)" name="endDate"
+                  class="w-full rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+              </div>
             </ng-container>
             <ng-template #nonAdminDates>
               <div class="col-span-2 text-sm text-slate-600">Non-admin users search by lot/wafer pairs only.</div>
             </ng-template>
+          </div>
+        </div>
+
+        <!-- Sender occupies half the next row; Selected connection shown on the right half -->
+        <div class="grid gap-6 md:grid-cols-2 mt-4">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-onsemi-charcoal">Sender</label>
+            <app-sender-selector
+              [senderOptions]="senderOptions"
+              [selectedSenderId]="selectedSenderId"
+              [selectedSenderName]="getSelectedSenderName()"
+              [senderFallback]="senderFallback"
+              [senderLookupLoading]="senderLookupLoading"
+              [senderAutoResolved]="senderAutoResolved"
+              (selectSender)="selectSender($event)"
+              (senderChanged)="onSenderChanged()">
+            </app-sender-selector>
+            <p class="text-xs text-slate-500 mt-1" *ngIf="selectedSite && !senderOptions.length && !senderLookupLoading">No senders available for this connection.</p>
+          </div>
+          <div class="flex flex-col gap-3">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              <p><strong>Selected connection:</strong> {{ selectedSite || 'None' }}</p>
+              <p *ngIf="selectedSenderId"><strong>Sender:</strong> {{ selectedSenderId }} — {{ getSelectedSenderName() }}</p>
+              <p *ngIf="selectedLocation"><strong>Location:</strong> {{ selectedLocation }}</p>
+              <p *ngIf="selectedDataType"><strong>Data type:</strong> {{ selectedDataType }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sender selector: placed after Test Phase so sender resolution runs last -->
+        <div class="mt-4">
+          <div class="flex flex-col gap-2">
+            <app-sender-selector
+              [senderOptions]="senderOptions"
+              [selectedSenderId]="selectedSenderId"
+              [selectedSenderName]="getSelectedSenderName()"
+              [senderFallback]="senderFallback"
+              [senderLookupLoading]="senderLookupLoading"
+              [senderAutoResolved]="senderAutoResolved"
+              (selectSender)="selectSender($event)"
+              (senderChanged)="onSenderChanged()">
+            </app-sender-selector>
+            <p class="text-xs text-slate-500 mt-1" *ngIf="selectedSite && !senderOptions.length && !senderLookupLoading">No senders available for this connection.</p>
           </div>
         </div>
 
