@@ -18,6 +18,9 @@ if (!environment.production) {
 bootstrapApplication(App, {
   ...appConfig,
   providers: [
+    // preserve providers defined in appConfig (routing, global providers)
+    ...(appConfig.providers ?? []),
+    // app-specific http client with our interceptors
     provideHttpClient(withInterceptors([apiBaseUrlInterceptor, authInterceptorFn])),
     // Keep the class provider for backwards compatibility, but the functional
     // interceptor above is what `provideHttpClient` will run for the new
