@@ -78,11 +78,18 @@ public class MetadataImporterService {
         return externalDbConfig.getConnectionByKey(key, environment);
     }
 
-    public java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> findSendersWithConnection(java.sql.Connection c, String location, String dataType, String testerType, String testPhase) {
+    public java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> findSendersWithConnection(java.sql.Connection c, String location, String dataType, String testerType, String dataTypeExt, String testPhase) {
         if (externalMetadataRepository instanceof com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) {
-            return ((com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) externalMetadataRepository).findSendersWithConnection(c, location, dataType, testerType, testPhase);
+            return ((com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) externalMetadataRepository).findSendersWithConnection(c, location, dataType, testerType, dataTypeExt, testPhase);
         }
         throw new UnsupportedOperationException("Sender lookup only supported by JDBC implementation");
+    }
+
+    public String describeSenderLookupQueryWithConnection(java.sql.Connection c, String location, String dataType, String testerType, String dataTypeExt, String testPhase) {
+        if (externalMetadataRepository instanceof com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) {
+            return ((com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) externalMetadataRepository).describeSenderLookupQueryWithConnection(c, location, dataType, testerType, dataTypeExt, testPhase);
+        }
+        return null;
     }
 
     public java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> findAllSendersWithConnection(java.sql.Connection c) {

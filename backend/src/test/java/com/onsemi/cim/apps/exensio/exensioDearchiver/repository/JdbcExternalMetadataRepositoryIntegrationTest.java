@@ -102,15 +102,15 @@ public class JdbcExternalMetadataRepositoryIntegrationTest {
         // Use repository.findSendersWithConnection to query
     try (Connection c = DriverManager.getConnection("jdbc:h2:mem:external_repo;DB_CLOSE_DELAY=-1", "sa", "")) {
             // when testPhase = 'PH1' we should get sender 10
-            java.util.List<SenderCandidate> res1 = repository.findSendersWithConnection(c, "LOC1", "D1", "T1", "PH1");
+            java.util.List<SenderCandidate> res1 = repository.findSendersWithConnection(c, "LOC1", "D1", "T1", "PH1", null);
             assertThat(res1).extracting(SenderCandidate::getIdSender).contains(10);
 
             // when testPhase is blank string, expect to match the NULL entry (sender 20)
-            java.util.List<SenderCandidate> res2 = repository.findSendersWithConnection(c, "LOC1", "D1", "T1", "");
+            java.util.List<SenderCandidate> res2 = repository.findSendersWithConnection(c, "LOC1", "D1", "T1", "", null);
             assertThat(res2).extracting(SenderCandidate::getIdSender).contains(20);
 
             // when testPhase is 'NONE' explicitly, also expect sender 20
-            java.util.List<SenderCandidate> res3 = repository.findSendersWithConnection(c, "LOC1", "D1", "T1", "NONE");
+            java.util.List<SenderCandidate> res3 = repository.findSendersWithConnection(c, "LOC1", "D1", "T1", "NONE", null);
             assertThat(res3).extracting(SenderCandidate::getIdSender).contains(20);
         }
     }

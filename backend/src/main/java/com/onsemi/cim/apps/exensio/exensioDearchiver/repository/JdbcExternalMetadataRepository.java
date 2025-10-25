@@ -129,7 +129,7 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
-    public java.util.List<SenderCandidate> findSendersWithConnection(Connection c, String location, String dataType, String testerType, String testPhase) {
+    public java.util.List<SenderCandidate> findSendersWithConnection(Connection c, String location, String dataType, String testerType, String dataTypeExt, String testPhase) {
         StringBuilder sb = new StringBuilder();
     // include the ORDER BY expressions in the select list to satisfy H2 when using DISTINCT
     sb.append("select distinct dc.id_sender, ss.name, dl.location, dd.data_type, dt.type, de.data_type_ext from dtp_dist_conf dc ");
@@ -143,11 +143,11 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); params.add(location); }
         if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); params.add(dataType); }
         if (testerType != null && !testerType.isBlank()) { sb.append(" and dt.type = ?"); params.add(testerType); }
-        if (testPhase != null) {
-            if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
+        if (dataTypeExt != null) {
+            if (dataTypeExt.isBlank() || "NULL".equalsIgnoreCase(dataTypeExt) || "NONE".equalsIgnoreCase(dataTypeExt)) {
                 sb.append(" and dc.id_data_type_ext IS NULL");
             } else {
-                sb.append(" and de.data_type_ext = ?"); params.add(testPhase);
+                sb.append(" and de.data_type_ext = ?"); params.add(dataTypeExt);
             }
         }
         sb.append(" order by dl.location, dd.data_type, dt.type, de.data_type_ext");
@@ -179,6 +179,30 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
             try { if (rs != null) rs.close(); } catch (Exception ignore) {}
             try { if (ps != null) ps.close(); } catch (Exception ignore) {}
         }
+    }
+
+    @Override
+    public String describeSenderLookupQueryWithConnection(Connection c, String location, String dataType, String testerType, String dataTypeExt, String testPhase) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("select distinct dc.id_sender, ss.name, dl.location, dd.data_type, dt.type, de.data_type_ext from dtp_dist_conf dc ");
+        sb.append("left join dtp_location dl on dc.id_location = dl.id ");
+        sb.append("left join dtp_data_type dd on dc.id_data_type = dd.id ");
+        sb.append("left join dtp_tester_type dt on dc.id_tester_type = dt.id ");
+        sb.append("left join dtp_data_type_ext de on dc.id_data_type_ext = de.id ");
+        sb.append("left join dtp_sender ss on dc.id_sender = ss.id ");
+        sb.append(" where 1=1 ");
+        if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); }
+        if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); }
+        if (testerType != null && !testerType.isBlank()) { sb.append(" and dt.type = ?"); }
+        if (dataTypeExt != null) {
+            if (dataTypeExt.isBlank() || "NULL".equalsIgnoreCase(dataTypeExt) || "NONE".equalsIgnoreCase(dataTypeExt)) {
+                sb.append(" and dc.id_data_type_ext IS NULL");
+            } else {
+                sb.append(" and de.data_type_ext = ?");
+            }
+        }
+        sb.append(" order by dl.location, dd.data_type, dt.type, de.data_type_ext");
+        return sb.toString();
     }
 
     @Override

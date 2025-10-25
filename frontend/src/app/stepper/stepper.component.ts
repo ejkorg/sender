@@ -52,6 +52,8 @@ export class StepperComponent implements OnInit, OnDestroy {
   selectedDataType = '';
   selectedTesterType = '';
   selectedTestPhase = '';
+  // optional extended data type filter (populated after testerType selected)
+  selectedDataTypeExt = '';
   startDate: Date | null = null;
   endDate: Date | null = null;
 
@@ -78,6 +80,9 @@ export class StepperComponent implements OnInit, OnDestroy {
   previewLoaded = false;
   selectedCount = 0;
   previewDebugSql: string | null = null;
+
+  // Optional log info captured when attempting to resolve senderId
+  senderLookupLog: { endpoint: string; params: Record<string, any>; raw?: any } | null = null;
 
   triggerDispatch = false;
   staging = false;
@@ -286,6 +291,28 @@ export class StepperComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Load data type extensions filtered by the current upstream selections (called after testerType chosen)
+  private loadDataTypeExts() {
+    if (!this.selectedSite || !this.selectedLocation || !this.selectedDataType || !this.selectedTesterType) {
+      this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: [] };
+      return;
+    }
+    this.filtersLoading = true;
+    const params: Record<string, any> = { connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType, testerType: this.selectedTesterType };
+    // Reuse getDistinctDataTypes endpoint to fetch related extensions when provided with testerType — backend should filter appropriately.
+    this.api.getDistinctDataTypes(params).subscribe({
+      next: (exts: string[]) => {
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: exts || [] };
+        this.filtersLoading = false;
+      },
+      error: (err: unknown) => {
+        console.error('Failed to load data type extensions', err);
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: [] };
+        this.filtersLoading = false;
+      }
+    });
+  }
+
   // Load senders filtered by all upstream selections and try to auto-resolve
   private loadSendersFiltered() {
     if (!this.selectedSite) return;
@@ -295,31 +322,82 @@ export class StepperComponent implements OnInit, OnDestroy {
     if (this.selectedLocation) params['location'] = this.selectedLocation;
     if (this.selectedDataType) params['dataType'] = this.selectedDataType;
     if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
-    this.api.getExternalSenders(params).subscribe({
-      next: (senders: SenderOption[]) => {
-        const opts = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
-        this.senderOptions = opts;
-        if (opts.length === 1) {
-          this.selectedSenderId = opts[0].idSender ?? null;
-          this.senderAutoResolved = true;
-        } else {
-          // preserve previous selection if still present
-          if (this.selectedSenderId != null && !this.senderOptions.some(s => s.idSender === this.selectedSenderId)) {
-            this.selectedSenderId = null;
+    if (this.selectedDataTypeExt) params['dataTypeExt'] = this.selectedDataTypeExt;
+    // attempt a lookup first to auto-resolve senderId (backend may return metadata about lookup)
+    this.api.lookupSenders(params).subscribe({
+      next: (lookup: any[]) => {
+        try {
+          console.debug('Sender lookup result', lookup, 'params', params);
+          // Capture lookup metadata if available (e.g., table/query info returned by backend)
+          if (lookup && lookup.length === 1 && (lookup[0].idSender !== undefined || lookup[0].id_sender !== undefined)) {
+            const id = lookup[0].idSender ?? lookup[0].id_sender ?? null;
+            this.selectedSenderId = id;
+            this.senderAutoResolved = true;
+            // attempt to capture optional metadata
+            this.senderLookupLog = { endpoint: '/senders/lookup', params, raw: lookup[0] };
+            this.refreshTestPhasesIfReady();
+            this.sendersLoading = false;
+            return;
           }
-          this.senderAutoResolved = false;
+        } catch (e) {
+          console.error('Failed processing lookupSenders result', e);
         }
-        this.refreshTestPhasesIfReady();
+        // fallback to listing external senders
+        this.api.getExternalSenders(params).subscribe({
+          next: (senders: SenderOption[]) => {
+            this.senderOptions = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
+            if (this.senderOptions.length === 1) {
+              this.selectedSenderId = this.senderOptions[0].idSender ?? null;
+              this.senderAutoResolved = true;
+            } else {
+              // preserve previous selection if still present
+              if (this.selectedSenderId != null && !this.senderOptions.some(s => s.idSender === this.selectedSenderId)) {
+                this.selectedSenderId = null;
+              }
+              this.senderAutoResolved = false;
+            }
+            this.senderLookupLog = { endpoint: '/senders/external/senders', params, raw: this.senderOptions };
+            this.refreshTestPhasesIfReady();
+          },
+          error: (err: unknown) => {
+            console.error('Failed to load filtered senders', err);
+            this.senderOptions = [];
+            this.selectedSenderId = null;
+            this.senderAutoResolved = false;
+            this.sendersLoading = false;
+          },
+          complete: () => {
+            this.sendersLoading = false;
+          }
+        });
       },
       error: (err: unknown) => {
-        console.error('Failed to load filtered senders', err);
-        this.senderOptions = [];
-        this.selectedSenderId = null;
-        this.senderAutoResolved = false;
-        this.sendersLoading = false;
-      },
-      complete: () => {
-        this.sendersLoading = false;
+        console.error('Sender lookup failed, falling back to listing', err);
+        // fallback to listing external senders
+        this.api.getExternalSenders(params).subscribe({
+          next: (senders: SenderOption[]) => {
+            this.senderOptions = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
+            if (this.senderOptions.length === 1) {
+              this.selectedSenderId = this.senderOptions[0].idSender ?? null;
+              this.senderAutoResolved = true;
+            } else {
+              if (this.selectedSenderId != null && !this.senderOptions.some(s => s.idSender === this.selectedSenderId)) {
+                this.selectedSenderId = null;
+              }
+              this.senderAutoResolved = false;
+            }
+            this.senderLookupLog = { endpoint: '/senders/external/senders', params, raw: this.senderOptions };
+          },
+          error: (err2: unknown) => {
+            console.error('Failed to load filtered senders', err2);
+            this.senderOptions = [];
+            this.selectedSenderId = null;
+            this.senderAutoResolved = false;
+          },
+          complete: () => {
+            this.sendersLoading = false;
+          }
+        });
       }
     });
   }
@@ -338,7 +416,6 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.loadDataTypes();
     // clear sender selection and reload filtered senders
     this.selectedSenderId = null;
-    this.loadSendersFiltered();
   }
 
   onDataTypeChanged() {
@@ -346,15 +423,23 @@ export class StepperComponent implements OnInit, OnDestroy {
     // when data type chosen, load tester types
     this.loadTesterTypes();
     this.selectedSenderId = null;
-    this.loadSendersFiltered();
   }
 
   onTesterTypeChanged() {
     this.clearDiscoveryState();
     // when testerType chosen, reload senders filtered by all upstream
     this.selectedSenderId = null;
-    this.loadSendersFiltered();
+    // load extensions for this tester type (data_type_ext)
+    this.loadDataTypeExts();
+    // Refresh test phases (we fetch phases before resolving sender)
     this.refreshTestPhasesIfReady();
+  }
+
+  onTestPhaseChanged() {
+    this.clearDiscoveryState();
+    // After the test phase is chosen (or explicitly changed), load senders filtered by all upstream selections.
+    this.selectedSenderId = null;
+    this.loadSendersFiltered();
   }
 
   onSenderChanged() {
@@ -362,6 +447,14 @@ export class StepperComponent implements OnInit, OnDestroy {
     // if user manually selected sender, it's not auto-resolved
     this.senderAutoResolved = false;
     this.refreshTestPhasesIfReady();
+  }
+
+  // Select a sender via the tile/grid UI. Public so template can access it.
+  public selectSender(senderId: number | null): void {
+    if (this.sendersLoading) return;
+    this.selectedSenderId = senderId;
+    // reuse existing handler to clear discovery state and refresh phases
+    this.onSenderChanged();
   }
 
   onStartDateChange(value: string) {
@@ -411,8 +504,8 @@ export class StepperComponent implements OnInit, OnDestroy {
       this.selectedTestPhase = '';
       return;
     }
-
-    const hasRequired = !!(this.selectedLocation && this.selectedDataType && this.selectedTesterType && this.selectedSenderId != null);
+    // Fetch test phases once we have location, dataType and testerType (sender is intentionally not required)
+    const hasRequired = !!(this.selectedLocation && this.selectedDataType && this.selectedTesterType);
     if (!hasRequired) {
       this.testPhaseOptions = [];
       this.selectedTestPhase = '';
@@ -424,9 +517,7 @@ export class StepperComponent implements OnInit, OnDestroy {
       connectionKey: this.selectedSite,
       location: this.selectedLocation,
       dataType: this.selectedDataType,
-      testerType: this.selectedTesterType,
-      senderId: this.selectedSenderId ?? undefined,
-      senderName: this.getSelectedSenderName() || undefined
+      testerType: this.selectedTesterType
     };
 
     this.api.getDistinctTestPhases(params).subscribe({
@@ -446,7 +537,10 @@ export class StepperComponent implements OnInit, OnDestroy {
           this.testPhaseOptions = unique;
         }
         if (!this.testPhaseOptions.length) {
+          // No phases available: immediately load senders since test phase isn't applicable
           this.selectedTestPhase = '';
+          // defer sender loading slightly to let UI update
+          setTimeout(() => this.loadSendersFiltered(), 0);
         } else if (this.selectedTestPhase && !this.testPhaseOptions.includes(this.selectedTestPhase)) {
           this.selectedTestPhase = '';
         }

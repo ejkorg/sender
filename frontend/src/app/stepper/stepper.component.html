@@ -36,26 +36,34 @@
 
         <!-- Lot / Wafer pairs removed from here and reinserted below Test phase -->
 
-        <ng-container *ngIf="!filtersLoading && filterOptions as filters">
-          <div class="grid gap-6 md:grid-cols-2">
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="location">Location</label>
-              <select id="location" [(ngModel)]="selectedLocation" name="location" (ngModelChange)="onLocationChanged()"
-                      class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-                <option value="">Select location</option>
-                <option *ngFor="let loc of filters.locations" [value]="loc">{{ loc }}</option>
-              </select>
-            </div>
-
-            <div class="flex flex-col gap-2">
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="dataType">Data type</label>
-              <select id="dataType" [(ngModel)]="selectedDataType" name="dataType" (ngModelChange)="onDataTypeChanged()"
-                      class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-                <option value="">Select data type</option>
-                <option *ngFor="let dt of filters.dataTypes" [value]="dt">{{ dt }}</option>
-              </select>
-            </div>
+        <!-- Always show filter inputs. Each field shows its own loading/disabled state based on prerequisites. -->
+        <div class="grid gap-6 md:grid-cols-2">
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-onsemi-charcoal" for="location">
+              Location
+              <span *ngIf="filtersLoading" class="ml-2 text-xs text-slate-500">(loading…)</span>
+            </label>
+            <select id="location" [(ngModel)]="selectedLocation" name="location" (ngModelChange)="onLocationChanged()"
+                    [disabled]="filtersLoading || !selectedSite"
+                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+              <option value="">Select location</option>
+              <option *ngFor="let loc of (filterOptions?.locations || [])" [value]="loc">{{ loc }}</option>
+            </select>
           </div>
+
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-onsemi-charcoal" for="dataType">
+              Data type
+              <span *ngIf="filtersLoading" class="ml-2 text-xs text-slate-500">(loading…)</span>
+            </label>
+            <select id="dataType" [(ngModel)]="selectedDataType" name="dataType" (ngModelChange)="onDataTypeChanged()"
+                    [disabled]="filtersLoading || !selectedLocation"
+                    class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+              <option value="">Select data type</option>
+              <option *ngFor="let dt of (filterOptions?.dataTypes || [])" [value]="dt">{{ dt }}</option>
+            </select>
+          </div>
+        </div>
 
           <div class="grid gap-6 md:grid-cols-2">
             <div class="flex flex-col gap-2">
@@ -63,35 +71,75 @@
               <select id="testerType" [(ngModel)]="selectedTesterType" name="testerType" (ngModelChange)="onTesterTypeChanged()"
                       class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
                 <option value="">Select tester type</option>
-                <option *ngFor="let tt of filters.testerTypes" [value]="tt">{{ tt }}</option>
+                <option *ngFor="let tt of (filterOptions?.testerTypes || [])" [value]="tt">{{ tt }}</option>
               </select>
+            </div>
+            
+            <!-- Data type extension: appears after tester type is selected -->
+            <div class="flex flex-col gap-2" *ngIf="selectedTesterType">
+              <label class="text-sm font-semibold text-onsemi-charcoal" for="dataTypeExt">Data type ext</label>
+              <select id="dataTypeExt" [(ngModel)]="selectedDataTypeExt" name="dataTypeExt" (ngModelChange)="onDataTypeChanged()"
+                      [disabled]="filtersLoading || !(filterOptions?.dataTypeExt?.length)"
+                      class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+                <option value="">Any</option>
+                <option *ngFor="let ext of (filterOptions?.dataTypeExt || [])" [value]="ext">{{ ext }}</option>
+              </select>
+              <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="filtersLoading">
+                <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+                Loading extensions…
+              </p>
             </div>
 
             <div class="flex flex-col gap-2">
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="sender">Sender</label>
-              <ng-container *ngIf="senderAutoResolved && selectedSenderId; else senderDropdown">
+              <label class="text-sm font-semibold text-onsemi-charcoal" for="sender">Sender
+                <span *ngIf="sendersLoading" class="ml-2 text-xs text-slate-500">(loading…)</span>
+              </label>
+              <ng-container *ngIf="senderAutoResolved && selectedSenderId; else senderSelection">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Auto-selected: {{ selectedSenderId }} — {{ getSelectedSenderName() }}</div>
               </ng-container>
-              <ng-template #senderDropdown>
+              <ng-template #senderSelection>
+                <!-- Tile/grid view for medium+ screens -->
+                <div *ngIf="senderOptions?.length" class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <button *ngFor="let s of senderOptions" type="button"
+                          class="rounded-xl border px-3 py-2 text-left text-sm shadow-sm disabled:opacity-60"
+                          [class.border-onsemi-primary]="selectedSenderId === s.idSender"
+                          [class.bg-onsemi-ice]="selectedSenderId === s.idSender"
+                          (click)="selectSender(s.idSender)"
+                          [disabled]="sendersLoading">
+                    <div class="font-medium text-onsemi-charcoal">{{ s.idSender }} — {{ s.name }}</div>
+                    <!-- Sender description not available in SenderOption; keep only name/ID -->
+                  </button>
+                </div>
+
+                <!-- Fallback select for small screens / accessibility -->
                 <select id="sender" [(ngModel)]="selectedSenderId" name="senderId" (ngModelChange)="onSenderChanged()"
                         [disabled]="sendersLoading || !senderOptions.length"
-                        class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:opacity-60">
+                        class="md:hidden rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:opacity-60">
                   <option [ngValue]="null">Select sender</option>
                   <option *ngFor="let sender of senderOptions" [ngValue]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</option>
                 </select>
+
+                <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="!senderOptions?.length && !sendersLoading">
+                  No senders available for the selected filters.
+                </p>
                 <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="sendersLoading">
                   <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
                   Loading sender list…
                 </p>
               </ng-template>
+              <!-- Debug: show which endpoint/params were used to resolve senderId (if available) -->
+              <div *ngIf="senderLookupLog" class="mt-2 p-2 rounded-md bg-slate-50 border border-slate-100 text-xs text-slate-600">
+                <div><strong>Sender lookup:</strong> {{ senderLookupLog.endpoint }}</div>
+                <div class="mt-1">Params: <code>{{ senderLookupLog.params | json }}</code></div>
+                <div *ngIf="senderLookupLog.raw" class="mt-1">Response: <pre class="whitespace-pre-wrap">{{ senderLookupLog.raw | json }}</pre></div>
+              </div>
             </div>
           </div>
-        </ng-container>
 
         <div class="grid gap-6 md:grid-cols-2">
           <div class="flex flex-col gap-2">
             <label class="text-sm font-semibold text-onsemi-charcoal" for="phase">Test phase</label>
-            <select id="phase" [(ngModel)]="selectedTestPhase" name="testPhase"
+                <select id="phase" [(ngModel)]="selectedTestPhase" name="testPhase" (ngModelChange)="onTestPhaseChanged()"
                     [disabled]="!testPhaseOptions.length && !testPhaseLoading"
                     class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
               <option value="">Any</option>

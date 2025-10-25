@@ -268,6 +268,7 @@ public class SenderController {
                                                                                        @RequestParam(required = false) String metadataLocation,
                                                                                        @RequestParam(required = false) String dataType,
                                                                                        @RequestParam(required = false) String testerType,
+                                                                                       @RequestParam(required = false) String dataTypeExt,
                                                                                        @RequestParam(required = false) String testPhase,
                                                                                        @RequestParam(required = false, name = "senderId") Integer senderId,
                                                                                        @RequestParam(required = false, name = "senderName") String senderName,
@@ -295,7 +296,9 @@ public class SenderController {
                 // metric: record lookup by saved connection key or locationId
                 String key = loc != null ? ("locationId=" + loc.getId()) : connectionKey;
                 try { metricsService.increment("external.lookup", key); } catch (Exception ignore) {}
-                java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> res = metadataImporterService.findSendersWithConnection(c, metadataLocation, dataType, testerType, testPhase);
+                java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> res = metadataImporterService.findSendersWithConnection(c, metadataLocation, dataType, testerType, dataTypeExt, testPhase);
+                    String sqlDesc = null;
+                    try { sqlDesc = metadataImporterService.describeSenderLookupQueryWithConnection(c, metadataLocation, dataType, testerType, dataTypeExt, testPhase); } catch (Exception ignore) {}
                     java.util.List<java.util.Map<String,Object>> out = new java.util.ArrayList<>();
                     for (com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate s : res) {
                         if (senderId != null && s.getIdSender() != null && !java.util.Objects.equals(senderId, s.getIdSender())) {
@@ -310,6 +313,7 @@ public class SenderController {
                         java.util.Map<String,Object> m = new java.util.HashMap<>();
                         m.put("idSender", s.getIdSender());
                         m.put("name", s.getName());
+                        if (sqlDesc != null) m.put("query", sqlDesc);
                         out.add(m);
                     }
                 return ResponseEntity.ok(out);
@@ -459,6 +463,11 @@ public class SenderController {
     @GetMapping("/external/senders")
     public ResponseEntity<java.util.List<java.util.Map<String,Object>>> externalSenders(@RequestParam(required = false, name = "locationId") Long locationId,
                                                                                          @RequestParam(required = false, name = "connectionKey") String connectionKey,
+                                                                                         @RequestParam(required = false) String metadataLocation,
+                                                                                         @RequestParam(required = false) String dataType,
+                                                                                         @RequestParam(required = false) String testerType,
+                                                                                         @RequestParam(required = false) String dataTypeExt,
+                                                                                         @RequestParam(required = false) String testPhase,
                                                                                          @RequestParam(defaultValue = "qa") String environment) {
         try {
             java.sql.Connection conn = null;
@@ -473,13 +482,17 @@ public class SenderController {
             }
             try (java.sql.Connection c = conn) {
                 try { metricsService.increment("external.senders", locationId != null ? "locationId=" + locationId : connectionKey); } catch (Exception ignore) {}
+                // Fetch all senders (fallback) and also provide the descriptive SQL that would be used for a filtered lookup
                 java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> senders = metadataImporterService.findAllSendersWithConnection(c);
+                String sqlDesc = null;
+                try { sqlDesc = metadataImporterService.describeSenderLookupQueryWithConnection(c, metadataLocation, dataType, testerType, dataTypeExt, testPhase); } catch (Exception ignore) {}
                 java.util.List<java.util.Map<String,Object>> out = new java.util.ArrayList<>();
                 for (com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate s : senders) {
                     java.util.Map<String,Object> m = new java.util.HashMap<>();
                     m.put("idSender", s.getIdSender());
                     m.put("name", s.getName());
                     m.put("id", s.getIdSender());
+                    if (sqlDesc != null) m.put("query", sqlDesc);
                     out.add(m);
                 }
                 return ResponseEntity.ok(out);

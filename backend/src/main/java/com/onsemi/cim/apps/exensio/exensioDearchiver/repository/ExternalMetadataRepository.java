@@ -49,8 +49,16 @@ public interface ExternalMetadataRepository {
                                                               String location,
                                                               String dataType,
                                                               String testerType,
+                                                              String dataTypeExt,
                                                               String testPhase);
 
+    /**
+     * Describe the SQL that would be used for sender lookup (for debugging/logging).
+     * Implementations may return the SQL text or null if not available.
+     */
+    default String describeSenderLookupQueryWithConnection(java.sql.Connection conn, String location, String dataType, String testerType, String dataTypeExt, String testPhase) {
+        return null;
+    }
     java.util.List<SenderCandidate> findAllSendersWithConnection(java.sql.Connection conn);
 
     // Distinct value helpers (use existing Connection lifecycle)
