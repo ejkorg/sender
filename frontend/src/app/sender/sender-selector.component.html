@@ -1,0 +1,53 @@
+<div class="flex flex-col gap-2">
+  <label class="text-sm font-semibold text-onsemi-charcoal" for="sender">Sender
+    <span *ngIf="senderLookupLoading" class="ml-2 text-xs text-slate-500">(loading…)</span>
+  </label>
+
+  <ng-container *ngIf="senderAutoResolved && selectedSenderId; else senderSelection">
+    <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Auto-selected: {{ selectedSenderId }} — {{ selectedSenderName }}</div>
+  </ng-container>
+
+  <ng-template #senderSelection>
+    <!-- Tile/grid view for medium+ screens (only when not using fallback dropdown) -->
+    <div *ngIf="senderOptions?.length && !senderFallback" class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+      <button *ngFor="let s of senderOptions" type="button"
+              class="rounded-xl border px-3 py-2 text-left text-sm shadow-sm disabled:opacity-60"
+              [class.border-onsemi-primary]="selectedSenderId === s.idSender"
+              [class.bg-onsemi-ice]="selectedSenderId === s.idSender"
+              (click)="selectSender.emit(s.idSender)"
+              [disabled]="senderLookupLoading">
+        <div class="font-medium text-onsemi-charcoal">{{ s.idSender }} — {{ s.name }}</div>
+      </button>
+    </div>
+
+    <!-- Fallback select for medium+ screens when lookup fell back to listing -->
+    <select *ngIf="senderFallback" id="sender-md" [ngModel]="selectedSenderId" (ngModelChange)="senderChanged.emit($event)"
+            class="hidden md:block rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
+      <option [ngValue]="null">Select sender</option>
+      <option *ngFor="let sender of senderOptions" [ngValue]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</option>
+    </select>
+
+    <!-- Fallback select for small screens / accessibility -->
+    <select id="sender" [ngModel]="selectedSenderId" (ngModelChange)="senderChanged.emit($event)"
+            [disabled]="senderLookupLoading || !senderOptions.length"
+            class="md:hidden rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:opacity-60">
+      <option [ngValue]="null">Select sender</option>
+      <option *ngFor="let sender of senderOptions" [ngValue]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</option>
+    </select>
+
+    <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="!senderOptions?.length && !senderLookupLoading">
+      No senders available for the selected filters.
+    </p>
+    <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="senderLookupLoading">
+      <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+      Loading sender list…
+    </p>
+  </ng-template>
+
+  <!-- Debug: show which endpoint/params were used to resolve senderId (if available) -->
+  <div *ngIf="senderLookupLog" class="mt-2 p-2 rounded-md bg-slate-50 border border-slate-100 text-xs text-slate-600">
+    <div><strong>Sender lookup:</strong> {{ senderLookupLog.endpoint }}</div>
+    <div class="mt-1">Params: <code>{{ senderLookupLog.params | json }}</code></div>
+    <div *ngIf="senderLookupLog.raw" class="mt-1">Response: <pre class="whitespace-pre-wrap">{{ senderLookupLog.raw | json }}</pre></div>
+  </div>
+</div>

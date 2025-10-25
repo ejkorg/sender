@@ -266,6 +266,10 @@ export class BackendService {
     return this.http.get<string[]>(`${this.base}/senders/external/testPhases`, { params: this.toParams(params) });
   }
 
+  getDistinctDataTypeExts(params: Record<string, any>): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/senders/external/dataTypeExts`, { params: this.toParams(params) });
+  }
+
   getExternalSenders(params: Record<string, any>): Observable<SenderOption[]> {
     return this.http.get<SenderOption[]>(`${this.base}/senders/external/senders`, { params: this.toParams(params) });
   }

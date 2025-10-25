@@ -21,13 +21,14 @@ import { ModalService } from '../ui/modal.service';
 import { ToastService } from '../ui/toast.service';
 import { CsvExportService } from '../ui/csv-export.service';
 import { TruncatePipe } from '../ui/truncate.pipe';
+import { SenderSelectorComponent } from '../sender/sender-selector.component';
 
 
 @Component({
   selector: 'app-stepper',
   standalone: true,
   // Note: DuplicateWarningDialogComponent is created dynamically via ModalService
-  imports: [CommonModule, FormsModule, TruncatePipe],
+  imports: [CommonModule, FormsModule, TruncatePipe, SenderSelectorComponent],
   templateUrl: './stepper.component.html'
 })
 export class StepperComponent implements OnInit, OnDestroy {
@@ -50,8 +51,11 @@ export class StepperComponent implements OnInit, OnDestroy {
   dataTypesLoading = false;
   testerTypesLoading = false;
   dataTypeExtLoading = false;
-  sendersLoading = false;
   testPhaseLoading = false;
+  // when lookup falls back to listing senders, prefer dropdown UI
+  senderFallback = false;
+  // per-sender lookup loading (keeps sender loading UI local)
+  senderLookupLoading = false;
 
   selectedLocation = '';
   selectedDataType = '';
@@ -179,7 +183,6 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.selectedSenderId = null;
     this.stepIndex = 0;
     this.filtersLoading = false;
-    this.sendersLoading = false;
     this.testPhaseLoading = false;
     if (!this.selectedSite) {
       return;
@@ -233,10 +236,11 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   private loadSendersForSite(site: string) {
     // kept for full-site sender listing; prefer filtered sender loading in cascading flow
-    this.sendersLoading = true;
+    this.senderLookupLoading = true;
     const previousSelection = this.selectedSenderId;
     this.senderOptions = [];
     this.selectedSenderId = null;
+    this.senderFallback = true;
     this.api.getExternalSenders({ connectionKey: site }).subscribe({
       next: (senders: SenderOption[]) => {
         this.senderOptions = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
@@ -251,10 +255,10 @@ export class StepperComponent implements OnInit, OnDestroy {
         console.error('Failed to load senders', err);
         this.senderOptions = [];
         this.selectedSenderId = null;
-        this.sendersLoading = false;
+        this.senderLookupLoading = false;
       },
       complete: () => {
-        this.sendersLoading = false;
+        this.senderLookupLoading = false;
       }
     });
   }
@@ -307,17 +311,27 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   // Load data type extensions filtered by the current upstream selections (called after testerType chosen)
   private loadDataTypeExts() {
-    if (!this.selectedSite || !this.selectedLocation || !this.selectedDataType || !this.selectedTesterType) {
+    // allow loading extensions even if testerType is not selected (testerType is optional)
+    if (!this.selectedSite || !this.selectedLocation || !this.selectedDataType) {
       this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: [] };
       return;
     }
     this.filtersLoading = true;
     this.dataTypeExtLoading = true;
-    const params: Record<string, any> = { connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType, testerType: this.selectedTesterType };
-    // Reuse getDistinctDataTypes endpoint to fetch related extensions when provided with testerType — backend should filter appropriately.
-    this.api.getDistinctDataTypes(params).subscribe({
-      next: (exts: string[]) => {
-        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: exts || [] };
+    const params: Record<string, any> = { connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType };
+    if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
+    this.api.getDistinctDataTypeExts(params).subscribe({
+      next: (exts: string[] | null | undefined) => {
+        let hasBlank = false;
+        const normalized = (exts || []).map(e => (e ?? '').toString().trim()).filter(e => e.length >= 0);
+        // detect if any blank/null entry present
+        for (const e of normalized) {
+          if (!e.length) { hasBlank = true; break; }
+        }
+        // remove empty strings from the unique list and then prepend empty if needed
+        const nonEmpty = Array.from(new Set(normalized.filter(e => e.length > 0)));
+        const finalList = hasBlank ? [''].concat(nonEmpty) : nonEmpty;
+        this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: finalList };
         this.filtersLoading = false;
         this.dataTypeExtLoading = false;
       },
@@ -333,8 +347,9 @@ export class StepperComponent implements OnInit, OnDestroy {
   // Load senders filtered by all upstream selections and try to auto-resolve
   private loadSendersFiltered() {
     if (!this.selectedSite) return;
-    this.sendersLoading = true;
+    this.senderLookupLoading = true;
     this.senderAutoResolved = false;
+    this.senderFallback = false;
     const params: Record<string, any> = { connectionKey: this.selectedSite };
     if (this.selectedLocation) params['location'] = this.selectedLocation;
     if (this.selectedDataType) params['dataType'] = this.selectedDataType;
@@ -353,13 +368,14 @@ export class StepperComponent implements OnInit, OnDestroy {
             // attempt to capture optional metadata
             this.senderLookupLog = { endpoint: '/senders/lookup', params, raw: lookup[0] };
             this.refreshTestPhasesIfReady();
-            this.sendersLoading = false;
+            this.senderLookupLoading = false;
             return;
           }
         } catch (e) {
           console.error('Failed processing lookupSenders result', e);
         }
         // fallback to listing external senders
+        this.senderFallback = true;
         this.api.getExternalSenders(params).subscribe({
           next: (senders: SenderOption[]) => {
             this.senderOptions = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
@@ -381,16 +397,17 @@ export class StepperComponent implements OnInit, OnDestroy {
             this.senderOptions = [];
             this.selectedSenderId = null;
             this.senderAutoResolved = false;
-            this.sendersLoading = false;
+            this.senderLookupLoading = false;
           },
           complete: () => {
-            this.sendersLoading = false;
+            this.senderLookupLoading = false;
           }
         });
       },
       error: (err: unknown) => {
         console.error('Sender lookup failed, falling back to listing', err);
         // fallback to listing external senders
+        this.senderFallback = true;
         this.api.getExternalSenders(params).subscribe({
           next: (senders: SenderOption[]) => {
             this.senderOptions = (senders || []).filter((s): s is SenderOption => !!s && s.idSender != null);
@@ -412,7 +429,7 @@ export class StepperComponent implements OnInit, OnDestroy {
             this.senderAutoResolved = false;
           },
           complete: () => {
-            this.sendersLoading = false;
+            this.senderLookupLoading = false;
           }
         });
       }
@@ -439,6 +456,9 @@ export class StepperComponent implements OnInit, OnDestroy {
     this.clearDiscoveryState();
     // when data type chosen, load tester types
     this.loadTesterTypes();
+    // Allow extensions and phases to be loaded even if testerType is not yet selected
+    this.loadDataTypeExts();
+    this.refreshTestPhasesIfReady();
     this.selectedSenderId = null;
   }
 
@@ -468,7 +488,6 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   // Select a sender via the tile/grid UI. Public so template can access it.
   public selectSender(senderId: number | null): void {
-    if (this.sendersLoading) return;
     this.selectedSenderId = senderId;
     // reuse existing handler to clear discovery state and refresh phases
     this.onSenderChanged();
@@ -521,8 +540,8 @@ export class StepperComponent implements OnInit, OnDestroy {
       this.selectedTestPhase = '';
       return;
     }
-    // Fetch test phases once we have location, dataType and testerType (sender is intentionally not required)
-    const hasRequired = !!(this.selectedLocation && this.selectedDataType && this.selectedTesterType);
+    // Fetch test phases once we have location and dataType (testerType optional)
+    const hasRequired = !!(this.selectedLocation && this.selectedDataType);
     if (!hasRequired) {
       this.testPhaseOptions = [];
       this.selectedTestPhase = '';
@@ -534,8 +553,8 @@ export class StepperComponent implements OnInit, OnDestroy {
       connectionKey: this.selectedSite,
       location: this.selectedLocation,
       dataType: this.selectedDataType,
-      testerType: this.selectedTesterType
     };
+    if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
 
     this.api.getDistinctTestPhases(params).subscribe({
       next: (phases: string[] | null | undefined) => {
@@ -575,7 +594,8 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   canSearch(): boolean {
     // If lot/wafer provided (user role), allow searching by lot/wafer instead of date range/environment
-    const hasRequired = Boolean(this.selectedSite && this.selectedLocation && this.selectedDataType && this.selectedTesterType && this.selectedSenderId != null);
+    // Tester type is optional for the final preview/search (we only require site, location, data type and sender)
+    const hasRequired = Boolean(this.selectedSite && this.selectedLocation && this.selectedDataType && this.selectedSenderId != null);
     // require at least one LOT when user is non-admin (wafer optional)
     const hasLotWafer = this.lotWaferPairs.some(p => (p.lot && String(p.lot).trim().length > 0 && (p.wafer || true)));
     const hasLot = this.hasAtLeastOneLot();

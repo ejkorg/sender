@@ -121,6 +121,13 @@ public class MetadataImporterService {
         throw new UnsupportedOperationException("Distinct tester types supported only by JDBC implementation");
     }
 
+    public java.util.List<String> findDistinctDataTypeExtsWithConnection(java.sql.Connection c, String location, String dataType, String testerType) {
+        if (externalMetadataRepository instanceof com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) {
+            return ((com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) externalMetadataRepository).findDistinctDataTypeExtsWithConnection(c, location, dataType, testerType);
+        }
+        throw new UnsupportedOperationException("Distinct data type extensions supported only by JDBC implementation");
+    }
+
     public java.util.List<String> findDistinctTestPhasesWithConnection(java.sql.Connection c, String location, String dataType, String testerType, Integer senderId, String senderName) {
         if (externalMetadataRepository instanceof com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) {
             return ((com.onsemi.cim.apps.exensio.exensioDearchiver.repository.JdbcExternalMetadataRepository) externalMetadataRepository).findDistinctTestPhasesWithConnection(c, location, dataType, testerType, senderId, senderName);

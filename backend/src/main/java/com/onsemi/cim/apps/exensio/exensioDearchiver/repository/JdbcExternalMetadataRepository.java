@@ -333,6 +333,46 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
     }
 
     @Override
+    public java.util.List<String> findDistinctDataTypeExtsWithConnection(Connection c, String location, String dataType, String testerType) {
+        String sql = "select distinct data_type_ext from dtp_simple_client_setting where enabled = 'Y'";
+        List<Object> params = new ArrayList<>();
+        if (location != null && !location.isBlank()) { sql += " and location = ?"; params.add(location); }
+        if (dataType != null && !dataType.isBlank()) { sql += " and data_type = ?"; params.add(dataType); }
+        // Allow testerType to be null: use the SQL pattern (:tester_type IS NULL OR tester_type = :tester_type)
+        sql += " and ( ? IS NULL OR tester_type = ? )";
+        params.add(testerType);
+        params.add(testerType);
+        sql += " order by data_type_ext";
+
+        PreparedStatement ps = null; ResultSet rs = null;
+        try {
+            ps = c.prepareStatement(sql);
+            int idx = 1; for (Object p : params) ps.setString(idx++, p == null ? null : p.toString());
+            rs = ps.executeQuery(); List<String> out = new ArrayList<>();
+            boolean hasNull = false;
+            while (rs.next()) {
+                String v = rs.getString(1);
+                if (v == null) {
+                    hasNull = true;
+                } else if (!v.isBlank()) {
+                    out.add(v);
+                }
+            }
+            if (hasNull) {
+                // include an explicit empty string to represent NULL value so UI can show 'None' or blank option
+                out.add(0, "");
+            }
+            return out;
+        } catch (Exception ex) {
+            log.error("Failed fetching distinct data_type_ext from simple_client_setting: {}", ex.getMessage(), ex);
+            throw new RuntimeException("Distinct data_type_ext query failed", ex);
+        } finally {
+            try { if (rs != null) rs.close(); } catch (Exception ignore) {}
+            try { if (ps != null) ps.close(); } catch (Exception ignore) {}
+        }
+    }
+
+    @Override
     public java.util.List<String> findDistinctTestPhasesWithConnection(Connection c,
                                                                        String location,
                                                                        String dataType,

@@ -19,7 +19,7 @@
               <option [ngValue]="null">Select site/dtp instance</option>
               <option *ngFor="let s of sites" [ngValue]="s">{{ s }}</option>
             </select>
-            <p class="text-xs text-slate-500" *ngIf="selectedSite && !senderOptions.length && !sendersLoading">No senders available for this connection.</p>
+            <p class="text-xs text-slate-500" *ngIf="selectedSite && !senderOptions.length && !senderLookupLoading">No senders available for this connection.</p>
           </div>
 
           <div class="flex flex-col gap-2"></div>
@@ -72,7 +72,7 @@
               <label class="text-sm font-semibold text-onsemi-charcoal" for="testerType">Tester type</label>
               <select id="testerType" [(ngModel)]="selectedTesterType" name="testerType" (ngModelChange)="onTesterTypeChanged()"
                       class="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
-                <option value="">Select tester type</option>
+                <option value="">Any</option>
                 <option *ngFor="let tt of (filterOptions?.testerTypes || [])" [value]="tt">{{ tt }}</option>
               </select>
               <p *ngIf="testerTypesLoading" class="flex items-center gap-2 text-xs text-slate-500 mt-1">
@@ -81,8 +81,8 @@
               </p>
             </div>
             
-            <!-- Data type extension: appears after tester type is selected -->
-            <div class="flex flex-col gap-2" *ngIf="selectedTesterType">
+            <!-- Data type extension: available even when tester type is not selected (testerType optional) -->
+            <div class="flex flex-col gap-2">
               <label class="text-sm font-semibold text-onsemi-charcoal" for="dataTypeExt">Data type ext</label>
               <select id="dataTypeExt" [(ngModel)]="selectedDataTypeExt" name="dataTypeExt" (ngModelChange)="onDataTypeChanged()"
                       [disabled]="filtersLoading || !(filterOptions?.dataTypeExt?.length)"
@@ -97,48 +97,17 @@
             </div>
 
             <div class="flex flex-col gap-2">
-              <label class="text-sm font-semibold text-onsemi-charcoal" for="sender">Sender
-                <span *ngIf="sendersLoading" class="ml-2 text-xs text-slate-500">(loading…)</span>
-              </label>
-              <ng-container *ngIf="senderAutoResolved && selectedSenderId; else senderSelection">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">Auto-selected: {{ selectedSenderId }} — {{ getSelectedSenderName() }}</div>
-              </ng-container>
-              <ng-template #senderSelection>
-                <!-- Tile/grid view for medium+ screens -->
-                <div *ngIf="senderOptions?.length" class="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-2">
-                  <button *ngFor="let s of senderOptions" type="button"
-                          class="rounded-xl border px-3 py-2 text-left text-sm shadow-sm disabled:opacity-60"
-                          [class.border-onsemi-primary]="selectedSenderId === s.idSender"
-                          [class.bg-onsemi-ice]="selectedSenderId === s.idSender"
-                          (click)="selectSender(s.idSender)"
-                          [disabled]="sendersLoading">
-                    <div class="font-medium text-onsemi-charcoal">{{ s.idSender }} — {{ s.name }}</div>
-                    <!-- Sender description not available in SenderOption; keep only name/ID -->
-                  </button>
-                </div>
-
-                <!-- Fallback select for small screens / accessibility -->
-                <select id="sender" [(ngModel)]="selectedSenderId" name="senderId" (ngModelChange)="onSenderChanged()"
-                        [disabled]="sendersLoading || !senderOptions.length"
-                        class="md:hidden rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40 disabled:cursor-not-allowed disabled:opacity-60">
-                  <option [ngValue]="null">Select sender</option>
-                  <option *ngFor="let sender of senderOptions" [ngValue]="sender.idSender">{{ sender.idSender }} — {{ sender.name }}</option>
-                </select>
-
-                <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="!senderOptions?.length && !sendersLoading">
-                  No senders available for the selected filters.
-                </p>
-                <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="sendersLoading">
-                  <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
-                  Loading sender list…
-                </p>
-              </ng-template>
-              <!-- Debug: show which endpoint/params were used to resolve senderId (if available) -->
-              <div *ngIf="senderLookupLog" class="mt-2 p-2 rounded-md bg-slate-50 border border-slate-100 text-xs text-slate-600">
-                <div><strong>Sender lookup:</strong> {{ senderLookupLog.endpoint }}</div>
-                <div class="mt-1">Params: <code>{{ senderLookupLog.params | json }}</code></div>
-                <div *ngIf="senderLookupLog.raw" class="mt-1">Response: <pre class="whitespace-pre-wrap">{{ senderLookupLog.raw | json }}</pre></div>
-              </div>
+              <app-sender-selector
+                [senderOptions]="senderOptions"
+                [selectedSenderId]="selectedSenderId"
+                [selectedSenderName]="getSelectedSenderName()"
+                [senderFallback]="senderFallback"
+                [senderLookupLoading]="senderLookupLoading"
+                [senderLookupLog]="senderLookupLog"
+                [senderAutoResolved]="senderAutoResolved"
+                (selectSender)="selectSender($event)"
+                (senderChanged)="onSenderChanged()">
+              </app-sender-selector>
             </div>
           </div>
 
@@ -177,7 +146,7 @@
         </div>
 
         <!-- Lot / Wafer pairs: appear immediately after the Test phase (and before the Selected connection summary) -->
-        <div class="mt-4" *ngIf="selectedSite && selectedLocation && selectedDataType && (selectedTesterType || !(filterOptions?.testerTypes?.length))">
+        <div class="mt-4" *ngIf="selectedSite && selectedLocation && selectedDataType">
           <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
           <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
           <div class="space-y-2 mt-2">

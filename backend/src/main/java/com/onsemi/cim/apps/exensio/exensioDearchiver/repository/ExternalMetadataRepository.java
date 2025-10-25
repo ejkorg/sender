@@ -68,6 +68,8 @@ public interface ExternalMetadataRepository {
 
     java.util.List<String> findDistinctTesterTypesWithConnection(java.sql.Connection conn, String location, String dataType, String testPhase);
 
+    java.util.List<String> findDistinctDataTypeExtsWithConnection(java.sql.Connection conn, String location, String dataType, String testerType);
+
     java.util.List<String> findDistinctTestPhasesWithConnection(java.sql.Connection conn,
                                                                 String location,
                                                                 String dataType,

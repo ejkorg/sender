@@ -449,6 +449,43 @@ public class SenderController {
     }
 
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @GetMapping("/external/dataTypeExts")
+    public ResponseEntity<java.util.List<String>> externalDistinctDataTypeExts(@RequestParam(required = false, name = "locationId") Long locationId,
+                                                                                @RequestParam(required = false, name = "connectionKey") String connectionKey,
+                                                                                @RequestParam(required = false) String location,
+                                                                                @RequestParam(required = false) String dataType,
+                                                                                @RequestParam(required = false) String testerType,
+                                                                                @RequestParam(defaultValue = "qa") String environment) {
+        try {
+            java.sql.Connection conn = null;
+            if (locationId != null) {
+                com.onsemi.cim.apps.exensio.exensioDearchiver.entity.ExternalLocation loc = metadataImporterService.findLocationById(locationId);
+                if (loc == null) throw new IllegalArgumentException("locationId not found");
+                conn = metadataImporterService.resolveConnectionForLocation(loc, environment);
+            } else if (connectionKey != null && !connectionKey.isBlank()) {
+                conn = metadataImporterService.resolveConnectionForKey(connectionKey, environment);
+            } else {
+                throw new IllegalArgumentException("locationId or connectionKey is required");
+            }
+            try (java.sql.Connection c = conn) {
+                try { metricsService.increment("external.dataTypeExts", locationId != null ? "locationId=" + locationId : connectionKey); } catch (Exception ignore) {}
+                // If location or dataType not provided, return empty list (UI will not request until location+dataType available)
+                if (location == null || location.isBlank() || dataType == null || dataType.isBlank()) {
+                    return ResponseEntity.ok(java.util.List.of());
+                }
+                java.util.List<String> out = metadataImporterService.findDistinctDataTypeExtsWithConnection(c, location, dataType, testerType);
+                return ResponseEntity.ok(out == null ? java.util.List.of() : out);
+            }
+        } catch (IllegalArgumentException iae) {
+            log.warn("Invalid request for externalDistinctDataTypeExts: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(java.util.List.of());
+        } catch (Exception ex) {
+            log.error("Failed fetching distinct data_type_ext for connection {} env {}: {}", connectionKey != null ? connectionKey : location, environment, ex.getMessage(), ex);
+            return ResponseEntity.status(500).body(java.util.List.of());
+        }
+    }
+
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('USER','ADMIN')")
     @GetMapping("/external/testPhases")
     public ResponseEntity<java.util.List<String>> externalDistinctTestPhases(@RequestParam(required = false, name = "locationId") Long locationId,
                                                                              @RequestParam(required = false, name = "connectionKey") String connectionKey,
