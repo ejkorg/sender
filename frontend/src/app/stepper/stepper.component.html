@@ -212,7 +212,7 @@
                      <td class="px-4 py-3 text-slate-700">
                        <span *ngIf="row.wafer">{{ row.wafer }}</span>
                      </td>
-                     <td class="px-4 py-3 text-slate-700" title="{{ row.originalFileName || '' }}">{{ row.originalFileName ? (row.originalFileName.length > 36 ? (row.originalFileName | slice:0:36) + '…' : row.originalFileName) : '—' }}</td>
+                     <td class="px-4 py-3 text-slate-700" title="{{ row.originalFileName || '' }}">{{ row.originalFileName ? (row.originalFileName | truncate:36) : '—' }}</td>
                      <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ row.endTime ? (row.endTime | date: uiDateFormat) : '—' }}</td>
                     <td class="px-4 py-3 text-slate-700">
                       <ng-container *ngIf="previewDuplicateForRow(row) as dup">

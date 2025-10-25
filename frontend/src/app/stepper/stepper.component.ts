@@ -20,13 +20,14 @@ import { AuthService } from '../auth/auth.service';
 import { ModalService } from '../ui/modal.service';
 import { ToastService } from '../ui/toast.service';
 import { CsvExportService } from '../ui/csv-export.service';
+import { TruncatePipe } from '../ui/truncate.pipe';
 
 
 @Component({
   selector: 'app-stepper',
   standalone: true,
   // Note: DuplicateWarningDialogComponent is created dynamically via ModalService
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TruncatePipe],
   templateUrl: './stepper.component.html'
 })
 export class StepperComponent implements OnInit, OnDestroy {

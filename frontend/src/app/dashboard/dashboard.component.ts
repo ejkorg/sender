@@ -498,24 +498,35 @@ export class DashboardComponent implements OnInit, OnDestroy {
       const req = { site: site.site, page: 0, size: 10 } as any;
       const resp = await firstValueFrom(this.api.previewDiscovery(sender.senderId, req));
       const rows = (resp?.items || []).map(item => ({
-        metadataId: item.metadataId ?? '—',
-        dataId: item.dataId ?? '—',
-        lot: item.lot ?? '—',
-        wafer: item.wafer ?? '—',
-        file: item.originalFileName ?? '—',
-        endTime: item.endTime ?? '—'
-      }));
+        metadataId: item.metadataId ?? null,
+        dataId: item.dataId ?? null,
+        lot: item.lot ?? null,
+        wafer: item.wafer ?? null,
+        file: item.originalFileName ?? null,
+        endTime: item.endTime ?? null
+      } as any));
+
+      // Only include wafer/file columns if at least one row has a non-empty value
+      const hasWafer = rows.some(r => !!r.wafer);
+      const hasFile = rows.some(r => !!r.file);
+
+      const columns: DashboardDetailColumn[] = [
+        { key: 'metadataId', label: 'Metadata ID' },
+        { key: 'dataId', label: 'Data ID' },
+        { key: 'lot', label: 'Lot' }
+      ];
+      if (hasWafer) {
+        columns.push({ key: 'wafer', label: 'Wafer' });
+      }
+      if (hasFile) {
+        columns.push({ key: 'file', label: 'File' });
+      }
+      columns.push({ key: 'endTime', label: 'End Time' });
+
       const dialogData: DashboardDetailDialogData = {
         title: `${site.site} · ${sender.senderLabel} · sample files`,
         description: `Sample metadata from ${site.site} for sender ${sender.senderLabel}`,
-        columns: [
-          { key: 'metadataId', label: 'Metadata ID' },
-          { key: 'dataId', label: 'Data ID' },
-          { key: 'lot', label: 'Lot' },
-          { key: 'wafer', label: 'Wafer' },
-          { key: 'file', label: 'File' },
-          { key: 'endTime', label: 'End Time' }
-        ],
+        columns,
         rows
       };
       await this.openDetailDialog(dialogData);

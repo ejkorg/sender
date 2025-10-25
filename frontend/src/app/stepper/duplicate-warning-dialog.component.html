@@ -20,6 +20,7 @@
           <span>{{ displayUser(dup.lastRequestedBy || dup.stagedBy) }}</span>
           <span class="timestamp" *ngIf="dup.lastRequestedAt || dup.stagedAt">{{ formatTimestamp(dup.lastRequestedAt || dup.stagedAt) }}</span>
           <span class="status" *ngIf="dup.previousStatus">status {{ dup.previousStatus }}</span>
+          <div *ngIf="dup.wafer" class="text-xs text-amber-700">Wafer: {{ dup.wafer }}</div>
         </div>
       </div>
     </li>

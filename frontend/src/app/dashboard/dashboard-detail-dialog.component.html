@@ -24,7 +24,16 @@
           </thead>
           <tbody class="divide-y">
             <tr *ngFor="let row of data.rows" class="odd:bg-surface even:bg-slate-50 hover:bg-onsemi-ice/60">
-              <td *ngFor="let column of data.columns" class="px-3 py-2">{{ formatCell(row[column.key]) }}</td>
+              <td *ngFor="let column of data.columns" class="px-3 py-2">
+                <!-- Special-case file column: truncate long filenames and show full name in tooltip -->
+                <ng-container *ngIf="column.key === 'file'; else defaultCell">
+                  <ng-container *ngIf="formatCell(row[column.key]) !== '—'; else emptyFile">
+                    <span title="{{ formatCell(row[column.key]) }}">{{ formatCell(row[column.key]) | truncate:36 }}</span>
+                  </ng-container>
+                  <ng-template #emptyFile>—</ng-template>
+                </ng-container>
+                <ng-template #defaultCell>{{ formatCell(row[column.key]) }}</ng-template>
+              </td>
               <td *ngIf="hasRowActions" class="px-3 py-2 text-right">
                 <div class="flex justify-end gap-2">
                   <ng-container *ngFor="let action of data.rowActions">

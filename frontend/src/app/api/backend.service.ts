@@ -90,6 +90,7 @@ export interface DuplicatePayloadInfo {
   lastRequestedBy: string | null;
   lastRequestedAt: string | null;
   requiresConfirmation?: boolean;
+  wafer?: string | null;
 }
 
 export interface StageRecordView {
@@ -106,6 +107,7 @@ export interface StageRecordView {
   stagedBy?: string | null;
   lastRequestedBy?: string | null;
   lastRequestedAt?: string | null;
+  wafer?: string | null;
 }
 
 export interface StageRecordPage {
