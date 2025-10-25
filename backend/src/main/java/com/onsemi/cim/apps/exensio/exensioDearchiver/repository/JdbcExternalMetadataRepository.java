@@ -130,9 +130,14 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
 
     @Override
     public java.util.List<SenderCandidate> findSendersWithConnection(Connection c, String location, String dataType, String testerType, String dataTypeExt, String testPhase) {
+        // require location and dataType to be present to avoid broad matches
+        if (location == null || location.isBlank() || dataType == null || dataType.isBlank()) {
+            return new ArrayList<>();
+        }
+
         StringBuilder sb = new StringBuilder();
-    // include the ORDER BY expressions in the select list to satisfy H2 when using DISTINCT
-    sb.append("select distinct dc.id_sender, ss.name, dl.location, dd.data_type, dt.type, de.data_type_ext from dtp_dist_conf dc ");
+        // include the ORDER BY expressions in the select list to satisfy H2 when using DISTINCT
+        sb.append("select distinct dc.id_sender, ss.name, dl.location, dd.data_type, dt.type, de.data_type_ext from dtp_dist_conf dc ");
         sb.append("left join dtp_location dl on dc.id_location = dl.id ");
         sb.append("left join dtp_data_type dd on dc.id_data_type = dd.id ");
         sb.append("left join dtp_tester_type dt on dc.id_tester_type = dt.id ");
@@ -140,16 +145,26 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         sb.append("left join dtp_sender ss on dc.id_sender = ss.id ");
         sb.append(" where 1=1 ");
         List<Object> params = new ArrayList<>();
-        if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); params.add(location); }
-        if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); params.add(dataType); }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and dt.type = ?"); params.add(testerType); }
-        if (dataTypeExt != null) {
-            if (dataTypeExt.isBlank() || "NULL".equalsIgnoreCase(dataTypeExt) || "NONE".equalsIgnoreCase(dataTypeExt)) {
-                sb.append(" and dc.id_data_type_ext IS NULL");
-            } else {
-                sb.append(" and de.data_type_ext = ?"); params.add(dataTypeExt);
-            }
+        // required equality filters
+        sb.append(" and dl.location = ?"); params.add(location);
+        sb.append(" and dd.data_type = ?"); params.add(dataType);
+
+        // tester type: match selected value OR entries where tester type is NULL on the conf row
+        if (testerType != null && !testerType.isBlank()) {
+            sb.append(" and (dt.type = ? OR dc.id_tester_type IS NULL)"); params.add(testerType);
         }
+
+        // data type extension: when provided, match the value OR id_data_type_ext IS NULL
+        if (dataTypeExt != null && !dataTypeExt.isBlank() && !"NULL".equalsIgnoreCase(dataTypeExt) && !"NONE".equalsIgnoreCase(dataTypeExt)) {
+            sb.append(" and (de.data_type_ext = ? OR dc.id_data_type_ext IS NULL)"); params.add(dataTypeExt);
+        }
+
+        // test phase: if provided, attempt a regex match against the distribution config where_condition
+        if (testPhase != null && !testPhase.isBlank() && !"NULL".equalsIgnoreCase(testPhase) && !"NONE".equalsIgnoreCase(testPhase)) {
+            // Use REGEXP_LIKE for DBs that support it (Oracle/H2). This may be a no-op on DBs without regex support.
+            sb.append(" and REGEXP_LIKE(dc.where_condition, ?)"); params.add(testPhase.trim());
+        }
+
         sb.append(" order by dl.location, dd.data_type, dt.type, de.data_type_ext");
 
         PreparedStatement ps = null;
@@ -191,15 +206,15 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         sb.append("left join dtp_data_type_ext de on dc.id_data_type_ext = de.id ");
         sb.append("left join dtp_sender ss on dc.id_sender = ss.id ");
         sb.append(" where 1=1 ");
+        // location and dataType are required for lookup
         if (location != null && !location.isBlank()) { sb.append(" and dl.location = ?"); }
         if (dataType != null && !dataType.isBlank()) { sb.append(" and dd.data_type = ?"); }
-        if (testerType != null && !testerType.isBlank()) { sb.append(" and dt.type = ?"); }
-        if (dataTypeExt != null) {
-            if (dataTypeExt.isBlank() || "NULL".equalsIgnoreCase(dataTypeExt) || "NONE".equalsIgnoreCase(dataTypeExt)) {
-                sb.append(" and dc.id_data_type_ext IS NULL");
-            } else {
-                sb.append(" and de.data_type_ext = ?");
-            }
+        if (testerType != null && !testerType.isBlank()) { sb.append(" and (dt.type = ? OR dc.id_tester_type IS NULL)"); }
+        if (dataTypeExt != null && !dataTypeExt.isBlank() && !"NULL".equalsIgnoreCase(dataTypeExt) && !"NONE".equalsIgnoreCase(dataTypeExt)) {
+            sb.append(" and (de.data_type_ext = ? OR dc.id_data_type_ext IS NULL)");
+        }
+        if (testPhase != null && !testPhase.isBlank() && !"NULL".equalsIgnoreCase(testPhase) && !"NONE".equalsIgnoreCase(testPhase)) {
+            sb.append(" and REGEXP_LIKE(dc.where_condition, ?)");
         }
         sb.append(" order by dl.location, dd.data_type, dt.type, de.data_type_ext");
         return sb.toString();

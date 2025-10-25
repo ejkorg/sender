@@ -45,6 +45,11 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   filterOptions: ReloadFilterOptions | null = null;
   filtersLoading = false;
+  // per-field loading indicators to keep UI scoped to each input
+  locationsLoading = false;
+  dataTypesLoading = false;
+  testerTypesLoading = false;
+  dataTypeExtLoading = false;
   sendersLoading = false;
   testPhaseLoading = false;
 
@@ -147,15 +152,18 @@ export class StepperComponent implements OnInit, OnDestroy {
   // Load only locations for the selected site (progressive/cascading)
   private loadLocations(site: string) {
     this.filtersLoading = true;
+    this.locationsLoading = true;
     this.api.getDistinctLocations({ connectionKey: site }).subscribe({
       next: (locations: string[]) => {
         this.filterOptions = { locations: locations || [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
         this.filtersLoading = false;
+        this.locationsLoading = false;
       },
       error: (err: unknown) => {
         console.error('Failed to load locations', err);
         this.filterOptions = { locations: [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
         this.filtersLoading = false;
+        this.locationsLoading = false;
       }
     });
   }
@@ -258,15 +266,18 @@ export class StepperComponent implements OnInit, OnDestroy {
       return;
     }
     this.filtersLoading = true;
+    this.dataTypesLoading = true;
     this.api.getDistinctDataTypes({ connectionKey: this.selectedSite, location: this.selectedLocation }).subscribe({
       next: (dataTypes: string[]) => {
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: dataTypes || [], testerTypes: [], dataTypeExt: [] };
         this.filtersLoading = false;
+        this.dataTypesLoading = false;
       },
       error: (err: unknown) => {
         console.error('Failed to load data types', err);
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: [], testerTypes: [], dataTypeExt: [] };
         this.filtersLoading = false;
+        this.dataTypesLoading = false;
       }
     });
   }
@@ -278,15 +289,18 @@ export class StepperComponent implements OnInit, OnDestroy {
       return;
     }
     this.filtersLoading = true;
+    this.testerTypesLoading = true;
     this.api.getDistinctTesterTypes({ connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType }).subscribe({
       next: (testerTypes: string[]) => {
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: testerTypes || [], dataTypeExt: [] };
         this.filtersLoading = false;
+        this.testerTypesLoading = false;
       },
       error: (err: unknown) => {
         console.error('Failed to load tester types', err);
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: [], dataTypeExt: [] };
         this.filtersLoading = false;
+        this.testerTypesLoading = false;
       }
     });
   }
@@ -298,17 +312,20 @@ export class StepperComponent implements OnInit, OnDestroy {
       return;
     }
     this.filtersLoading = true;
+    this.dataTypeExtLoading = true;
     const params: Record<string, any> = { connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType, testerType: this.selectedTesterType };
     // Reuse getDistinctDataTypes endpoint to fetch related extensions when provided with testerType — backend should filter appropriately.
     this.api.getDistinctDataTypes(params).subscribe({
       next: (exts: string[]) => {
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: exts || [] };
         this.filtersLoading = false;
+        this.dataTypeExtLoading = false;
       },
       error: (err: unknown) => {
         console.error('Failed to load data type extensions', err);
         this.filterOptions = { locations: this.filterOptions?.locations ?? [], dataTypes: this.filterOptions?.dataTypes ?? [], testerTypes: this.filterOptions?.testerTypes ?? [], dataTypeExt: [] };
         this.filtersLoading = false;
+        this.dataTypeExtLoading = false;
       }
     });
   }

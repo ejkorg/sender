@@ -39,29 +39,31 @@
         <!-- Always show filter inputs. Each field shows its own loading/disabled state based on prerequisites. -->
         <div class="grid gap-6 md:grid-cols-2">
           <div class="flex flex-col gap-2">
-            <label class="text-sm font-semibold text-onsemi-charcoal" for="location">
-              Location
-              <span *ngIf="filtersLoading" class="ml-2 text-xs text-slate-500">(loading…)</span>
-            </label>
+            <label class="text-sm font-semibold text-onsemi-charcoal" for="location">Location</label>
             <select id="location" [(ngModel)]="selectedLocation" name="location" (ngModelChange)="onLocationChanged()"
                     [disabled]="filtersLoading || !selectedSite"
                     class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
               <option value="">Select location</option>
               <option *ngFor="let loc of (filterOptions?.locations || [])" [value]="loc">{{ loc }}</option>
             </select>
+            <p *ngIf="locationsLoading" class="flex items-center gap-2 text-xs text-slate-500 mt-1">
+              <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+              Loading locations…
+            </p>
           </div>
 
           <div class="flex flex-col gap-2">
-            <label class="text-sm font-semibold text-onsemi-charcoal" for="dataType">
-              Data type
-              <span *ngIf="filtersLoading" class="ml-2 text-xs text-slate-500">(loading…)</span>
-            </label>
+            <label class="text-sm font-semibold text-onsemi-charcoal" for="dataType">Data type</label>
             <select id="dataType" [(ngModel)]="selectedDataType" name="dataType" (ngModelChange)="onDataTypeChanged()"
                     [disabled]="filtersLoading || !selectedLocation"
                     class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm focus:border-onsemi-primary focus:outline-none focus:ring-2 focus:ring-onsemi-primary/40">
               <option value="">Select data type</option>
               <option *ngFor="let dt of (filterOptions?.dataTypes || [])" [value]="dt">{{ dt }}</option>
             </select>
+            <p *ngIf="dataTypesLoading" class="flex items-center gap-2 text-xs text-slate-500 mt-1">
+              <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+              Loading data types…
+            </p>
           </div>
         </div>
 
@@ -73,6 +75,10 @@
                 <option value="">Select tester type</option>
                 <option *ngFor="let tt of (filterOptions?.testerTypes || [])" [value]="tt">{{ tt }}</option>
               </select>
+              <p *ngIf="testerTypesLoading" class="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
+                Loading tester types…
+              </p>
             </div>
             
             <!-- Data type extension: appears after tester type is selected -->
@@ -84,7 +90,7 @@
                 <option value="">Any</option>
                 <option *ngFor="let ext of (filterOptions?.dataTypeExt || [])" [value]="ext">{{ ext }}</option>
               </select>
-              <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="filtersLoading">
+              <p class="flex items-center gap-2 text-xs text-slate-500" *ngIf="dataTypeExtLoading">
                 <span class="h-3 w-3 animate-spin rounded-full border border-onsemi-primary border-t-transparent"></span>
                 Loading extensions…
               </p>

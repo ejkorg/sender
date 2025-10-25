@@ -299,24 +299,47 @@ public class SenderController {
                 java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> res = metadataImporterService.findSendersWithConnection(c, metadataLocation, dataType, testerType, dataTypeExt, testPhase);
                     String sqlDesc = null;
                     try { sqlDesc = metadataImporterService.describeSenderLookupQueryWithConnection(c, metadataLocation, dataType, testerType, dataTypeExt, testPhase); } catch (Exception ignore) {}
-                    java.util.List<java.util.Map<String,Object>> out = new java.util.ArrayList<>();
+
+                    // Count how many resolved candidates have a non-null idSender
+                    int resolvedCount = 0;
                     for (com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate s : res) {
-                        if (senderId != null && s.getIdSender() != null && !java.util.Objects.equals(senderId, s.getIdSender())) {
-                            continue;
-                        }
-                        if (senderName != null && !senderName.isBlank()) {
-                            String candidateName = s.getName() == null ? "" : s.getName();
-                            if (!candidateName.equalsIgnoreCase(senderName.trim())) {
+                        if (s.getIdSender() != null) resolvedCount++;
+                    }
+
+                    java.util.List<java.util.Map<String,Object>> out = new java.util.ArrayList<>();
+
+                    if (resolvedCount == 1) {
+                        // Exactly one id resolved: return the filtered result (respecting optional senderId/senderName filters)
+                        for (com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate s : res) {
+                            if (senderId != null && s.getIdSender() != null && !java.util.Objects.equals(senderId, s.getIdSender())) {
                                 continue;
                             }
+                            if (senderName != null && !senderName.isBlank()) {
+                                String candidateName = s.getName() == null ? "" : s.getName();
+                                if (!candidateName.equalsIgnoreCase(senderName.trim())) {
+                                    continue;
+                                }
+                            }
+                            java.util.Map<String,Object> m = new java.util.HashMap<>();
+                            m.put("idSender", s.getIdSender());
+                            m.put("name", s.getName());
+                            if (sqlDesc != null) m.put("query", sqlDesc);
+                            out.add(m);
                         }
-                        java.util.Map<String,Object> m = new java.util.HashMap<>();
-                        m.put("idSender", s.getIdSender());
-                        m.put("name", s.getName());
-                        if (sqlDesc != null) m.put("query", sqlDesc);
-                        out.add(m);
+                        return ResponseEntity.ok(out);
+                    } else {
+                        // No unique resolution: fallback to full sender list (previous behavior)
+                        java.util.List<com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate> senders = metadataImporterService.findAllSendersWithConnection(c);
+                        for (com.onsemi.cim.apps.exensio.exensioDearchiver.repository.SenderCandidate s : senders) {
+                            java.util.Map<String,Object> m = new java.util.HashMap<>();
+                            m.put("idSender", s.getIdSender());
+                            m.put("name", s.getName());
+                            m.put("id", s.getIdSender());
+                            if (sqlDesc != null) m.put("query", sqlDesc);
+                            out.add(m);
+                        }
+                        return ResponseEntity.ok(out);
                     }
-                return ResponseEntity.ok(out);
             }
         } catch (Exception ex) {
             return ResponseEntity.status(500).body(java.util.Collections.singletonList(java.util.Map.of("error", ex.getMessage())));
