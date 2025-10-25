@@ -107,8 +107,10 @@ export class RegisterComponent implements OnDestroy {
   }
 
   submit(): void {
+    console.debug('[RegisterComponent] submit clicked', { formValue: this.form.getRawValue(), submitting: this.submitting, invalid: this.form.invalid });
     if (this.form.invalid || this.submitting) {
       this.form.markAllAsTouched();
+      console.debug('[RegisterComponent] form invalid or already submitting', { invalid: this.form.invalid, submitting: this.submitting, errors: this.form.errors });
       return;
     }
     const { username, email, password } = this.form.getRawValue();
@@ -117,6 +119,7 @@ export class RegisterComponent implements OnDestroy {
     this.auth.register(username, sendEmail, password).subscribe({
       next: res => {
         this.submitting = false;
+        console.debug('[RegisterComponent] register response', res);
         const token = res?.verificationToken;
         this.toast.success('Registered — verify your account to continue.');
         if (token) {
@@ -138,10 +141,13 @@ export class RegisterComponent implements OnDestroy {
   }
 
   private startRedirect(url: string): void {
+    const { username, email, password } = this.form.getRawValue();
+    // Debug: log redirect attempt and payload (mask password)
+    try { console.debug('[RegisterComponent] startRedirect', { username, email, password: password ? '***' : '(empty)' }); } catch (e) {}
     this.redirectTimer = setTimeout(() => {
       this.router.navigateByUrl(url);
     }, 1200);
-  }
+    }
 
   ngOnDestroy(): void {
     if (this.redirectTimer) {

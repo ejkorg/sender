@@ -5,6 +5,9 @@ import { App } from './app/app';
 import { API_BASE_URL } from './app/core/tokens';
 import { environment } from './environments/environment';
 import { apiBaseUrlInterceptor } from './app/core/api-base-url.interceptor';
+import { authInterceptorFn } from './app/core/auth-interceptor.fn';
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { AuthInterceptor } from './app/auth/auth.interceptor';
 
 // runtime console marker for API base URL (only in development)
 if (!environment.production) {
@@ -15,7 +18,11 @@ if (!environment.production) {
 bootstrapApplication(App, {
   ...appConfig,
   providers: [
-    provideHttpClient(withInterceptors([apiBaseUrlInterceptor])),
+    provideHttpClient(withInterceptors([apiBaseUrlInterceptor, authInterceptorFn])),
+    // Keep the class provider for backwards compatibility, but the functional
+    // interceptor above is what `provideHttpClient` will run for the new
+    // HttpClient pipeline.
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     {
       provide: API_BASE_URL,
       useFactory: () => {

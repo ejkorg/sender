@@ -130,6 +130,17 @@ Security
 - Do not commit real credentials to the repository. Prefer supplying an external YAML/JSON file via `reloader.dbconn.yaml.path` or `reloader.dbconn.path`.
 - For local-only experimentation you can keep a dev-only `dbconnections.yml` under `backend/src/main/resources/` but ensure secrets are not real.
 
+## Authentication: token handling summary
+
+Recommended setup implemented by the frontend/back-end in this repo:
+
+- Access tokens (JWT) are stored in `sessionStorage` on the frontend. This gives persistence across reloads but clears when the browser/tab is closed. The frontend also keeps an in-memory copy while the app is running to reduce repeated storage reads.
+- The frontend sends the access token in the Authorization header: `Authorization: Bearer <token>` for API requests. An Angular HTTP interceptor adds this header automatically for requests that require authentication.
+- Long-lived sessions should use a refresh token stored in an `httpOnly`, `Secure` cookie (backend responsibility). The frontend calls the `/api/auth/refresh` endpoint with `withCredentials: true` to obtain new access tokens when they expire. The frontend does NOT store refresh tokens in JavaScript-accessible storage.
+- On 401 responses the frontend attempts a silent refresh and, if unsuccessful, logs the user out. Logout clears the access token from `sessionStorage` and requests backend logout to invalidate refresh cookies.
+
+Backend CORS configuration is now explicit: allowed origins are read from the `security.allowed-origins` property (comma-separated). This avoids overly permissive wildcard origin patterns and ensures `allowCredentials` works safely. For development, set `security.allowed-origins=http://localhost:4200` (or an appropriate origin) in your application properties or environment.
+
 Backend
 
 Build:

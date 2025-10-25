@@ -31,6 +31,17 @@ export class AuthService {
   private readonly baseUrl = '/api/auth';
 
   constructor(private http: HttpClient) {
+    // Load any persisted access token from sessionStorage so auth survives reloads
+    try {
+      const stored = sessionStorage.getItem('accessToken');
+      if (stored) {
+        // set session (does scheduling, emits user once /me is called)
+        this.setSession(stored);
+      }
+    } catch (e) {
+      // sessionStorage might be unavailable in some environments; ignore
+    }
+
     // On startup try to refresh (if refresh cookie present) and then fetch current user info
     this.refresh().subscribe({
       next: success => {
@@ -82,6 +93,7 @@ export class AuthService {
       this.accessToken = null;
       this.cancelScheduledRefresh();
       this.userSubject.next(null);
+      try { sessionStorage.removeItem('accessToken'); } catch (e) {}
       return;
     }
     // Debug: log masked token presence for troubleshooting auth flow
@@ -90,6 +102,7 @@ export class AuthService {
       console.debug('[AuthService] setSession - token=', masked);
     } catch (e) { /* ignore logging errors */ }
     this.accessToken = token;
+    try { sessionStorage.setItem('accessToken', token); } catch (e) {}
     const username = this.extractUsername(token) || fallbackUsername || null;
     let roles: string[] = [];
     try {
@@ -199,11 +212,22 @@ export class AuthService {
 
   // Register a new user using backend register endpoint. Return verification token (dev) if provided.
   register(username: string, email: string | null, password: string): Observable<RegisterResponse> {
-    return this.http.post<RegisterResponse>(
-      `${this.baseUrl}/register`,
-      { username, email, password },
-      { withCredentials: true }
-    );
+    console.debug('[AuthService] register request', { username, email });
+      // Debug: log register request (mask password)
+      try { console.debug('[AuthService] register - payload', { username, email, password: password ? '***' : '(empty)' }); } catch (e) {}
+      return this.http.post<RegisterResponse>(
+        `${this.baseUrl}/register`,
+        { username, email, password },
+        { withCredentials: true }
+      ).pipe(
+        tap(res => {
+          try { console.debug('[AuthService] register - response', res); } catch (e) {}
+        }),
+        catchError(err => {
+          console.error('[AuthService] register - error', err);
+          return throwError(() => err);
+        })
+      );
   }
 
   verifyAccount(token: string): Observable<void> {

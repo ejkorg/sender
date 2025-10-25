@@ -32,13 +32,16 @@ import com.onsemi.cim.apps.exensio.exensioDearchiver.service.AppUserDetailsServi
 public class SecurityConfig {
     private final com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil jwtUtil;
     private final boolean relaxedCsp;
+    private final String allowedOriginsCsv;
 
     public SecurityConfig(
         com.onsemi.cim.apps.exensio.exensioDearchiver.security.JwtUtil jwtUtil,
-        @Value("${security.csp.relaxed:false}") boolean relaxedCsp
+        @Value("${security.csp.relaxed:false}") boolean relaxedCsp,
+        @Value("${security.allowed-origins:http://localhost:4200}") String allowedOriginsCsv
     ) {
         this.jwtUtil = jwtUtil;
         this.relaxedCsp = relaxedCsp;
+        this.allowedOriginsCsv = allowedOriginsCsv;
     }
 
     @Bean
@@ -110,26 +113,33 @@ public class SecurityConfig {
 
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        // Load allowed origins from `security.allowed-origins` property (comma-separated).
+        // This keeps CORS configuration explicit and avoids unsafe wildcards like http://* / https://*.
+        java.util.List<String> allowedOriginPatterns = new java.util.ArrayList<>();
+        if (this.allowedOriginsCsv != null && !this.allowedOriginsCsv.isBlank()) {
+            for (String s : this.allowedOriginsCsv.split(",")) {
+                final String trimmed = s.trim();
+                if (!trimmed.isEmpty()) allowedOriginPatterns.add(trimmed);
+            }
+        }
+
+        // Fallback to a sensible default if none provided
+        if (allowedOriginPatterns.isEmpty()) {
+            allowedOriginPatterns.add("http://localhost:4200");
+        }
+
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
         configuration.setAllowCredentials(true);
-        // Allow localhost dev and GitHub Codespaces preview origins (patterned)
-        // use allowed origin patterns so we can accept subdomains like
-        // "https://<random>-4200.app.github.dev" used by Codespaces preview URLs.
-        configuration.setAllowedOriginPatterns(java.util.List.of(
-            // keep common dev origins
-            "http://localhost:4200",
-            "http://127.0.0.1:4200",
-            "http://localhost:8080",
-            "http://127.0.0.1:8080",
-            "https://*.app.github.dev",
-            // allow other machines on the local network to access the frontend
-            // (e.g. http://192.168.1.10:4200). Using patterns lets Spring echo
-            // the origin while allowCredentials=true.
-            "http://*",
-            "https://*"
-        ));
+        // Use allowed origin patterns so preview / subdomain patterns can be matched when required
+        configuration.setAllowedOriginPatterns(allowedOriginPatterns);
+
+        // Only allow the methods and headers we need for the API
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
+
+        // Expose Authorization header if frontend needs to read custom headers (not typical for httpOnly cookies)
+        configuration.setExposedHeaders(java.util.List.of("Authorization"));
+
         org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
