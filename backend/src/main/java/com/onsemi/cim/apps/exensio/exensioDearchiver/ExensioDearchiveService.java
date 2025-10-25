@@ -107,6 +107,13 @@ public class ExensioDearchiveService {
         return refDbService.fetchStatusesFor(site, senderId);
     }
 
+    /**
+     * Return stage statuses but scoped to a particular user (SQL-level filter for performance).
+     */
+    public List<StageStatus> getStageStatusesForUser(String site, Integer senderId, String userKey) {
+        return refDbService.fetchStatusesForUser(site, senderId, userKey);
+    }
+
     private List<PayloadCandidate> discoverPayloads(String site, String startDate, String endDate, String testerType, String dataType, String location, String testPhase) throws SQLException {
         List<PayloadCandidate> results = new ArrayList<>();
         String sql = "SELECT id, id_data FROM all_metadata_view WHERE 1=1";

@@ -208,7 +208,7 @@ public class RefDbService {
                 "SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) " +
                 "FROM " + table + " GROUP BY site, sender_id";
         try (Connection connection = dataSource.getConnection()) {
-            Map<StageStatusKey, List<StageUserStatus>> userBreakdown = fetchUserBreakdown(connection, table, null, null);
+            Map<StageStatusKey, List<StageUserStatus>> userBreakdown = fetchUserBreakdown(connection, table, null, null, null);
             try (PreparedStatement ps = connection.prepareStatement(sql);
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -244,7 +244,7 @@ public class RefDbService {
                 "FROM " + table + where + " GROUP BY site, sender_id";
         List<StageStatus> statuses = new ArrayList<>();
         try (Connection connection = dataSource.getConnection()) {
-            Map<StageStatusKey, List<StageUserStatus>> userBreakdown = fetchUserBreakdown(connection, table, site, senderId);
+            Map<StageStatusKey, List<StageUserStatus>> userBreakdown = fetchUserBreakdown(connection, table, site, senderId, null);
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 int i = 1;
                 if (site != null) ps.setString(i++, site);
@@ -269,6 +269,53 @@ public class RefDbService {
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed loading stage status (filtered)", ex);
+        }
+        return statuses;
+    }
+
+    /**
+     * Fetch statuses but limit the user breakdown to a specific user at the SQL level.
+     * This avoids loading all user breakdown rows into memory when callers only need one user's view.
+     */
+    public List<StageStatus> fetchStatusesForUser(String site, Integer senderId, String userKey) {
+        String table = properties.getStagingTable();
+        // If userKey is provided, include it in the aggregate SQL so totals are scoped to that user.
+        String where = " WHERE 1=1" + (site != null ? " AND site = ?" : "") + (senderId != null ? " AND sender_id = ?" : "") +
+            (userKey != null && !userKey.isBlank() ? " AND LOWER(COALESCE(last_requested_by, staged_by)) = ?" : "");
+        String sql = "SELECT site, sender_id, COUNT(*), " +
+            "SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END), " +
+            "SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) " +
+            "FROM " + table + where + " GROUP BY site, sender_id";
+        List<StageStatus> statuses = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
+            Map<StageStatusKey, List<StageUserStatus>> userBreakdown = fetchUserBreakdown(connection, table, site, senderId, userKey);
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                int i = 1;
+                if (site != null) ps.setString(i++, site);
+                if (senderId != null) ps.setInt(i++, senderId);
+                if (userKey != null && !userKey.isBlank()) ps.setString(i++, userKey.toLowerCase());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String rowSite = rs.getString(1);
+                        int rowSender = rs.getInt(2);
+                        StageStatusKey key = new StageStatusKey(rowSite, rowSender);
+                        statuses.add(new StageStatus(
+                                rowSite,
+                                rowSender,
+                                rs.getLong(3),
+                                rs.getLong(4),
+                                rs.getLong(5),
+                                rs.getLong(6),
+                                rs.getLong(7),
+                                userBreakdown.getOrDefault(key, List.of())
+                        ));
+                    }
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed loading stage status (filtered by user)", ex);
         }
         return statuses;
     }
@@ -838,7 +885,8 @@ public class RefDbService {
     private Map<StageStatusKey, List<StageUserStatus>> fetchUserBreakdown(Connection connection,
                                                                           String table,
                                                                           String site,
-                                                                          Integer senderId) throws SQLException {
+                                                                          Integer senderId,
+                                                                          String userKeyFilter) throws SQLException {
         StringBuilder sb = new StringBuilder("SELECT site, sender_id, COALESCE(last_requested_by, staged_by) AS user_key, COUNT(*), ")
                 .append("SUM(CASE WHEN status = 'NEW' THEN 1 ELSE 0 END), ")
                 .append("SUM(CASE WHEN status = 'ENQUEUED' THEN 1 ELSE 0 END), ")
@@ -855,6 +903,12 @@ public class RefDbService {
         if (senderId != null) {
             sb.append(" AND sender_id = ?");
             params.add(senderId);
+        }
+        // If a userKeyFilter is provided, limit breakdown to that user at SQL level for performance.
+        // Use LOWER(...) to make the comparison case-insensitive and match previous in-memory behavior.
+        if (userKeyFilter != null && !userKeyFilter.isBlank()) {
+            sb.append(" AND LOWER(COALESCE(last_requested_by, staged_by)) = ?");
+            params.add(userKeyFilter.toLowerCase());
         }
         sb.append(" GROUP BY site, sender_id, COALESCE(last_requested_by, staged_by)");
 
