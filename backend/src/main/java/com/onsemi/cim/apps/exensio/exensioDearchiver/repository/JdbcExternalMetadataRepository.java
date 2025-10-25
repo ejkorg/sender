@@ -254,7 +254,10 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         String sql = "select distinct location from dtp_simple_client_setting where enabled = 'Y'";
         List<Object> params = new ArrayList<>();
         if (dataType != null && !dataType.isBlank()) { sql += " and data_type = ?"; params.add(dataType); }
-        if (testerType != null && !testerType.isBlank()) { sql += " and tester_type = ?"; params.add(testerType); }
+        // Match provided testerType OR rows where tester_type IS NULL. Pass null to allow caller to omit.
+        sql += " and ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )";
+        params.add(testerType);
+        params.add(testerType);
         if (testPhase != null) {
             if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
                 sql += " and (data_type_ext IS NULL or data_type_ext = '')";
@@ -293,7 +296,10 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         String sql = "select distinct data_type from dtp_simple_client_setting where enabled = 'Y'";
         List<Object> params = new ArrayList<>();
         if (location != null && !location.isBlank()) { sql += " and location = ?"; params.add(location); }
-        if (testerType != null && !testerType.isBlank()) { sql += " and tester_type = ?"; params.add(testerType); }
+        // Match provided testerType OR rows where tester_type IS NULL. Pass null to allow caller to omit.
+        sql += " and ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )";
+        params.add(testerType);
+        params.add(testerType);
         if (testPhase != null) {
             if (testPhase.isBlank() || "NULL".equalsIgnoreCase(testPhase) || "NONE".equalsIgnoreCase(testPhase)) {
                 sql += " and (data_type_ext IS NULL or data_type_ext = '')";
@@ -338,8 +344,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         List<Object> params = new ArrayList<>();
         if (location != null && !location.isBlank()) { sql += " and location = ?"; params.add(location); }
         if (dataType != null && !dataType.isBlank()) { sql += " and data_type = ?"; params.add(dataType); }
-        // Allow testerType to be null: use the SQL pattern (:tester_type IS NULL OR tester_type = :tester_type)
-        sql += " and ( ? IS NULL OR tester_type = ? )";
+        // Allow testerType to be null and also fallback to rows where tester_type IS NULL when a value is provided
+        // Pattern: ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )
+        sql += " and ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )";
         params.add(testerType);
         params.add(testerType);
         sql += " order by data_type_ext";
@@ -380,7 +387,9 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                                                                        Integer senderId,
                                                                        String senderName) {
         java.util.LinkedHashSet<String> phases = new java.util.LinkedHashSet<>();
-        if (location == null || location.isBlank() || dataType == null || dataType.isBlank() || testerType == null || testerType.isBlank()) {
+        // Only require location and dataType; testerType is optional. When provided, match rows where
+        // tester_type equals the provided value OR where tester_type IS NULL so callers can get fallback phases.
+        if (location == null || location.isBlank() || dataType == null || dataType.isBlank()) {
             return new ArrayList<>();
         }
 
@@ -389,7 +398,8 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         List<Object> params = new ArrayList<>();
         sb.append(" and location = ?"); params.add(location);
         sb.append(" and data_type = ?"); params.add(dataType);
-        sb.append(" and tester_type = ?"); params.add(testerType);
+        // include tester type matching with NULL fallback regardless of whether testerType is supplied
+        sb.append(" and ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )"); params.add(testerType); params.add(testerType);
         sb.append(" order by 1");
 
         PreparedStatement ps = null;

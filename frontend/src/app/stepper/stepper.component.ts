@@ -318,8 +318,7 @@ export class StepperComponent implements OnInit, OnDestroy {
     }
     this.filtersLoading = true;
     this.dataTypeExtLoading = true;
-    const params: Record<string, any> = { connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType };
-    if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
+      const params: Record<string, any> = { connectionKey: this.selectedSite, location: this.selectedLocation, dataType: this.selectedDataType, testerType: this.selectedTesterType || null };
     this.api.getDistinctDataTypeExts(params).subscribe({
       next: (exts: string[] | null | undefined) => {
         let hasBlank = false;
@@ -353,7 +352,7 @@ export class StepperComponent implements OnInit, OnDestroy {
     const params: Record<string, any> = { connectionKey: this.selectedSite };
     if (this.selectedLocation) params['location'] = this.selectedLocation;
     if (this.selectedDataType) params['dataType'] = this.selectedDataType;
-    if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
+      params['testerType'] = this.selectedTesterType || null;
     if (this.selectedDataTypeExt) params['dataTypeExt'] = this.selectedDataTypeExt;
     // attempt a lookup first to auto-resolve senderId (backend may return metadata about lookup)
     this.api.lookupSenders(params).subscribe({
@@ -463,8 +462,12 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   onTesterTypeChanged() {
-    this.clearDiscoveryState();
-    // when testerType chosen, reload senders filtered by all upstream
+    // Changing tester type shouldn't remove the currently loaded test phases.
+    // Only clear preview/stage state and selected sender, then refresh dependent filters.
+    this.resetPreview();
+    this.stageResponse = null;
+    this.loading = false;
+    // when testerType chosen or cleared, reset sender selection so resolution will re-run later
     this.selectedSenderId = null;
     // load extensions for this tester type (data_type_ext)
     this.loadDataTypeExts();
@@ -554,7 +557,9 @@ export class StepperComponent implements OnInit, OnDestroy {
       location: this.selectedLocation,
       dataType: this.selectedDataType,
     };
-    if (this.selectedTesterType) params['testerType'] = this.selectedTesterType;
+    // Include testerType/dataTypeExt even when not selected so backend can apply OR NULL matching
+    params['testerType'] = this.selectedTesterType || null;
+    params['dataTypeExt'] = this.selectedDataTypeExt || null;
 
     this.api.getDistinctTestPhases(params).subscribe({
       next: (phases: string[] | null | undefined) => {
@@ -573,10 +578,9 @@ export class StepperComponent implements OnInit, OnDestroy {
           this.testPhaseOptions = unique;
         }
         if (!this.testPhaseOptions.length) {
-          // No phases available: immediately load senders since test phase isn't applicable
+          // No phases available: do NOT auto-load senders here. Sender resolution is performed last
+          // after the user explicitly chooses the test phase (or triggers sender resolution).
           this.selectedTestPhase = '';
-          // defer sender loading slightly to let UI update
-          setTimeout(() => this.loadSendersFiltered(), 0);
         } else if (this.selectedTestPhase && !this.testPhaseOptions.includes(this.selectedTestPhase)) {
           this.selectedTestPhase = '';
         }

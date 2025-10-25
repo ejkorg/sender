@@ -134,10 +134,10 @@ public class ExensioDearchiveService {
             sql += " AND end_time <= ?";
             params.add(endDate);
         }
-        if (testerType != null) {
-            sql += " AND tester_type = ?";
-            params.add(testerType);
-        }
+        // Match provided testerType OR rows where tester_type IS NULL so discovery can fallback when tester-specific rows don't exist.
+        sql += " AND ( ? IS NULL OR tester_type = ? OR tester_type IS NULL )";
+        params.add(testerType);
+        params.add(testerType);
         if (dataType != null) {
             sql += " AND data_type = ?";
             params.add(dataType);

@@ -44,10 +44,5 @@
     </p>
   </ng-template>
 
-  <!-- Debug: show which endpoint/params were used to resolve senderId (if available) -->
-  <div *ngIf="senderLookupLog" class="mt-2 p-2 rounded-md bg-slate-50 border border-slate-100 text-xs text-slate-600">
-    <div><strong>Sender lookup:</strong> {{ senderLookupLog.endpoint }}</div>
-    <div class="mt-1">Params: <code>{{ senderLookupLog.params | json }}</code></div>
-    <div *ngIf="senderLookupLog.raw" class="mt-1">Response: <pre class="whitespace-pre-wrap">{{ senderLookupLog.raw | json }}</pre></div>
-  </div>
+  <!-- Debug information intentionally hidden in UI per UX request -->
 </div>
