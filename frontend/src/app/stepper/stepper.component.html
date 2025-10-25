@@ -25,9 +25,7 @@
           <div class="flex flex-col gap-2"></div>
         </div>
 
-        <!-- duplicate Lot / Wafer block removed; canonical block exists below Test phase -->
-
-        <!-- Lot / Wafer inputs will be rendered after the Test phase section -->
+        <!-- Lot / Wafer pairs placeholder: will be rendered after Test phase -->
 
         <div class="rounded-2xl border border-onsemi-primary/15 bg-onsemi-ice/60 px-4 py-3 text-sm text-onsemi-charcoal" *ngIf="filtersLoading">
           <div class="flex items-center gap-3">
@@ -124,19 +122,12 @@
           </div>
         </div>
 
-        <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-          <p><strong>Selected connection:</strong> {{ selectedSite || 'None' }}</p>
-          <p *ngIf="selectedSenderId"><strong>Sender:</strong> {{ selectedSenderId }} — {{ getSelectedSenderName() }}</p>
-          <p *ngIf="selectedLocation"><strong>Location:</strong> {{ selectedLocation }}</p>
-          <p *ngIf="selectedDataType"><strong>Data type:</strong> {{ selectedDataType }}</p>
-        </div>
-
-        <!-- Lot / Wafer pairs: appear after the Test phase / date grid (and after the Selected connection summary) -->
+        <!-- Lot / Wafer pairs: appear immediately after the Test phase (and before the Selected connection summary) -->
         <div class="mt-4" *ngIf="selectedSite && selectedLocation && selectedDataType && (selectedTesterType || !(filterOptions?.testerTypes?.length))">
           <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
           <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
           <div class="space-y-2 mt-2">
-            <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
+            <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 items-center">
               <div>
                 <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
                 <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
@@ -154,6 +145,15 @@
             </div>
           </div>
         </div>
+
+        <div class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          <p><strong>Selected connection:</strong> {{ selectedSite || 'None' }}</p>
+          <p *ngIf="selectedSenderId"><strong>Sender:</strong> {{ selectedSenderId }} — {{ getSelectedSenderName() }}</p>
+          <p *ngIf="selectedLocation"><strong>Location:</strong> {{ selectedLocation }}</p>
+          <p *ngIf="selectedDataType"><strong>Data type:</strong> {{ selectedDataType }}</p>
+        </div>
+
+        <!-- Lot / Wafer pairs removed from here (moved up after Test phase) -->
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p class="text-sm text-slate-600" *ngIf="!canSearch()">Select site, location, data type, tester, and sender to continue. Non-admins must provide at least one lot/wafer pair.</p>
@@ -195,20 +195,49 @@
                   <tr>
                     <th class="px-4 py-3 text-left font-semibold">Metadata ID</th>
                     <th class="px-4 py-3 text-left font-semibold">Data ID</th>
-                    <th class="px-4 py-3 text-left font-semibold">Lot</th>
-                    <th class="px-4 py-3 text-left font-semibold">End Time</th>
+                     <th class="px-4 py-3 text-left font-semibold">Lot</th>
+                     <th class="px-4 py-3 text-left font-semibold">Wafer</th>
+                     <th class="px-4 py-3 text-left font-semibold">File</th>
+                     <th class="px-4 py-3 text-left font-semibold">End Time</th>
+                    <th class="px-4 py-3 text-left font-semibold">Duplicate</th>
                     <th class="px-4 py-3 text-center font-semibold">Select</th>
+                    <th class="px-4 py-3 text-center font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-surface">
                   <tr *ngFor="let row of previewRows" class="hover:bg-onsemi-ice/60">
                     <td class="px-4 py-3 font-medium text-onsemi-charcoal">{{ row.metadataId || '—' }}</td>
                     <td class="px-4 py-3 text-slate-700">{{ row.dataId || '—' }}</td>
-                    <td class="px-4 py-3 text-slate-700">{{ row.lot || '—' }}</td>
-                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ row.endTime ? (row.endTime | date: uiDateFormat) : '—' }}</td>
+                     <td class="px-4 py-3 text-slate-700">{{ row.lot || '—' }}</td>
+                     <td class="px-4 py-3 text-slate-700">
+                       <span *ngIf="row.wafer">{{ row.wafer }}</span>
+                     </td>
+                     <td class="px-4 py-3 text-slate-700" title="{{ row.originalFileName || '' }}">{{ row.originalFileName ? (row.originalFileName.length > 36 ? (row.originalFileName | slice:0:36) + '…' : row.originalFileName) : '—' }}</td>
+                     <td class="px-4 py-3 text-slate-600 whitespace-nowrap">{{ row.endTime ? (row.endTime | date: uiDateFormat) : '—' }}</td>
+                    <td class="px-4 py-3 text-slate-700">
+                      <ng-container *ngIf="previewDuplicateForRow(row) as dup">
+                        <div class="text-amber-800 font-semibold">DUPLICATE<span class="ml-2 text-xs text-slate-500">{{ dup.previousStatus ? '(' + dup.previousStatus + ')' : '' }}</span></div>
+                        <div class="text-xs text-slate-500">
+                          <div *ngIf="row.dataId" class="text-xs text-slate-500">Data ID: {{ row.dataId }}</div>
+                          <span *ngIf="dup.stagedBy">staged by {{ dup.stagedBy }}</span>
+                          <span *ngIf="dup.lastRequestedBy"><span *ngIf="dup.stagedBy"> · </span>last requested by {{ dup.lastRequestedBy }}</span>
+                          <div *ngIf="dup.stagedAt || dup.lastRequestedAt" class="text-xs text-slate-400">
+                            {{ dup.stagedAt ? (dup.stagedAt | date: uiDateFormat) : (dup.lastRequestedAt ? (dup.lastRequestedAt | date: uiDateFormat) : '') }}
+                          </div>
+                        </div>
+                      </ng-container>
+                      <ng-container *ngIf="!previewDuplicateForRow(row)">—</ng-container>
+                    </td>
                     <td class="px-4 py-3 text-center">
                       <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-onsemi-primary focus:ring-onsemi-primary/40"
                              [checked]="isRowSelected(row)" (change)="toggleRow(row, $event.target.checked)" />
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                      <div class="flex items-center justify-center gap-2">
+                        <button type="button" class="btn-secondary" (click)="openDuplicateDetails(row)" [disabled]="!previewDuplicateForRow(row)">Details</button>
+                        <button type="button" class="btn-secondary" (click)="skipPreviewRow(row)">Skip</button>
+                        <button type="button" class="btn-primary" (click)="stageSingleForce(row)" [disabled]="staging">Force</button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -281,37 +310,15 @@
           <div class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-700" *ngIf="stageResponse.requiresConfirmation">
             Dispatch pending confirmation. Re-run staging to proceed.
           </div>
-          <div *ngIf="stageResponse.duplicatePayloads.length" class="space-y-3">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p class="text-sm font-semibold text-onsemi-charcoal">Duplicate payloads ({{ stageResponse.duplicatePayloads.length }})</p>
-              <div class="flex flex-wrap gap-2">
-                <button type="button" class="btn-secondary" (click)="copyDuplicatesToClipboard()">Copy duplicates</button>
-                <button type="button" class="btn-secondary" (click)="exportDuplicateCsv()">Export CSV</button>
-              </div>
+          <!-- Duplicate display mode toggle -->
+          <div class="flex items-center gap-3">
+            <label class="text-sm text-slate-600">Duplicate view:</label>
+            <div class="flex gap-2">
+              <button type="button" class="btn-secondary" [class.btn-primary]="duplicateDisplayMode==='group'" (click)="setDuplicateDisplayMode('group')">Grouped</button>
+              <button type="button" class="btn-secondary" [class.btn-primary]="duplicateDisplayMode==='interleave'" (click)="setDuplicateDisplayMode('interleave')">Interleaved</button>
             </div>
-            <div class="overflow-auto rounded-xl border border-slate-200 bg-surface">
-              <table class="min-w-full divide-y divide-slate-200 text-sm">
-                <thead class="bg-onsemi-ice text-onsemi-charcoal">
-                  <tr>
-                    <th class="px-4 py-3 text-left font-semibold">Metadata</th>
-                    <th class="px-4 py-3 text-left font-semibold">Data</th>
-                    <th class="px-4 py-3 text-left font-semibold">Requested By</th>
-                    <th class="px-4 py-3 text-left font-semibold">Last Requested</th>
-                    <th class="px-4 py-3 text-left font-semibold">Status</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 bg-surface">
-                  <tr *ngFor="let dup of stageResponse.duplicatePayloads" class="hover:bg-onsemi-ice/60">
-                    <td class="px-4 py-3 font-medium text-onsemi-charcoal">{{ dup.metadataId }}</td>
-                    <td class="px-4 py-3 text-slate-700">{{ dup.dataId }}</td>
-                    <td class="px-4 py-3 text-slate-700">{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</td>
-                    <td class="px-4 py-3 text-slate-600">{{ dup.lastRequestedAt ? (dup.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
-                    <td class="px-4 py-3 text-slate-600">{{ dup.previousStatus || '—' }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-        </div>
+            <p class="text-xs text-slate-500 ml-4">Grouped = compact; Interleaved = chronological with staged records.</p>
+          </div>
 
         <div *ngIf="stageStatus.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div *ngFor="let status of stageStatus" class="rounded-2xl border border-slate-200 bg-surface p-5 shadow-sm">
@@ -331,29 +338,7 @@
                     <span class="font-semibold text-onsemi-charcoal">{{ user.username || 'unknown' }}</span>
                     <span class="text-slate-500">{{ user.lastRequestedAt ? (user.lastRequestedAt | date: uiDateFormat) : '—' }}</span>
                   </div>
-                  <div class="flex flex-col gap-2">
-                    <!-- Both admins and non-admins can use lot/wafer pairs. Admins also see date range below. -->
-                    <label class="text-sm font-semibold text-onsemi-charcoal">Lot / Wafer pairs</label>
-                    <p class="text-xs text-slate-500">Wafer is optional — leave blank to match any wafer for the given lot.</p>
-                    <div class="space-y-2">
-                      <div *ngFor="let pair of lotWaferPairs; let i = index" class="grid gap-2 md:grid-cols-3 items-center">
-                        <div>
-                          <input [(ngModel)]="pair.lot" name="lot{{i}}" placeholder="Lot" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
-                          <div *ngIf="!pair.lot && pair.wafer" class="text-amber-600 text-xs mt-1">Wafer provided without lot — this will be treated as a wafer-only match.</div>
-                        </div>
-                        <div>
-                          <input [(ngModel)]="pair.wafer" name="wafer{{i}}" placeholder="Wafer (optional)" class="rounded-xl border border-slate-300 bg-surface px-4 py-3 text-sm shadow-sm" />
-                        </div>
-                        <div class="flex items-center">
-                          <button type="button" class="btn-secondary mr-2" (click)="removeLotWaferPair(i)" [disabled]="lotWaferPairs.length <= 1">Remove</button>
-                          <span class="text-xs text-slate-500">{{ i + 1 }}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <button type="button" class="btn-secondary" (click)="addLotWaferPair()" [disabled]="lotWaferPairs.length >= maxLotWaferPairs || !isLastPairFilled()">+ Add another pair</button>
-                      </div>
-                    </div>
-                  </div>
+                  <!-- Lot/Wafer inputs removed from user breakdown (kept in Step 1 canonical location) -->
                   <div class="flex items-center gap-3">
                     <label for="stageRecordsSize" class="text-sm text-slate-600">Page size</label>
                     <select id="stageRecordsSize" [(ngModel)]="stageRecordsSize" name="stageRecordsSize" (ngModelChange)="changeStageRecordsSize($event)"
@@ -395,15 +380,56 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 bg-surface">
-                <tr *ngFor="let record of stageRecords" class="hover:bg-onsemi-ice/60">
-                  <td class="px-4 py-3 font-medium text-onsemi-charcoal">{{ record.metadataId || '—' }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ record.dataId || '—' }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ record.status }}</td>
-                  <td class="px-4 py-3 text-slate-700">{{ record.lastRequestedBy || record.stagedBy || 'unknown' }}</td>
-                  <td class="px-4 py-3 text-slate-600">{{ record.lastRequestedAt ? (record.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
-                  <td class="px-4 py-3 text-slate-600">{{ record.updatedAt | date: uiDateFormat }}</td>
-                  <td class="px-4 py-3 text-slate-600">{{ record.errorMessage || '—' }}</td>
-                </tr>
+                <ng-container *ngIf="duplicateDisplayMode === 'group'">
+                  <tr *ngFor="let record of stageRecords" class="hover:bg-onsemi-ice/60">
+                    <td class="px-4 py-3 font-medium text-onsemi-charcoal">
+                      {{ record.metadataId || '—' }}
+                      <div *ngIf="record.wafer" class="text-xs text-slate-500">Wafer: {{ record.wafer }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">
+                      {{ record.dataId || '—' }}
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">{{ record.status }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ record.lastRequestedBy || record.stagedBy || 'unknown' }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ record.lastRequestedAt ? (record.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ record.updatedAt | date: uiDateFormat }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ record.errorMessage || '—' }}</td>
+                  </tr>
+                  <tr *ngIf="visibleDuplicatePayloads?.length" class="bg-amber-50">
+                    <td class="px-4 py-2 text-sm text-amber-800 font-medium" colspan="7">Duplicate payloads (already staged) — shown below with the user who staged them before</td>
+                  </tr>
+                  <tr *ngFor="let dup of visibleDuplicatePayloads" class="hover:bg-amber-100">
+                    <td class="px-4 py-3 font-medium text-onsemi-charcoal">
+                      {{ dup.metadataId || '—' }}
+                      <div *ngIf="dup.wafer" class="text-xs text-amber-700">Wafer: {{ dup.wafer }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">{{ dup.dataId || '—' }}</td>
+                    <td class="px-4 py-3 text-amber-800">DUPLICATE<span class="ml-2 text-xs text-slate-500">{{ dup.previousStatus ? '(' + dup.previousStatus + ')' : '' }}</span></td>
+                    <td class="px-4 py-3 text-slate-700">{{ dup.lastRequestedBy || dup.stagedBy || 'unknown' }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ dup.lastRequestedAt ? (dup.lastRequestedAt | date: uiDateFormat) : '—' }}</td>
+                    <td class="px-4 py-3 text-slate-600">—</td>
+                    <td class="px-4 py-3 text-slate-600">—</td>
+                  </tr>
+                </ng-container>
+                <ng-container *ngIf="duplicateDisplayMode === 'interleave'">
+                  <tr *ngFor="let row of mergedStageAndDuplicateRows" [ngClass]="{'hover:bg-amber-100': row.__type === 'dup'}">
+                    <td class="px-4 py-3 font-medium text-onsemi-charcoal">
+                      {{ row.item.metadataId || '—' }}
+                      <div *ngIf="row.item.wafer" class="text-xs text-slate-500">Wafer: {{ row.item.wafer }}</div>
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">
+                      {{ row.item.dataId || '—' }}
+                    </td>
+                    <td [ngClass]="row.__type === 'dup' ? 'text-amber-800' : 'text-slate-700'" class="px-4 py-3"> 
+                      <ng-container *ngIf="row.__type === 'dup'">DUPLICATE<span class="ml-2 text-xs text-slate-500">{{ row.item.previousStatus ? '(' + row.item.previousStatus + ')' : '' }}</span></ng-container>
+                      <ng-container *ngIf="row.__type === 'record'">{{ row.item.status }}</ng-container>
+                    </td>
+                    <td class="px-4 py-3 text-slate-700">{{ row.__type === 'record' ? (row.item.lastRequestedBy || row.item.stagedBy || 'unknown') : (row.item.lastRequestedBy || row.item.stagedBy || 'unknown') }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ row.__type === 'record' ? (row.item.lastRequestedAt ? (row.item.lastRequestedAt | date: uiDateFormat) : '—') : (row.item.lastRequestedAt ? (row.item.lastRequestedAt | date: uiDateFormat) : '—') }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ row.__type === 'record' ? (row.item.updatedAt | date: uiDateFormat) : '—' }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ row.__type === 'record' ? (row.item.errorMessage || '—') : '—' }}</td>
+                  </tr>
+                </ng-container>
               </tbody>
             </table>
           </div>

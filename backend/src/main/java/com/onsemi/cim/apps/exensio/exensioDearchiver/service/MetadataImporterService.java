@@ -149,8 +149,15 @@ public class MetadataImporterService {
     String debugSql = externalMetadataRepository.describePreviewQuery(lstart, lend, dataType, testPhase, testerType, location, lots, wafers, offset, resolvedSize);
 
         List<DiscoveryPreviewRow> items = rows.stream()
-                .map(row -> new DiscoveryPreviewRow(nullSafe(row.getId()), nullSafe(row.getIdData()), nullSafe(row.getLot()), toIsoString(row.getEndTime())))
-                .toList();
+            .map(row -> new DiscoveryPreviewRow(
+                nullSafe(row.getId()),
+                nullSafe(row.getIdData()),
+                nullSafe(row.getLot()),
+                nullSafe(row.getWafer()),
+                nullSafe(row.getOriginalFileName()),
+                toIsoString(row.getEndTime())
+            ))
+            .toList();
 
         if (log.isDebugEnabled()) {
             log.debug("Preview result total={} page={} size={} returned={}", total, resolvedPage, resolvedSize, items.size());

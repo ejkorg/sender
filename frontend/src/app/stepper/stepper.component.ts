@@ -39,6 +39,8 @@ export class StepperComponent implements OnInit, OnDestroy {
   // configurable maximum number of lot/wafer pairs (default 5)
   readonly maxLotWaferPairs = 5;
   isAdmin = false;
+  // duplicate display mode: 'group' shows grouped duplicates below records; 'interleave' merges duplicates into the record list chronologically
+  duplicateDisplayMode: 'group' | 'interleave' = 'group';
 
   filterOptions: ReloadFilterOptions | null = null;
   filtersLoading = false;
@@ -63,6 +65,8 @@ export class StepperComponent implements OnInit, OnDestroy {
 
   previewLoading = false;
   previewRows: DiscoveryPreviewRow[] = [];
+  // Map of preview duplicate lookups (key: "metadata|data") -> DuplicatePayloadInfo
+  previewDuplicatesMap = new Map<string, import('../api/backend.service').DuplicatePayloadInfo>();
   previewTotal = 0;
   previewPage = 0;
   previewSize = 25;
@@ -106,6 +110,15 @@ export class StepperComponent implements OnInit, OnDestroy {
       this.isAdmin = !!(user && Array.isArray(user.roles) && user.roles.includes('ROLE_ADMIN'));
       // environment filter removed from stepper UI/logic
     });
+    // load persisted duplicate display preference if present
+    try {
+      const saved = localStorage.getItem('duplicateDisplayMode');
+      if (saved === 'group' || saved === 'interleave') {
+        this.duplicateDisplayMode = saved as 'group' | 'interleave';
+      }
+    } catch (e) {
+      // ignore if localStorage unavailable
+    }
   }
 
   ngOnDestroy(): void {
@@ -504,6 +517,26 @@ export class StepperComponent implements OnInit, OnDestroy {
           // If page is beyond total (race condition), reset to first page
           this.doPreview(0);
         }
+        // After loading preview rows, fetch duplicate details for this page so the user sees full duplicate info in Preview
+        try {
+          const items = this.previewRows.map(r => ({ metadataId: r.metadataId ?? null, dataId: r.dataId ?? null }));
+          this.previewDuplicatesMap.clear();
+          this.api.previewDuplicates(this.selectedSenderId as number, { site, senderId: this.selectedSenderId, items }).subscribe({
+            next: (dups) => {
+              if (!dups || !dups.length) return;
+              for (const d of dups) {
+                const k = `${(d.metadataId ?? '').trim()}|${(d.dataId ?? '').trim()}`;
+                if (k && k !== '|') this.previewDuplicatesMap.set(k, d);
+              }
+            },
+            error: (err: unknown) => {
+              // non-fatal: preview duplicate lookup failed, just log and continue
+              console.error('Preview duplicate lookup failed', err);
+            }
+          });
+        } catch (e) {
+          console.error('Failed scheduling preview duplicate lookup', e);
+        }
       },
       error: (err: unknown) => {
         console.error('Preview failed', err);
@@ -679,11 +712,12 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   copyDuplicatesToClipboard() {
-    if (!this.stageResponse?.duplicatePayloads?.length) {
+    const duplicates = this.visibleDuplicatePayloads ?? [];
+    if (!duplicates.length) {
       this.toast.info('No duplicate payloads to copy.');
       return;
     }
-    const text = this.stageResponse.duplicatePayloads
+    const text = duplicates
       .map(dup => {
         const segments: string[] = [`${dup.metadataId},${dup.dataId}`];
         if (dup.lastRequestedBy) {
@@ -743,6 +777,93 @@ export class StepperComponent implements OnInit, OnDestroy {
     }
   }
 
+  setDuplicateDisplayMode(mode: 'group' | 'interleave') {
+    this.duplicateDisplayMode = mode;
+    try {
+      localStorage.setItem('duplicateDisplayMode', mode);
+    } catch (e) {
+      // ignore failures (e.g., private mode)
+    }
+  }
+
+  openDuplicateDetails(row: DiscoveryPreviewRow): void {
+    const dup = this.previewDuplicateForRow(row);
+    if (!dup) return;
+    // reuse DuplicateWarningDialogComponent to show a single duplicate
+    try {
+      this.modal.openComponent<any>(
+        // lazy reference to avoid import cycle in template compile
+        // actual component imported at top of file earlier
+        // @ts-ignore
+        DuplicateWarningDialogComponent,
+        { data: { currentUser: this.currentUser, duplicates: [dup] } }
+      ).then(() => {});
+    } catch (e) {
+      console.error('Failed to open duplicate details modal', e);
+    }
+  }
+
+  skipPreviewRow(row: DiscoveryPreviewRow): void {
+    const key = this.rowKey(row);
+    if (!key) return;
+    // remove selection for this row and keep it visible; user can re-select later
+    this.previewSelectedKeys.delete(key);
+    this.previewRowCache.delete(key);
+    this.previewRows = this.previewRows.filter(r => this.rowKey(r) !== key);
+    this.updateSelectAllState();
+    this.recalculateSelectedCount();
+  }
+
+  async stageSingleForce(row: DiscoveryPreviewRow): Promise<void> {
+    if (!this.selectedSite || !this.selectedSenderId) {
+      this.toast.error('Site and sender must be selected.');
+      return;
+    }
+    const key = this.rowKey(row);
+    if (!key) {
+      this.toast.error('Invalid payload selected.');
+      return;
+    }
+    if (!row.metadataId || !row.dataId) {
+      this.toast.error('Row lacks metadataId or dataId.');
+      return;
+    }
+    const body: StagePayloadRequestBody = {
+      site: this.selectedSite,
+      senderId: this.selectedSenderId,
+      payloads: [{ metadataId: row.metadataId, dataId: row.dataId }],
+      triggerDispatch: this.triggerDispatch,
+      forceDuplicates: true
+    };
+    this.staging = true;
+    this.api.stagePayloads(this.selectedSenderId, body).subscribe({
+      next: (response: StagePayloadResponseBody) => {
+        // remove the row from preview UI and selections
+        this.previewSelectedKeys.delete(key);
+        this.previewRowCache.delete(key);
+        this.previewRows = this.previewRows.filter(r => this.rowKey(r) !== key);
+        this.updateSelectAllState();
+        this.recalculateSelectedCount();
+        // use existing finalize logic to show toast and refresh monitoring
+        this.finalizeStage(response, 1);
+      },
+      error: (err: unknown) => {
+        console.error('Failed force-staging single payload', err);
+        this.toast.error('Failed staging payload');
+        this.staging = false;
+      },
+      complete: () => {
+        this.staging = false;
+      }
+    });
+  }
+
+  previewDuplicateForRow(row: DiscoveryPreviewRow): import('../api/backend.service').DuplicatePayloadInfo | null {
+    const key = this.rowKey(row);
+    if (!key) return null;
+    return this.previewDuplicatesMap.get(key) ?? null;
+  }
+
   private updateSelectAllState() {
     if (!this.previewRows.length) {
       this.selectAllPage = false;
@@ -767,13 +888,15 @@ export class StepperComponent implements OnInit, OnDestroy {
       row.metadataId ?? '',
       row.dataId ?? '',
       row.lot ?? '',
+      row.wafer ?? '',
+      row.originalFileName ?? '',
       this.formatDateTime(row.endTime)
     ]);
 
     const fileName = `discovery_${selectedOnly ? 'selected' : 'page'}`;
     const exported = this.csv.download({
       filename: fileName,
-      headers: ['Metadata ID', 'Data ID', 'Lot', 'End Time'],
+      headers: ['Metadata ID', 'Data ID', 'Lot', 'Wafer', 'File', 'End Time'],
       rows: csvRows
     });
 
@@ -817,7 +940,7 @@ export class StepperComponent implements OnInit, OnDestroy {
   }
 
   exportDuplicateCsv(): void {
-    const duplicates = this.stageResponse?.duplicatePayloads ?? [];
+    const duplicates = this.visibleDuplicatePayloads ?? [];
     if (!duplicates.length) {
       this.toast.info('No duplicate payloads to export.');
       return;
@@ -926,6 +1049,61 @@ export class StepperComponent implements OnInit, OnDestroy {
       return null;
     }
     return `${metadata}|${data}`;
+  }
+
+  /**
+   * Duplicates visible to the current view. If the user is admin, show all duplicates.
+   * For non-admins, only show duplicates that involve the current user (staged_by or last_requested_by).
+   */
+  get visibleDuplicatePayloads() {
+    const all = this.stageResponse?.duplicatePayloads ?? [];
+    if (this.isAdmin) return all;
+    if (!this.currentUser) return [];
+    const me = String(this.currentUser).toLowerCase();
+    // Non-admin: show duplicates that were staged/last-requested by the user OR duplicates that match metadata/data present in the current staged records.
+    const recordKeys = new Set((this.stageRecords || []).map(r => `${(r.metadataId||'').trim()}|${(r.dataId||'').trim()}`));
+    return all.filter(d => {
+      const u = (d.lastRequestedBy || d.stagedBy || '').toString().toLowerCase();
+      if (u && u === me) return true;
+      const key = `${(d.metadataId||'').trim()}|${(d.dataId||'').trim()}`;
+      return recordKeys.has(key);
+    });
+  }
+
+  /**
+   * Merge staged records and visible duplicates into a single chronological list for interleaving.
+   * Each item is annotated with a __type: 'record' | 'dup' so the template can render accordingly.
+   */
+  get mergedStageAndDuplicateRows() {
+    type MergedRow = { __type: 'record' | 'dup'; item: any; ts: Date | null };
+    const records: MergedRow[] = (this.stageRecords || []).map(r => ({ __type: 'record', item: r as any, ts: this._pickTimestampFromRecord(r) }));
+    const dups: MergedRow[] = (this.visibleDuplicatePayloads || []).map(d => ({ __type: 'dup', item: d as any, ts: this._pickTimestampFromDup(d) }));
+    const combined: MergedRow[] = records.concat(dups);
+    combined.sort((a, b) => {
+      const ta = a.ts ? a.ts.getTime() : 0;
+      const tb = b.ts ? b.ts.getTime() : 0;
+      // newest first
+      return tb - ta;
+    });
+    return combined;
+  }
+
+  private _pickTimestampFromRecord(r: any): Date | null {
+    try {
+      if (r.lastRequestedAt) return new Date(r.lastRequestedAt);
+      if (r.updatedAt) return new Date(r.updatedAt);
+      if (r.processedAt) return new Date(r.processedAt);
+    } catch (e) {}
+    return null;
+  }
+
+  private _pickTimestampFromDup(d: any): Date | null {
+    try {
+      if (d.lastRequestedAt) return new Date(d.lastRequestedAt);
+      if (d.stagedAt) return new Date(d.stagedAt);
+      if (d.processedAt) return new Date(d.processedAt);
+    } catch (e) {}
+    return null;
   }
 
   get previewLastPage(): number {

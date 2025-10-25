@@ -36,7 +36,7 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         public List<MetadataRow> findMetadataPage(String site, String environment, LocalDateTime start, LocalDateTime end,
                               String dataType, String testPhase, String testerType, String location, java.util.List<String> lots, java.util.List<String> wafers,
                               int offset, int limit) {
-        SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
+        SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time, wafer, original_file_name from all_metadata_view",
             start, end, dataType, testPhase, testerType, location, lots, wafers);
         sql.append(" order by end_time desc");
         if (limit > 0) {
@@ -69,7 +69,7 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
                            java.util.List<String> wafers,
                            int offset,
                            int limit) {
-        SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
+        SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time, wafer, original_file_name from all_metadata_view",
             start, end, dataType, testPhase, testerType, location, lots, wafers);
         sql.append(" order by end_time desc");
         if (limit > 0) {
@@ -109,7 +109,7 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         PreparedStatement ps = null;
         ResultSet rs = null;
         try {
-            SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time from all_metadata_view",
+                SqlWithParams sql = buildMetadataQuery("select lot, id, id_data, end_time, wafer, original_file_name from all_metadata_view",
                     start, end, dataType, testPhase, testerType, location, lots, wafers);
             if (limit > 0) {
                 sql.append(" fetch first ").append(String.valueOf(limit)).append(" rows only");
@@ -469,7 +469,11 @@ public class JdbcExternalMetadataRepository implements ExternalMetadataRepositor
         String idData = rs.getString("id_data");
         Timestamp ts = rs.getTimestamp("end_time");
         LocalDateTime endTime = ts == null ? null : ts.toLocalDateTime();
-        return new MetadataRow(lot, id, idData, endTime);
+        String wafer = null;
+        try { wafer = rs.getString("wafer"); } catch (Exception ignore) {}
+        String originalFileName = null;
+        try { originalFileName = rs.getString("original_file_name"); } catch (Exception ignore) {}
+        return new MetadataRow(lot, id, idData, endTime, wafer, originalFileName);
     }
 
     private static class SqlWithParams {

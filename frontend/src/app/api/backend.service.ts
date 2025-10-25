@@ -44,6 +44,8 @@ export interface DiscoveryPreviewRow {
   metadataId: string | null;
   dataId: string | null;
   lot: string | null;
+  wafer?: string | null;
+  originalFileName?: string | null;
   endTime: string | null;
 }
 
@@ -53,6 +55,12 @@ export interface DiscoveryPreviewResponse {
   page: number;
   size: number;
   debugSql?: string;
+}
+
+export interface PreviewDuplicateRequest {
+  site: string;
+  senderId?: number | null;
+  items: Array<{ metadataId: string | null; dataId: string | null }>;
 }
 
 export interface StagePayloadRequestBody {
@@ -267,6 +275,11 @@ export class BackendService {
   previewDiscovery(senderId: number, req: DiscoveryPreviewRequest): Observable<DiscoveryPreviewResponse> {
     const headers = this.auth.getAuthHeaders();
     return this.http.post<DiscoveryPreviewResponse>(`${this.base}/senders/${senderId}/discover/preview`, req, { headers: headers || undefined });
+  }
+
+  previewDuplicates(senderId: number, req: PreviewDuplicateRequest): Observable<DuplicatePayloadInfo[]> {
+    const headers = this.auth.getAuthHeaders();
+    return this.http.post<DuplicatePayloadInfo[]>(`${this.base}/senders/${senderId}/preview/duplicates`, req, { headers: headers || undefined });
   }
 
   stagePayloads(senderId: number, body: StagePayloadRequestBody): Observable<StagePayloadResponseBody> {

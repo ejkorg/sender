@@ -450,6 +450,106 @@ public class RefDbService {
         return records;
     }
 
+    /**
+     * Like listRecords(...) but only returns rows where the effective owner (last_requested_by or staged_by)
+     * matches the provided userKeyFilter (case-insensitive). This enables SQL-level scoping for non-admin users.
+     */
+    public List<StageRecord> listRecordsForUser(String site, Integer senderId, String status, int offset, int limit, String userKeyFilter) {
+        String table = properties.getStagingTable();
+        StringBuilder sb = new StringBuilder("SELECT id, site, sender_id, metadata_id, data_id, status, ")
+                .append(coalesce("error_message", "''"))
+                .append(" AS error_message, created_at, updated_at, processed_at, staged_by, last_requested_by, last_requested_at FROM ")
+                .append(table)
+                .append(" WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        if (site != null && !site.isBlank()) {
+            sb.append(" AND site = ?");
+            params.add(site);
+        }
+        if (senderId != null) {
+            sb.append(" AND sender_id = ?");
+            params.add(senderId);
+        }
+        if (status != null && !status.isBlank()) {
+            sb.append(" AND status = ?");
+            params.add(status);
+        }
+        if (userKeyFilter != null && !userKeyFilter.isBlank()) {
+            sb.append(" AND LOWER(COALESCE(last_requested_by, staged_by)) = ?");
+            params.add(userKeyFilter.toLowerCase());
+        }
+        sb.append(" ORDER BY updated_at DESC");
+        int effectiveOffset = Math.max(offset, 0);
+        if (limit > 0) {
+            sb.append(" OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+            params.add(effectiveOffset);
+            params.add(limit);
+        }
+
+        List<StageRecord> records = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+            int idx = 1;
+            for (Object param : params) {
+                if (param instanceof Integer i) ps.setInt(idx++, i);
+                else if (param instanceof Long l) ps.setLong(idx++, l);
+                else ps.setString(idx++, param == null ? null : param.toString());
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    records.add(mapRecord(rs));
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed loading staged records (user-scoped)", ex);
+        }
+        return records;
+    }
+
+    /**
+     * Returns true if a staged record for the given site/sender/metadataId/dataId exists and
+     * the effective owner (last_requested_by or staged_by) matches the provided userKeyFilter.
+     * Used to decide whether a non-admin user should be allowed to see information about
+     * an existing staged payload that matches the metadata/data they are attempting to stage.
+     */
+    public boolean recordExistsForUser(String site, Integer senderId, String metadataId, String dataId, String userKeyFilter) {
+        if (metadataId == null || dataId == null) return false;
+        String table = properties.getStagingTable();
+        StringBuilder sb = new StringBuilder("SELECT COUNT(1) FROM ").append(table).append(" WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        if (site != null && !site.isBlank()) {
+            sb.append(" AND site = ?");
+            params.add(site);
+        }
+        if (senderId != null) {
+            sb.append(" AND sender_id = ?");
+            params.add(senderId);
+        }
+        sb.append(" AND metadata_id = ? AND data_id = ?");
+        params.add(metadataId);
+        params.add(dataId);
+        if (userKeyFilter != null && !userKeyFilter.isBlank()) {
+            sb.append(" AND LOWER(COALESCE(last_requested_by, staged_by)) = ?");
+            params.add(userKeyFilter.toLowerCase());
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+            int idx = 1;
+            for (Object param : params) {
+                if (param instanceof Integer i) ps.setInt(idx++, i);
+                else ps.setString(idx++, param == null ? null : param.toString());
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException ex) {
+            log.warn("Failed checking recordExistsForUser: {}", ex.getMessage());
+        }
+        return false;
+    }
+
     public List<StageRecord> listRecordsByStatus(String status, int limit) {
         return listRecords(null, null, status, limit);
     }
@@ -485,6 +585,48 @@ public class RefDbService {
             }
         } catch (SQLException ex) {
             throw new IllegalStateException("Failed counting staged records", ex);
+        }
+        return 0L;
+    }
+
+    /**
+     * Count staged records but limited to a specific user (case-insensitive comparison of last_requested_by or staged_by).
+     */
+    public long countRecordsForUser(String site, Integer senderId, String status, String userKeyFilter) {
+        String table = properties.getStagingTable();
+        StringBuilder sb = new StringBuilder("SELECT COUNT(1) FROM ").append(table).append(" WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+        if (site != null && !site.isBlank()) {
+            sb.append(" AND site = ?");
+            params.add(site);
+        }
+        if (senderId != null) {
+            sb.append(" AND sender_id = ?");
+            params.add(senderId);
+        }
+        if (status != null && !status.isBlank()) {
+            sb.append(" AND status = ?");
+            params.add(status);
+        }
+        if (userKeyFilter != null && !userKeyFilter.isBlank()) {
+            sb.append(" AND LOWER(COALESCE(last_requested_by, staged_by)) = ?");
+            params.add(userKeyFilter.toLowerCase());
+        }
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sb.toString())) {
+            int idx = 1;
+            for (Object param : params) {
+                if (param instanceof Integer i) ps.setInt(idx++, i);
+                else if (param instanceof Long l) ps.setLong(idx++, l);
+                else ps.setString(idx++, param == null ? null : param.toString());
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new IllegalStateException("Failed counting staged records (user-scoped)", ex);
         }
         return 0L;
     }
@@ -1036,6 +1178,28 @@ public class RefDbService {
                 existing.lastRequestedAt(),
                 requiresConfirmation
         );
+    }
+
+    /**
+     * Find an existing staged payload matching the metadata/data for the given site/sender.
+     * Returns a DuplicatePayload summarizing the existing row if found, otherwise null.
+     * This is a read-only helper for preview flows.
+     */
+    public DuplicatePayload findDuplicatePayload(String site, Integer senderId, String metadataId, String dataId) {
+        if (metadataId == null || dataId == null) return null;
+        String table = properties.getStagingTable();
+        PayloadCandidate candidate = new PayloadCandidate(metadataId, dataId);
+        try (Connection connection = dataSource.getConnection()) {
+            ExistingPayload existing = loadExistingPayload(connection, table, site, senderId == null ? -1 : senderId, candidate);
+            if (existing == null) {
+                return null;
+            }
+            // requiresConfirmation not relevant for preview; set false
+            return toDuplicatePayload(candidate, existing, false);
+        } catch (SQLException ex) {
+            log.warn("Failed lookup duplicate payload for preview {}:{} - {}", metadataId, dataId, ex.getMessage());
+            return null;
+        }
     }
 
     private String normalizeUser(String value) {

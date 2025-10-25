@@ -489,6 +489,42 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  async openSenderSamplePreview(site: DashboardSiteSummary, sender: DashboardSenderSummary): Promise<void> {
+    if (!site || !sender || sender.senderId == null) {
+      this.toast.error('Unable to determine site or sender to preview.');
+      return;
+    }
+    try {
+      const req = { site: site.site, page: 0, size: 10 } as any;
+      const resp = await firstValueFrom(this.api.previewDiscovery(sender.senderId, req));
+      const rows = (resp?.items || []).map(item => ({
+        metadataId: item.metadataId ?? '—',
+        dataId: item.dataId ?? '—',
+        lot: item.lot ?? '—',
+        wafer: item.wafer ?? '—',
+        file: item.originalFileName ?? '—',
+        endTime: item.endTime ?? '—'
+      }));
+      const dialogData: DashboardDetailDialogData = {
+        title: `${site.site} · ${sender.senderLabel} · sample files`,
+        description: `Sample metadata from ${site.site} for sender ${sender.senderLabel}`,
+        columns: [
+          { key: 'metadataId', label: 'Metadata ID' },
+          { key: 'dataId', label: 'Data ID' },
+          { key: 'lot', label: 'Lot' },
+          { key: 'wafer', label: 'Wafer' },
+          { key: 'file', label: 'File' },
+          { key: 'endTime', label: 'End Time' }
+        ],
+        rows
+      };
+      await this.openDetailDialog(dialogData);
+    } catch (err) {
+      console.error('Failed to preview sender sample files', err);
+      this.toast.error('Failed to load sample files for preview.');
+    }
+  }
+
   private async openDetailDialog(data: DashboardDetailDialogData): Promise<void> {
     try {
       await this.modal.openComponent(DashboardDetailDialogComponent, { data });

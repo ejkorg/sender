@@ -153,6 +153,27 @@ public class SenderController {
     }
 
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('USER')")
+    @PostMapping("/{id}/preview/duplicates")
+    public ResponseEntity<java.util.List<DuplicatePayloadView>> previewDuplicates(@PathVariable("id") Integer id,
+                                                                                   @RequestBody com.onsemi.cim.apps.exensio.exensioDearchiver.web.dto.PreviewDuplicateRequest request) {
+        if (request == null || request.items() == null || request.items().isEmpty()) {
+            return ResponseEntity.ok(java.util.List.of());
+        }
+        Integer resolvedSender = request.senderId() != null ? request.senderId() : id;
+        java.util.List<DuplicatePayloadView> out = new java.util.ArrayList<>();
+        for (com.onsemi.cim.apps.exensio.exensioDearchiver.web.dto.PreviewDuplicateRequest.PreviewItem item : request.items()) {
+            if (item == null) continue;
+            String mid = item.metadataId();
+            String did = item.dataId();
+            com.onsemi.cim.apps.exensio.exensioDearchiver.stage.DuplicatePayload dup = refDbService.findDuplicatePayload(request.site(), resolvedSender, mid, did);
+            if (dup != null) {
+                out.add(this.toDuplicateView(dup));
+            }
+        }
+        return ResponseEntity.ok(out);
+    }
+
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('USER')")
     @PostMapping("/{id}/stage")
     public ResponseEntity<StagePayloadResponse> stagePayloads(@PathVariable("id") Integer id,
                                                               @RequestBody StagePayloadRequest request) {
@@ -184,7 +205,31 @@ public class SenderController {
         } else if (request.triggerDispatch() && requiresConfirmation) {
             log.info("Dispatch deferred for site {} sender {} pending duplicate confirmation", site, resolvedSender);
         }
-        List<DuplicatePayloadView> duplicateViews = result.duplicates().stream().map(this::toDuplicateView).toList();
+        Authentication auth2 = SecurityContextHolder.getContext().getAuthentication();
+        List<DuplicatePayloadView> duplicateViewsAll = result.duplicates().stream().map(this::toDuplicateView).toList();
+        List<DuplicatePayloadView> duplicateViews;
+        if (auth2 == null) {
+            duplicateViews = duplicateViewsAll;
+        } else {
+            boolean isAdmin = auth2.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
+            String username = auth2.getName() == null ? "" : auth2.getName().trim();
+            if (isAdmin || username.isEmpty()) {
+                duplicateViews = duplicateViewsAll;
+            } else {
+                String me = username.toLowerCase();
+                // Only include duplicates for non-admins where the existing staged payload is owned by the user
+                // OR where the user already has a staged record for the same metadata/data (so they have visibility).
+                duplicateViews = duplicateViewsAll.stream().filter(dv -> {
+                    String stagedBy = dv.stagedBy() == null ? "" : dv.stagedBy().toLowerCase();
+                    String lastBy = dv.lastRequestedBy() == null ? "" : dv.lastRequestedBy().toLowerCase();
+                    if (!stagedBy.isBlank() && stagedBy.equals(me)) return true;
+                    if (!lastBy.isBlank() && lastBy.equals(me)) return true;
+                    // check whether a staged record exists owned by the user for the same metadata/data
+                    boolean existsForUser = refDbService.recordExistsForUser(site, resolvedSender, dv.metadataId(), dv.dataId(), me);
+                    return existsForUser;
+                }).toList();
+            }
+        }
         StagePayloadResponse response = new StagePayloadResponse(result.stagedCount(), duplicateViews.size(), duplicateViews, dispatched, requiresConfirmation);
         return ResponseEntity.ok(response);
     }

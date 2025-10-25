@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @RestController
 @RequestMapping("/api/stage")
@@ -35,8 +37,27 @@ public class StageController {
         int resolvedPage = Math.max(page, 0);
         int resolvedSize = size <= 0 ? 50 : Math.min(size, 500);
         int offset = resolvedPage * resolvedSize;
-        List<StageRecord> records = refDbService.listRecords(site, senderId, status, offset, resolvedSize);
-        long total = refDbService.countRecords(site, senderId, status);
+        // If the caller is not an admin, limit returned records to those owned by the user at the SQL level.
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        List<StageRecord> records;
+        long total;
+        if (auth == null) {
+            records = refDbService.listRecords(site, senderId, status, offset, resolvedSize);
+            total = refDbService.countRecords(site, senderId, status);
+        } else {
+            boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
+            String username = auth.getName() == null ? "" : auth.getName().trim();
+            if (isAdmin) {
+                records = refDbService.listRecords(site, senderId, status, offset, resolvedSize);
+                total = refDbService.countRecords(site, senderId, status);
+            } else if (!username.isEmpty()) {
+                records = refDbService.listRecordsForUser(site, senderId, status, offset, resolvedSize, username.toLowerCase());
+                total = refDbService.countRecordsForUser(site, senderId, status, username.toLowerCase());
+            } else {
+                records = refDbService.listRecords(site, senderId, status, offset, resolvedSize);
+                total = refDbService.countRecords(site, senderId, status);
+            }
+        }
         List<StageRecordView> items = records.stream().map(this::toView).toList();
         StageRecordPage response = new StageRecordPage(items, total, resolvedPage, resolvedSize);
         return ResponseEntity.ok(response);

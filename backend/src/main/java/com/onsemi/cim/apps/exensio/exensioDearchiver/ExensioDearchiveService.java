@@ -114,6 +114,14 @@ public class ExensioDearchiveService {
         return refDbService.fetchStatusesForUser(site, senderId, userKey);
     }
 
+    public List<com.onsemi.cim.apps.exensio.exensioDearchiver.stage.StageRecord> listRecordsForUser(String site, Integer senderId, String status, int offset, int limit, String userKey) {
+        return refDbService.listRecordsForUser(site, senderId, status, offset, limit, userKey);
+    }
+
+    public long countRecordsForUser(String site, Integer senderId, String status, String userKey) {
+        return refDbService.countRecordsForUser(site, senderId, status, userKey);
+    }
+
     private List<PayloadCandidate> discoverPayloads(String site, String startDate, String endDate, String testerType, String dataType, String location, String testPhase) throws SQLException {
         List<PayloadCandidate> results = new ArrayList<>();
         String sql = "SELECT id, id_data FROM all_metadata_view WHERE 1=1";

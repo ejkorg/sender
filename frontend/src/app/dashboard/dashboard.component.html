@@ -174,6 +174,9 @@
                     <div class="sender-backlog" [class.attention]="sender.backlog > 0">
                       Backlog {{ sender.backlog }}
                     </div>
+                    <div class="sender-actions ml-2">
+                      <button type="button" class="btn-secondary" (click)="$event.stopPropagation(); openSenderSamplePreview(site, sender);">Preview files</button>
+                    </div>
                   </div>
           </div>
         </div>
